@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../AudioGuideAdmin/AudioGuideAdmin.csproj" Id="fde3ccc9-09b8-448a-b9d9-1d0e67aaa255" />
+  <Project Path="../AudioTourApp/AudioTourApp.csproj" Id="eda88712-6434-416f-9442-72e840bed4ef" />
+  <Project Path="AudioGuideAPI.csproj" />
+</Solution>
