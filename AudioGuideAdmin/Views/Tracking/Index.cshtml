@@ -1,0 +1,20 @@
+﻿@model IEnumerable<AudioGuideAdmin.Models.VisitHistory>
+
+<h2>Lịch sử người dùng</h2>
+
+<table class="table">
+    <tr>
+        <th>User</th>
+        <th>POI</th>
+        <th>Thời gian</th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.UserId</td>
+            <td>@item.PoiId</td>
+            <td>@item.StartTime</td>
+        </tr>
+    }
+</table>

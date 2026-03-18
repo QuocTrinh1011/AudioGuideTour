@@ -1,0 +1,44 @@
+﻿@model AudioGuideAdmin.Models.User
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            height: 100vh;
+        }
+
+        .register-box {
+            width: 380px;
+            border-radius: 15px;
+        }
+    </style>
+</head>
+
+<body class="d-flex justify-content-center align-items-center">
+
+    <div class="card register-box shadow-lg p-4">
+        <h3 class="text-center mb-3">📝 Register</h3>
+
+        <form method="post">
+            <input asp-for="Username" class="form-control mb-3" placeholder="Username" />
+
+            <input asp-for="Password" type="password" class="form-control mb-3" placeholder="Password" />
+
+            <button class="btn btn-success w-100">Register</button>
+        </form>
+
+        <div class="text-center mt-3">
+            <small>Đã có tài khoản?</small><br />
+            <a href="/Auth/Login" class="text-decoration-none">👉 Quay lại Login</a>
+        </div>
+    </div>
+
+</body>
+</html>

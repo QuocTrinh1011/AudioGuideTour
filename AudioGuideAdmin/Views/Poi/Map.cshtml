@@ -1,0 +1,28 @@
+﻿@model IEnumerable<AudioGuideAdmin.Models.Poi>
+
+<h2>🗺️ Bản đồ POI</h2>
+
+<div id="map" style="height:500px;"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+    var map = L.map('map').setView([10.762622, 106.660172], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+        .addTo(map);
+
+    // 🔥 FIX QUAN TRỌNG
+    var pois = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    console.log(pois); // debug
+
+    pois.forEach(p => {
+
+        L.marker([p.Latitude, p.Longitude])
+            .addTo(map)
+            .bindPopup(`<b>${p.Name}</b><br>Radius: ${p.Radius}m`);
+
+    });
+</script>

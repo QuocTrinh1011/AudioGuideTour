@@ -1,0 +1,15 @@
+﻿@model AudioGuideAdmin.Models.Poi
+
+<h2>@Model.Name</h2>
+
+<p>Lat: @Model.Latitude</p>
+<p>Lng: @Model.Longitude</p>
+
+<h3>Translations</h3>
+
+<ul>
+    @foreach (var t in Model.Translations)
+    {
+        <li>@t.Language - @t.Title</li>
+    }
+</ul>

@@ -1,0 +1,40 @@
+﻿@model AudioGuideAdmin.Models.PoiTranslation
+
+<h2>Chỉnh sửa</h2>
+
+<form asp-action="Edit" method="post" enctype="multipart/form-data">
+
+    <input type="hidden" asp-for="Id" />
+
+    <div class="form-group">
+        <label>POI</label>
+        <select asp-for="PoiId" class="form-control" asp-items="ViewBag.Pois"></select>
+    </div>
+
+    <div class="form-group">
+        <label>Ngôn ngữ</label>
+        <select asp-for="Language" class="form-control">
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="zh">🇨🇳 中文</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Tiêu đề</label>
+        <input asp-for="Title" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Mô tả</label>
+        <textarea asp-for="Description" class="form-control"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Upload Audio mới</label>
+        <input type="file" name="audioFile" class="form-control" />
+    </div>
+
+    <br />
+    <button type="submit" class="btn btn-success">Cập nhật</button>
+</form>

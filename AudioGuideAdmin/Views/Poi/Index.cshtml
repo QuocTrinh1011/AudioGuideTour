@@ -1,0 +1,40 @@
+﻿<h2 class="mb-3">📍 POI Management</h2>
+
+<a href="/Poi/Create" class="btn btn-primary mb-3">
+    <i class="bi bi-plus"></i> Add POI
+</a>
+
+<div class="card p-3">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Lat</th>
+                <th>Lng</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <form method="get" class="mb-3">
+                <input type="text" name="search" placeholder="Tìm POI..." class="form-control" />
+            </form>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.Name</td>
+                    <td>@item.Latitude</td>
+                    <td>@item.Longitude</td>
+                    <td>
+                        <a href="/Poi/Edit/@item.Id" class="btn btn-warning btn-sm">Edit</a>
+                        <a href="/Poi/Delete/@item.Id"
+                           class="btn btn-danger btn-sm"
+                           onclick="return confirm('Bạn có chắc muốn xóa không?')">
+                            Delete
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

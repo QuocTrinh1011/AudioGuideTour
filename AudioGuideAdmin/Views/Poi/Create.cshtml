@@ -1,0 +1,64 @@
+﻿@model AudioGuideAdmin.Models.Poi
+<div class="card p-4">
+
+    <h3>Create POI</h3>
+
+    <form method="post">
+
+        <div class="mb-3">
+            <label>Name</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label>Latitude</label>
+            <input asp-for="Latitude" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label>Longitude</label>
+            <input asp-for="Longitude" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label>Radius</label>
+            <input asp-for="Radius" class="form-control" />
+        </div>
+
+        <button class="btn btn-success">Save</button>
+
+    </form>
+
+    <h5>Chọn vị trí trên bản đồ</h5>
+    <div id="map" style="height:400px;"></div>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        var map = L.map('map').setView([10.7618, 106.6613], 16);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+            .addTo(map);
+
+        var marker;
+
+        map.on('click', function (e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+
+            document.querySelector('[name="Latitude"]').value = lat;
+            document.querySelector('[name="Longitude"]').value = lng;
+
+            if (marker) map.removeLayer(marker);
+
+            marker = L.marker([lat, lng]).addTo(map);
+        });
+
+    </script>
+    @section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+    }
+
+</div>

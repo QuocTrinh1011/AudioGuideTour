@@ -1,0 +1,53 @@
+﻿@model IEnumerable<AudioGuideAdmin.Models.PoiTranslation>
+
+<h1 style="color:red">TRANSLATION PAGE</h1>
+
+<h2>Danh sách bản dịch</h2>
+
+<!-- 🔥 NÚT THÊM -->
+<a href="/Translation/Create" class="btn btn-primary mb-3">
+    + Thêm bản dịch
+</a>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>POI</th>
+            <th>Ngôn ngữ</th>
+            <th>Tiêu đề</th>
+            <th>Audio</th>
+            <th>Hành động</th> <!-- 👈 -->
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Poi?.Name</td>
+                <td>@item.Language</td>
+                <td>@item.Title</td>
+
+                <!-- AUDIO -->
+                <td>
+                    @if (!string.IsNullOrEmpty(item.AudioUrl))
+                    {
+                        <audio controls style="width:150px">
+                            <source src="@item.AudioUrl" type="audio/mpeg" />
+                        </audio>
+                    }
+                </td>
+
+                <!-- ACTION -->
+                <td>
+                    <a href="/Translation/Delete/@item.Id" class="btn btn-danger btn-sm">
+                        Xóa
+                    </a>
+                    <a href="/Translation/Edit/@item.Id" class="btn btn-danger btn-sm">
+                        Chỉnh sửa
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
