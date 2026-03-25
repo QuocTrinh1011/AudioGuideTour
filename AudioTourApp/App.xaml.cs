@@ -1,11 +1,17 @@
-﻿namespace AudioTourApp;
+﻿using Microsoft.Extensions.DependencyInjection;
 
-public partial class App : Application
+namespace AudioTourApp
 {
-    public App()
+    public partial class App : Application
     {
-        InitializeComponent();
+        public App()
+        {
+            InitializeComponent();
+        }
 
-        MainPage = new NavigationPage(new Views.MapPage());
+        protected override Window CreateWindow(IActivationState? activationState)
+        {
+            return new Window(new AppShell());
+        }
     }
 }

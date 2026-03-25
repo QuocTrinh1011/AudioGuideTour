@@ -1,24 +1,98 @@
-﻿namespace AudioTourApp
+﻿using AudioTourApp.Models;
+using AudioTourApp.Services;
+using Microsoft.Maui.Devices.Sensors;
+using Microsoft.Maui.ApplicationModel;
+using AudioTourApp.Views;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.ApplicationModel;
+namespace AudioTourApp;
+
+public partial class MainPage : ContentPage
 {
-    public partial class MainPage : ContentPage
+    LocationService locationService = new LocationService();
+    GeofenceService geofenceService = new GeofenceService();
+    AudioService audioService = new AudioService();
+    public MainPage()
     {
-        int count = 0;
+        InitializeComponent();
 
-        public MainPage()
+        // 👉 fake dữ liệu POI
+        geofenceService.SetPOIs(new List<POI>
         {
-            InitializeComponent();
-        }
+            new POI
+            {
+                Id = 1,
+                Name = "Quán Ốc A",
+                Latitude = 10.762622,
+                Longitude = 106.660172,
+                RadiusMeters = 50,
+                Priority = 2,
+                Description = "Quán ốc nổi tiếng"
+            },
+            new POI
+            {
+                Id = 2,
+                Name = "Quán Nướng B",
+                Latitude = 10.762800,
+                Longitude = 106.660300,
+                RadiusMeters = 40,
+                Priority = 1,
+                Description = "Quán nướng BBQ"
+            }
+        });
 
-        private void OnCounterClicked(object? sender, EventArgs e)
+        geofenceService.OnPOIEnter += (poi) =>
         {
-            count++;
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                // 🔊 phát audio
+                await audioService.PlayAsync("URL_MP3");
+            });
+        };
 
-            if (count == 1)
-                CounterBtn.Text = $"Clicked {count} time";
-            else
-                CounterBtn.Text = $"Clicked {count} times";
+        // 👉 EXIT: rời khỏi vùng
+        geofenceService.OnPOIExit += (poi) =>
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                System.Diagnostics.Debug.WriteLine($"Rời khỏi: {poi.Name}");
+            });
+        };
 
-            SemanticScreenReader.Announce(CounterBtn.Text);
-        }
+        // 👉 NEAR: đến gần
+        geofenceService.OnPOINear += (poi) =>
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                System.Diagnostics.Debug.WriteLine($"Đang đến gần: {poi.Name}");
+            });
+        };
+    }
+
+    private async void OnScanQRClicked(object sender, EventArgs e)
+    {
+        await Navigation.PushAsync(new QRScanPage());
+    }
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        var status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+
+        if (status != PermissionStatus.Granted)
+            return;
+
+        locationService.OnLocationChanged += (loc) =>
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                lblLocation.Text = $"{loc.Latitude} - {loc.Longitude}";
+            });
+
+            // 👉 check geofence
+            geofenceService.CheckLocation(loc);
+        };
+
+        await locationService.StartTrackingAsync();
     }
 }
