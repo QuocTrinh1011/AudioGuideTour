@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 
 public class AudioController : Controller
 {
@@ -14,10 +14,12 @@ public class AudioController : Controller
         var path = Path.Combine(_env.WebRootPath, "audio");
 
         if (!Directory.Exists(path))
+        {
             Directory.CreateDirectory(path);
+        }
 
         var files = Directory.GetFiles(path)
-            .Select(f => Path.GetFileName(f))
+            .Select(f => new AudioFileItem(Path.GetFileName(f)!, $"/audio/{Path.GetFileName(f)}"))
             .ToList();
 
         return View(files);
@@ -29,19 +31,19 @@ public class AudioController : Controller
         if (file != null && file.Length > 0)
         {
             var path = Path.Combine(_env.WebRootPath, "audio");
-
             if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
-
-            var filePath = Path.Combine(path, file.FileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
             {
-                await file.CopyToAsync(stream);
+                Directory.CreateDirectory(path);
             }
+
+            var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
+            var filePath = Path.Combine(path, fileName);
+
+            await using var stream = new FileStream(filePath, FileMode.Create);
+            await file.CopyToAsync(stream);
         }
 
-        return RedirectToAction("Upload");
+        return RedirectToAction(nameof(Upload));
     }
 
     public IActionResult Delete(string fileName)
@@ -53,6 +55,8 @@ public class AudioController : Controller
             System.IO.File.Delete(path);
         }
 
-        return RedirectToAction("Upload");
+        return RedirectToAction(nameof(Upload));
     }
+
+    public record AudioFileItem(string FileName, string Url);
 }

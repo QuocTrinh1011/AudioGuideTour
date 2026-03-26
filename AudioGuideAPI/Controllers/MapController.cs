@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using AudioGuideAPI.Data;
 using AudioGuideAPI.DTOs;
+using AudioGuideAPI.Helpers;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAPI.Controllers;
 
@@ -19,44 +20,71 @@ public class MapController : ControllerBase
     [HttpPost("nearby")]
     public async Task<IActionResult> GetNearby(LocationRequest request)
     {
-        var pois = await _context.Pois.ToListAsync();
+        var pois = await _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations.Where(t => t.IsPublished))
+            .Where(x => x.IsActive)
+            .ToListAsync();
 
         var result = pois
             .Select(p => new
             {
-                Poi = p,
-                Distance = GetDistance(
-                    request.Latitude,
-                    request.Longitude,
-                    p.Latitude,
-                    p.Longitude)
+                poi = p,
+                distance = GeoMath.DistanceInMeters(request.Latitude, request.Longitude, p.Latitude, p.Longitude),
+                translation = p.Translations.FirstOrDefault(t => t.Language == request.Language)
+                    ?? p.Translations.FirstOrDefault()
             })
-            .OrderBy(x => x.Distance)
-            .Take(10);
+            .OrderBy(x => x.distance)
+            .Take(20)
+            .Select((x, index) => new
+            {
+                x.poi.Id,
+                x.poi.Name,
+                title = x.translation?.Title ?? x.poi.Name,
+                summary = x.translation?.Summary ?? x.poi.Summary,
+                x.poi.Latitude,
+                x.poi.Longitude,
+                x.poi.ImageUrl,
+                x.poi.MapUrl,
+                x.poi.Priority,
+                distanceMeters = Math.Round(x.distance, 2),
+                isNearest = index == 0
+            })
+            .ToList();
 
         return Ok(result);
     }
 
-    private double GetDistance(
-        double lat1,
-        double lon1,
-        double lat2,
-        double lon2)
+    [HttpGet("feed")]
+    public async Task<IActionResult> Feed([FromQuery] string language = "vi-VN")
     {
-        double R = 6371000;
+        var pois = await _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations.Where(t => t.IsPublished))
+            .Where(x => x.IsActive)
+            .OrderByDescending(x => x.Priority)
+            .ThenBy(x => x.Name)
+            .ToListAsync();
 
-        var dLat = (lat2 - lat1) * Math.PI / 180;
-        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var data = pois.Select(p =>
+        {
+            var translation = p.Translations.FirstOrDefault(t => t.Language == language) ?? p.Translations.FirstOrDefault();
+            return new
+            {
+                p.Id,
+                p.Name,
+                title = translation?.Title ?? p.Name,
+                summary = translation?.Summary ?? p.Summary,
+                p.Latitude,
+                p.Longitude,
+                p.Radius,
+                p.ApproachRadiusMeters,
+                p.Priority,
+                p.ImageUrl,
+                p.MapUrl
+            };
+        });
 
-        var a =
-            Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-            Math.Cos(lat1 * Math.PI / 180) *
-            Math.Cos(lat2 * Math.PI / 180) *
-            Math.Sin(dLon / 2) *
-            Math.Sin(dLon / 2);
-
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-
-        return R * c;
+        return Ok(data);
     }
 }

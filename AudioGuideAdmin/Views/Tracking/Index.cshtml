@@ -1,20 +1,192 @@
-﻿@model IEnumerable<AudioGuideAdmin.Models.VisitHistory>
+@model AudioGuideAdmin.ViewModels.TrackingViewModel
+@using System.Text.Json
 
-<h2>Lịch sử người dùng</h2>
+@{
+    var mapJson = JsonSerializer.Serialize(Model.MapPoints);
+}
 
-<table class="table">
-    <tr>
-        <th>User</th>
-        <th>POI</th>
-        <th>Thời gian</th>
-    </tr>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Theo doi van hanh</h2>
+        <p class="text-muted mb-0">Loc tracking, visit history va geofence trigger theo user, POI va thoi gian.</p>
+    </div>
+    <a href="/Analytics" class="btn btn-outline-dark">Mo Analytics</a>
+</div>
 
-    @foreach (var item in Model)
-    {
-        <tr>
-            <td>@item.UserId</td>
-            <td>@item.PoiId</td>
-            <td>@item.StartTime</td>
-        </tr>
+<form method="get" class="card p-3 mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">User ID</label>
+            <input type="text" name="userId" value="@Model.UserId" class="form-control" placeholder="demo-visitor-001" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">POI</label>
+            <select name="poiId" asp-items="Model.PoiOptions" class="form-select"></select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Trigger</label>
+            <select name="triggerType" asp-items="Model.TriggerTypeOptions" class="form-select"></select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Tu ngay</label>
+            <input type="date" name="dateFrom" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Den ngay</label>
+            <input type="date" name="dateTo" value="@Model.DateTo?.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-md-12 d-flex gap-2">
+            <button class="btn btn-primary">Loc du lieu</button>
+            <a href="/Tracking" class="btn btn-outline-secondary">Xoa bo loc</a>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Tracking</div><div class="fs-3 fw-bold">@Model.TrackingCount</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Visit</div><div class="fs-3 fw-bold">@Model.VisitCount</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Trigger</div><div class="fs-3 fw-bold">@Model.TriggerCount</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Visitor</div><div class="fs-3 fw-bold">@Model.UniqueVisitorCount</div></div></div>
+</div>
+
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Ban do tracking gan day</h4>
+        <span class="badge badge-soft">@Model.MapPoints.Count diem</span>
+    </div>
+    <div id="trackingMap" style="height:420px;border-radius:18px;"></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-4">
+        <div class="card p-3">
+            <h4 class="mb-3">Geofence trigger</h4>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>User</th><th>POI</th><th>Trigger</th><th>Distance</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Triggers)
+                    {
+                        <tr>
+                            <td>@item.UserId</td>
+                            <td>@item.PoiName</td>
+                            <td>
+                                <div class="fw-semibold">@item.TriggerType</div>
+                                <div class="text-muted small">@item.Status</div>
+                            </td>
+                            <td>@Math.Round(item.DistanceMeters, 1)m</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card p-3">
+            <h4 class="mb-3">Visit history</h4>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>User</th><th>POI</th><th>Duration</th><th>Mode</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Visits)
+                    {
+                        <tr>
+                            <td>@item.UserId</td>
+                            <td>@item.PoiName</td>
+                            <td>@item.Duration s</td>
+                            <td>
+                                <div class="fw-semibold">@item.Language</div>
+                                <div class="text-muted small">@(item.WasAutoPlayed ? "Auto" : "Manual") / @(item.WasCompleted ? "Done" : "Skip")</div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card p-3">
+            <h4 class="mb-3">Tracking point gan day</h4>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>User</th><th>Toa do</th><th>Nguon</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.TrackingPoints)
+                    {
+                        <tr>
+                            <td>@item.UserId</td>
+                            <td class="small">
+                                <div>@item.Latitude.ToString("0.000000"), @item.Longitude.ToString("0.000000")</div>
+                                <div class="text-muted">Acc: @Math.Round(item.Accuracy, 1)m</div>
+                            </td>
+                            <td class="small">
+                                <div>@item.Source</div>
+                                <div class="text-muted">@(item.IsForeground ? "Foreground" : "Background")</div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const points = @Html.Raw(mapJson);
+    const defaultCenter = points.length
+        ? [points[0].latitude, points[0].longitude]
+        : [10.7618, 106.6613];
+
+    const map = L.map('trackingMap').setView(defaultCenter, 15);
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    });
+
+    const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    });
+
+    let fallbackLoaded = false;
+    osmLayer.on('tileerror', function () {
+        if (!fallbackLoaded) {
+            fallbackLoaded = true;
+            map.removeLayer(osmLayer);
+            cartoLayer.addTo(map);
+        }
+    });
+
+    osmLayer.addTo(map);
+
+    const latLngs = points.map((point) => [point.latitude, point.longitude]);
+    points.forEach((point) => {
+        L.circleMarker([point.latitude, point.longitude], {
+            radius: 6,
+            color: '#17324d',
+            fillColor: '#c97732',
+            fillOpacity: 0.7,
+            weight: 1
+        }).bindPopup(point.label).addTo(map);
+    });
+
+    if (latLngs.length >= 2) {
+        L.polyline(latLngs, {
+            color: '#17324d',
+            weight: 4,
+            opacity: 0.75
+        }).addTo(map);
+        map.fitBounds(latLngs, { padding: [24, 24] });
     }
-</table>
+
+    const refreshMap = () => map.invalidateSize();
+    window.addEventListener('load', refreshMap);
+    setTimeout(refreshMap, 250);
+    setTimeout(refreshMap, 1000);
+</script>

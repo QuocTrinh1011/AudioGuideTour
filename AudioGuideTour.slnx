@@ -1,5 +1,5 @@
 <Solution>
   <Project Path="AudioGuideAdmin/AudioGuideAdmin.csproj" />
   <Project Path="AudioGuideAPI/AudioGuideAPI.csproj" />
-  <Project Path="AudioTourApp/AudioTourApp.csproj" Id="644aa2dd-65f0-43f6-b1c1-092e9f55e257" />
+  <Project Path="AudioTourApp/AudioTourApp.csproj" />
 </Solution>

@@ -1,48 +1,30 @@
-﻿@{
-    Layout = null;
+@{
+    Layout = "_AuthLayout";
 }
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Login</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <style>
-        body {
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            height: 100vh;
-        }
-
-        .login-box {
-            width: 380px;
-            border-radius: 15px;
-        }
-    </style>
-</head>
-
-<body class="d-flex justify-content-center align-items-center">
-
-    <div class="card login-box shadow-lg p-4">
-        <h3 class="text-center mb-3">🔐 Admin Login</h3>
-
-        <form method="post">
-            <input name="username" class="form-control mb-3" placeholder="Username" />
-
-            <input name="password" type="password" class="form-control mb-3" placeholder="Password" />
-
-            <button class="btn btn-primary w-100">Login</button>
-        </form>
-
-        <div class="text-center mt-3">
-            <small>Chưa có tài khoản?</small><br />
-            <a href="/Auth/Register" class="text-decoration-none">👉 Đăng ký ngay</a>
+<div class="row justify-content-center pt-5">
+    <div class="col-md-12 pt-0">
+        <div class="card p-4">
+            <div class="mb-4">
+                <h2 class="mb-2">Dang nhap admin</h2>
+                <p class="text-muted mb-0">Ban can dang nhap truoc khi truy cap vao khu vuc quan tri.</p>
+            </div>
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger">@ViewBag.Error</div>
+            }
+            <form method="post">
+                <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input name="username" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input name="password" type="password" class="form-control" />
+                </div>
+                <button class="btn btn-primary w-100">Dang nhap</button>
+            </form>
         </div>
-
-        @if (ViewBag.Error != null)
-        {
-            <p class="text-danger text-center mt-2">@ViewBag.Error</p>
-        }
     </div>
-
-</body>
-</html>
+</div>

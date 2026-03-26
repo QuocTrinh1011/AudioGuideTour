@@ -1,0 +1,53 @@
+@model IEnumerable<AudioGuideAdmin.Models.LanguageOption>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1">Quan ly ngon ngu</h2>
+        <p class="text-muted mb-0">Mac dinh web chi dung 4 ngon ngu: Viet, Anh, Trung, Nhat. Ban van co the them ngon ngu khac sau nay.</p>
+    </div>
+    <a href="/Language/Create" class="btn btn-primary">Them ngon ngu</a>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Thu tu</th>
+                    <th>Ma</th>
+                    <th>Ten</th>
+                    <th>Native</th>
+                    <th>Locale</th>
+                    <th>Trang thai</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.SortOrder</td>
+                    <td><code>@item.Code</code></td>
+                    <td>@item.Name</td>
+                    <td>@item.NativeName</td>
+                    <td>@item.Locale</td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge text-bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Hidden</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a href="/Language/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/Language/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa ngon ngu nay?')">Delete</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

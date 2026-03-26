@@ -1,53 +1,33 @@
-﻿@model List<string>
+@model IEnumerable<AudioController.AudioFileItem>
 
-<h2>🎧 Upload Audio</h2>
+<h2 class="mb-3">Thu vien audio</h2>
 
-<form method="post" enctype="multipart/form-data" class="mb-4">
-    <input type="file" name="file" class="form-control mb-2" />
-    <button class="btn btn-primary">Upload</button>
+<form method="post" enctype="multipart/form-data" class="card p-3 mb-3">
+    <div class="row g-2">
+        <div class="col-md-9">
+            <input type="file" name="file" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-primary w-100">Upload audio</button>
+        </div>
+    </div>
 </form>
 
-<hr />
-
-<h4>📁 Danh sách audio</h4>
-
 <div class="card p-3">
-
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Tên file</th>
-                <th>Nghe</th>
-                <th>Link</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-
-        <tbody>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>File</th><th>Preview</th><th>URL</th><th></th></tr></thead>
+            <tbody>
             @foreach (var file in Model)
             {
-                var url = "/audio/" + file;
-
                 <tr>
-                    <td>@file</td>
-
-                    <td>
-                        <audio controls src="@url" style="height:30px;"></audio>
-                    </td>
-
-                    <td>
-                        <input value="@url" class="form-control" readonly />
-                    </td>
-
-                    <td>
-                        <a href="/Audio/Delete?fileName=@file"
-                           class="btn btn-danger btn-sm">
-                            Xóa
-                        </a>
-                    </td>
+                    <td>@file.FileName</td>
+                    <td><audio controls src="@file.Url" style="height: 32px;"></audio></td>
+                    <td><input value="@file.Url" class="form-control" readonly /></td>
+                    <td class="text-end"><a href="/Audio/Delete?fileName=@file.FileName" class="btn btn-sm btn-danger">Delete</a></td>
                 </tr>
             }
-        </tbody>
-    </table>
-
+            </tbody>
+        </table>
+    </div>
 </div>

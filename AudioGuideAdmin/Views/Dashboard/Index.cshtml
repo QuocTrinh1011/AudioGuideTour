@@ -1,31 +1,61 @@
-﻿<h2 class="mb-4">📊 Dashboard</h2>
+@model AudioGuideAdmin.ViewModels.DashboardViewModel
 
-<div class="row">
-
-    <div class="col-md-4">
-        <div class="card p-4 text-white bg-primary">
-            <h5>Total POI</h5>
-            <h2>@ViewBag.TotalPoi</h2>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Tong quan he thong</h2>
+        <p class="text-muted mb-0">Van hanh Audio Tour cho pho am thuc Vinh Khanh.</p>
     </div>
-
-    <div class="col-md-4">
-        <div class="card p-4 text-white bg-success">
-            <h5>Total Visits</h5>
-            <h2>@ViewBag.TotalVisit</h2>
-        </div>
-    </div>
-
 </div>
 
-<br />
+<div class="row g-3 mb-4">
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">POI</div><div class="fs-3 fw-bold">@Model.TotalPoi</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Luot nghe</div><div class="fs-3 fw-bold">@Model.TotalVisit</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tour</div><div class="fs-3 fw-bold">@Model.TotalTour</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Avg nghe</div><div class="fs-3 fw-bold">@Math.Round(Model.AverageListenDuration, 1)s</div></div></div>
+</div>
 
-<div class="card p-4">
-    <h4>🔥 Top POI</h4>
-    <ul>
-        @foreach (var item in ViewBag.Top)
-        {
-            <li>POI @item.PoiId - @item.Count lượt</li>
-        }
-    </ul>
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h4 class="mb-3">Top POI</h4>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>POI</th><th>Luot nghe</th><th>Avg</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.TopPois)
+                    {
+                        <tr>
+                            <td>@item.PoiName</td>
+                            <td>@item.ListenCount</td>
+                            <td>@Math.Round(item.AverageDuration, 1)s</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h4 class="mb-3">Recent trigger</h4>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>User</th><th>POI</th><th>Trigger</th><th>Distance</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.RecentTriggers)
+                    {
+                        <tr>
+                            <td>@item.UserId</td>
+                            <td>@item.PoiName</td>
+                            <td><span class="badge badge-soft">@item.TriggerType</span></td>
+                            <td>@Math.Round(item.DistanceMeters, 1)m</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>

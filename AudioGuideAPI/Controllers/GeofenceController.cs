@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using AudioGuideAPI.Data;
 using AudioGuideAPI.DTOs;
+using AudioGuideAPI.Helpers;
+using AudioGuideAPI.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAPI.Controllers;
 
@@ -19,45 +21,171 @@ public class GeofenceController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CheckLocation(LocationRequest request)
     {
-        var pois = await _context.Pois.ToListAsync();
+        var now = request.RecordedAt == default ? DateTime.UtcNow : request.RecordedAt.ToUniversalTime();
+        var user = await EnsureUserAsync(request, now);
 
-        foreach (var poi in pois)
-        {
-            var distance = GetDistance(
-                request.Latitude,
-                request.Longitude,
-                poi.Latitude,
-                poi.Longitude);
+        var pois = await _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations.Where(t => t.IsPublished))
+            .Where(x => x.IsActive)
+            .ToListAsync();
 
-            if (distance <= poi.Radius)
+        var nearby = pois
+            .Select(poi =>
             {
-                return Ok(poi);
+                var distance = GeoMath.DistanceInMeters(request.Latitude, request.Longitude, poi.Latitude, poi.Longitude);
+                return new
+                {
+                    Poi = poi,
+                    Distance = distance,
+                    IsInside = distance <= poi.Radius,
+                    IsApproaching = distance <= poi.ApproachRadiusMeters
+                };
+            })
+            .Where(x => x.IsInside || x.IsApproaching)
+            .OrderByDescending(x => x.IsInside)
+            .ThenByDescending(x => x.Poi.Priority)
+            .ThenBy(x => x.Distance)
+            .ToList();
+
+        if (nearby.Count == 0)
+        {
+            return Ok(new GeofenceCheckResponse
+            {
+                ShouldPlay = false,
+                Reason = "outside-geofence"
+            });
+        }
+
+        var response = new GeofenceCheckResponse
+        {
+            ShouldPlay = false,
+            Reason = "nearby-only",
+            NearbyPois = nearby.Take(5)
+                .Select(x => MapPoi(x.Poi, request.Language, x.Distance))
+                .ToList()
+        };
+
+        var candidate = nearby.FirstOrDefault(x => MatchesTriggerMode(x.Poi, x.IsInside, x.IsApproaching));
+        if (candidate == null)
+        {
+            return Ok(response);
+        }
+
+        var lastTrigger = await _context.GeofenceTriggers
+            .Where(x => x.UserId == user.Id && x.PoiId == candidate.Poi.Id)
+            .OrderByDescending(x => x.RecordedAt)
+            .FirstOrDefaultAsync();
+
+        if (lastTrigger != null)
+        {
+            if (lastTrigger.CooldownUntil > now)
+            {
+                response.Reason = "cooldown";
+                response.NextEligibleAt = lastTrigger.CooldownUntil;
+                return Ok(response);
+            }
+
+            if ((now - lastTrigger.RecordedAt).TotalSeconds < candidate.Poi.DebounceSeconds)
+            {
+                response.Reason = "debounce";
+                response.NextEligibleAt = lastTrigger.RecordedAt.AddSeconds(candidate.Poi.DebounceSeconds);
+                return Ok(response);
             }
         }
 
-        return Ok(null);
+        var trigger = new GeofenceTrigger
+        {
+            UserId = user.Id,
+            PoiId = candidate.Poi.Id,
+            Language = request.Language,
+            TriggerType = candidate.IsInside ? "enter" : "nearby",
+            Status = "triggered",
+            DistanceMeters = candidate.Distance,
+            RecordedAt = now,
+            CooldownUntil = now.AddSeconds(Math.Max(candidate.Poi.CooldownSeconds, 1))
+        };
+
+        _context.GeofenceTriggers.Add(trigger);
+        await _context.SaveChangesAsync();
+
+        response.ShouldPlay = true;
+        response.Reason = trigger.TriggerType;
+        response.NextEligibleAt = trigger.CooldownUntil;
+        response.TriggeredPoi = MapPoi(candidate.Poi, request.Language, candidate.Distance);
+
+        return Ok(response);
     }
 
-    private double GetDistance(
-        double lat1,
-        double lon1,
-        double lat2,
-        double lon2)
+    private async Task<User> EnsureUserAsync(LocationRequest request, DateTime now)
     {
-        double R = 6371000;
+        User? user = null;
 
-        var dLat = (lat2 - lat1) * Math.PI / 180;
-        var dLon = (lon2 - lon1) * Math.PI / 180;
+        if (!string.IsNullOrWhiteSpace(request.UserId))
+        {
+            user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.UserId);
+        }
 
-        var a =
-            Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-            Math.Cos(lat1 * Math.PI / 180) *
-            Math.Cos(lat2 * Math.PI / 180) *
-            Math.Sin(dLon / 2) *
-            Math.Sin(dLon / 2);
+        if (user == null && !string.IsNullOrWhiteSpace(request.DeviceId))
+        {
+            user = await _context.Users.FirstOrDefaultAsync(x => x.DeviceId == request.DeviceId);
+        }
 
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        if (user == null)
+        {
+            user = new User
+            {
+                Id = string.IsNullOrWhiteSpace(request.UserId) ? Guid.NewGuid().ToString("N") : request.UserId,
+                DeviceId = string.IsNullOrWhiteSpace(request.DeviceId) ? Guid.NewGuid().ToString("N") : request.DeviceId,
+                Language = request.Language,
+                LastSeenAt = now
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
 
-        return R * c;
+        user.Language = request.Language;
+        user.LastSeenAt = now;
+        await _context.SaveChangesAsync();
+        return user;
+    }
+
+    private static bool MatchesTriggerMode(Poi poi, bool isInside, bool isApproaching)
+    {
+        return poi.TriggerMode.ToLowerInvariant() switch
+        {
+            "enter" => isInside,
+            "nearby" => !isInside && isApproaching,
+            "manual" => false,
+            _ => isInside || isApproaching
+        };
+    }
+
+    private static GeofencePoiResponse MapPoi(Poi poi, string language, double distance)
+    {
+        var translation = poi.Translations
+            .FirstOrDefault(x => x.Language.Equals(language, StringComparison.OrdinalIgnoreCase))
+            ?? poi.Translations.FirstOrDefault(x => x.Language.StartsWith(language.Split('-')[0], StringComparison.OrdinalIgnoreCase))
+            ?? poi.Translations.FirstOrDefault();
+
+        return new GeofencePoiResponse
+        {
+            Id = poi.Id,
+            Name = poi.Name,
+            Title = translation?.Title ?? poi.Name,
+            Language = translation?.Language ?? poi.DefaultLanguage,
+            Summary = translation?.Summary ?? poi.Summary,
+            Description = translation?.Description ?? poi.Description,
+            TtsScript = string.IsNullOrWhiteSpace(translation?.TtsScript) ? poi.TtsScript : translation.TtsScript,
+            VoiceName = translation?.VoiceName ?? string.Empty,
+            ImageUrl = poi.ImageUrl,
+            MapUrl = poi.MapUrl,
+            DistanceMeters = Math.Round(distance, 2),
+            Priority = poi.Priority,
+            Radius = poi.Radius,
+            CooldownSeconds = poi.CooldownSeconds,
+            DebounceSeconds = poi.DebounceSeconds
+        };
     }
 }

@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using AudioGuideAPI.Data;
 using AudioGuideAPI.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAPI.Controllers;
 
@@ -17,19 +17,38 @@ public class PoiController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] bool activeOnly = false)
     {
-        var pois = await _context.Pois.ToListAsync();
+        var query = _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations)
+            .AsQueryable();
+
+        if (activeOnly)
+        {
+            query = query.Where(x => x.IsActive);
+        }
+
+        var pois = await query
+            .OrderByDescending(x => x.Priority)
+            .ThenBy(x => x.Name)
+            .ToListAsync();
+
         return Ok(pois);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var poi = await _context.Pois.FindAsync(id);
+        var poi = await _context.Pois
+            .Include(x => x.Translations)
+            .Include(x => x.TourStops)
+            .FirstOrDefaultAsync(x => x.Id == id);
 
         if (poi == null)
+        {
             return NotFound();
+        }
 
         return Ok(poi);
     }
@@ -37,6 +56,11 @@ public class PoiController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Poi poi)
     {
+        poi.AudioMode = "tts";
+        poi.AudioUrl = string.Empty;
+        poi.CreatedAt = DateTime.UtcNow;
+        poi.UpdatedAt = DateTime.UtcNow;
+
         _context.Pois.Add(poi);
         await _context.SaveChangesAsync();
 
@@ -46,28 +70,50 @@ public class PoiController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, Poi poi)
     {
-        if (id != poi.Id)
-            return BadRequest();
+        var existing = await _context.Pois.FindAsync(id);
+        if (existing == null)
+        {
+            return NotFound();
+        }
 
-        _context.Entry(poi).State = EntityState.Modified;
+        existing.Name = poi.Name;
+        existing.Category = poi.Category;
+        existing.Summary = poi.Summary;
+        existing.Description = poi.Description;
+        existing.Address = poi.Address;
+        existing.Latitude = poi.Latitude;
+        existing.Longitude = poi.Longitude;
+        existing.Radius = poi.Radius;
+        existing.ApproachRadiusMeters = poi.ApproachRadiusMeters;
+        existing.Priority = poi.Priority;
+        existing.DebounceSeconds = poi.DebounceSeconds;
+        existing.CooldownSeconds = poi.CooldownSeconds;
+        existing.TriggerMode = poi.TriggerMode;
+        existing.ImageUrl = poi.ImageUrl;
+        existing.MapUrl = poi.MapUrl;
+        existing.IsActive = poi.IsActive;
+        existing.AudioMode = "tts";
+        existing.AudioUrl = string.Empty;
+        existing.TtsScript = poi.TtsScript;
+        existing.DefaultLanguage = poi.DefaultLanguage;
+        existing.EstimatedDurationSeconds = poi.EstimatedDurationSeconds;
+        existing.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-
-        return Ok(poi);
+        return Ok(existing);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var poi = await _context.Pois.FindAsync(id);
-
         if (poi == null)
+        {
             return NotFound();
+        }
 
         _context.Pois.Remove(poi);
-
         await _context.SaveChangesAsync();
-
         return Ok();
     }
 }

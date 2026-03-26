@@ -1,112 +1,88 @@
-﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace AudioGuideAdmin.Migrations
 {
-    /// <inheritdoc />
     public partial class Initial : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "Pois",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Latitude = table.Column<double>(type: "float", nullable: false),
-                    Longitude = table.Column<double>(type: "float", nullable: false),
-                    Radius = table.Column<int>(type: "int", nullable: false),
-                    ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Pois", x => x.Id);
-                });
+            migrationBuilder.Sql(
+                """
+                IF OBJECT_ID(N'[Pois]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [Pois](
+                        [Id] int NOT NULL IDENTITY,
+                        [Name] nvarchar(max) NOT NULL,
+                        [Latitude] float NOT NULL,
+                        [Longitude] float NOT NULL,
+                        [Radius] int NOT NULL,
+                        [ImageUrl] nvarchar(max) NOT NULL,
+                        [IsActive] bit NOT NULL,
+                        [CreatedAt] datetime2 NOT NULL,
+                        CONSTRAINT [PK_Pois] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
 
-            migrationBuilder.CreateTable(
-                name: "UserTrackings",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Latitude = table.Column<double>(type: "float", nullable: false),
-                    Longitude = table.Column<double>(type: "float", nullable: false),
-                    Accuracy = table.Column<double>(type: "float", nullable: false),
-                    RecordedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserTrackings", x => x.Id);
-                });
+            migrationBuilder.Sql(
+                """
+                IF OBJECT_ID(N'[UserTrackings]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [UserTrackings](
+                        [Id] int NOT NULL IDENTITY,
+                        [UserId] nvarchar(max) NOT NULL,
+                        [Latitude] float NOT NULL,
+                        [Longitude] float NOT NULL,
+                        [Accuracy] float NOT NULL,
+                        [RecordedAt] datetime2 NOT NULL,
+                        CONSTRAINT [PK_UserTrackings] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
 
-            migrationBuilder.CreateTable(
-                name: "VisitHistories",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PoiId = table.Column<int>(type: "int", nullable: false),
-                    StartTime = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EndTime = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Duration = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_VisitHistories", x => x.Id);
-                });
+            migrationBuilder.Sql(
+                """
+                IF OBJECT_ID(N'[VisitHistories]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [VisitHistories](
+                        [Id] int NOT NULL IDENTITY,
+                        [UserId] nvarchar(max) NOT NULL,
+                        [PoiId] int NOT NULL,
+                        [StartTime] datetime2 NOT NULL,
+                        [EndTime] datetime2 NOT NULL,
+                        [Duration] int NOT NULL,
+                        CONSTRAINT [PK_VisitHistories] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
 
-            migrationBuilder.CreateTable(
-                name: "PoiTranslations",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    PoiId = table.Column<int>(type: "int", nullable: false),
-                    Language = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    AudioUrl = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PoiTranslations", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PoiTranslations_Pois_PoiId",
-                        column: x => x.PoiId,
-                        principalTable: "Pois",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PoiTranslations_PoiId",
-                table: "PoiTranslations",
-                column: "PoiId");
+            migrationBuilder.Sql(
+                """
+                IF OBJECT_ID(N'[PoiTranslations]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [PoiTranslations](
+                        [Id] int NOT NULL IDENTITY,
+                        [PoiId] int NOT NULL,
+                        [Language] nvarchar(max) NOT NULL,
+                        [Title] nvarchar(max) NOT NULL,
+                        [Description] nvarchar(max) NOT NULL,
+                        [AudioUrl] nvarchar(max) NOT NULL,
+                        CONSTRAINT [PK_PoiTranslations] PRIMARY KEY ([Id]),
+                        CONSTRAINT [FK_PoiTranslations_Pois_PoiId] FOREIGN KEY ([PoiId]) REFERENCES [Pois] ([Id]) ON DELETE CASCADE
+                    );
+                    CREATE INDEX [IX_PoiTranslations_PoiId] ON [PoiTranslations] ([PoiId]);
+                END
+                """);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "PoiTranslations");
-
-            migrationBuilder.DropTable(
-                name: "UserTrackings");
-
-            migrationBuilder.DropTable(
-                name: "VisitHistories");
-
-            migrationBuilder.DropTable(
-                name: "Pois");
+            migrationBuilder.Sql("IF OBJECT_ID(N'[PoiTranslations]', N'U') IS NOT NULL DROP TABLE [PoiTranslations];");
+            migrationBuilder.Sql("IF OBJECT_ID(N'[UserTrackings]', N'U') IS NOT NULL DROP TABLE [UserTrackings];");
+            migrationBuilder.Sql("IF OBJECT_ID(N'[VisitHistories]', N'U') IS NOT NULL DROP TABLE [VisitHistories];");
+            migrationBuilder.Sql("IF OBJECT_ID(N'[Pois]', N'U') IS NOT NULL DROP TABLE [Pois];");
         }
     }
 }

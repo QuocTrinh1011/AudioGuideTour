@@ -1,15 +1,4 @@
-﻿@model AudioGuideAdmin.Models.Poi
+@model AudioGuideAdmin.Models.Poi
 
-<h2>Sửa POI</h2>
-
-<form asp-action="Edit" method="post">
-    <input type="hidden" asp-for="Id" />
-
-    <input asp-for="Name" class="form-control" placeholder="Tên" />
-    <input asp-for="Latitude" class="form-control" placeholder="Lat" />
-    <input asp-for="Longitude" class="form-control" placeholder="Lng" />
-    <input asp-for="Radius" class="form-control" placeholder="Bán kính" />
-
-    <br />
-    <button class="btn btn-primary">Lưu</button>
-</form>
+<h2 class="mb-3">Cap nhat POI</h2>
+@await Html.PartialAsync("_PoiForm", Model)

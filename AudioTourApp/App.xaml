@@ -1,14 +1,19 @@
-﻿<?xml version = "1.0" encoding = "UTF-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:AudioTourApp"
              x:Class="AudioTourApp.App">
     <Application.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
-                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
+        <Style TargetType="ContentPage">
+            <Setter Property="BackgroundColor" Value="#F6F8FB" />
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="TextColor" Value="#14273D" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BackgroundColor" Value="#1F5FAA" />
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
     </Application.Resources>
 </Application>

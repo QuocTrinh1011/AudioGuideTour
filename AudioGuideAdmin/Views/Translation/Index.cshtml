@@ -1,53 +1,53 @@
-﻿@model IEnumerable<AudioGuideAdmin.Models.PoiTranslation>
+@model IEnumerable<AudioGuideAdmin.Models.PoiTranslation>
 
-<h1 style="color:red">TRANSLATION PAGE</h1>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Ban dich da ngon ngu</h2>
+    <a href="/Translation/Create" class="btn btn-primary">Them ban dich</a>
+</div>
 
-<h2>Danh sách bản dịch</h2>
-
-<!-- 🔥 NÚT THÊM -->
-<a href="/Translation/Create" class="btn btn-primary mb-3">
-    + Thêm bản dịch
-</a>
-
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>POI</th>
-            <th>Ngôn ngữ</th>
-            <th>Tiêu đề</th>
-            <th>Audio</th>
-            <th>Hành động</th> <!-- 👈 -->
-        </tr>
-    </thead>
-
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.Poi?.Name</td>
-                <td>@item.Language</td>
-                <td>@item.Title</td>
-
-                <!-- AUDIO -->
-                <td>
-                    @if (!string.IsNullOrEmpty(item.AudioUrl))
-                    {
-                        <audio controls style="width:150px">
-                            <source src="@item.AudioUrl" type="audio/mpeg" />
-                        </audio>
-                    }
-                </td>
-
-                <!-- ACTION -->
-                <td>
-                    <a href="/Translation/Delete/@item.Id" class="btn btn-danger btn-sm">
-                        Xóa
-                    </a>
-                    <a href="/Translation/Edit/@item.Id" class="btn btn-danger btn-sm">
-                        Chỉnh sửa
-                    </a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>POI</th>
+                    <th>Language</th>
+                    <th>Title</th>
+                    <th>Voice</th>
+                    <th>TTS</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.Poi?.Name</td>
+                    <td>@item.Language</td>
+                    <td>
+                        <div class="fw-semibold">@item.Title</div>
+                        <div class="text-muted small">@item.Summary</div>
+                    </td>
+                    <td class="small">@item.VoiceName</td>
+                    <td class="small text-truncate" style="max-width: 320px;">@item.TtsScript</td>
+                    <td>
+                        @if (item.IsPublished)
+                        {
+                            <span class="badge text-bg-success">Published</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Draft</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a href="/Translation/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/Translation/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa ban dich nay?')">Delete</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

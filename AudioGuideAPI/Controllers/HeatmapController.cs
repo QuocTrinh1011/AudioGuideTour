@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using AudioGuideAPI.Data;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAPI.Controllers;
 
@@ -19,11 +19,20 @@ public class HeatmapController : ControllerBase
     public async Task<IActionResult> GetHeatmap()
     {
         var data = await _context.UserTrackings
-            .Select(x => new
+            .AsNoTracking()
+            .GroupBy(x => new
             {
-                x.Latitude,
-                x.Longitude
+                Latitude = Math.Round(x.Latitude, 4),
+                Longitude = Math.Round(x.Longitude, 4)
             })
+            .Select(g => new
+            {
+                g.Key.Latitude,
+                g.Key.Longitude,
+                count = g.Count()
+            })
+            .OrderByDescending(x => x.count)
+            .Take(500)
             .ToListAsync();
 
         return Ok(data);

@@ -1,0 +1,56 @@
+@model IEnumerable<AudioGuideAdmin.Models.Category>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1">Quan ly danh muc</h2>
+        <p class="text-muted mb-0">Danh muc duoc dung de nhom cac POI trong he thong audio tour.</p>
+    </div>
+    <a href="/Category/Create" class="btn btn-primary">Them danh muc</a>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Thu tu</th>
+                    <th>Danh muc</th>
+                    <th>Ma</th>
+                    <th>Mo ta</th>
+                    <th>Trang thai</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.SortOrder</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <span style="display:inline-block;width:14px;height:14px;border-radius:999px;background:@item.ThemeColor;"></span>
+                            <span class="fw-semibold">@item.Name</span>
+                        </div>
+                    </td>
+                    <td><code>@item.Slug</code></td>
+                    <td class="text-muted small">@item.Description</td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge text-bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Hidden</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a href="/Category/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/Category/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa danh muc nay?')">Delete</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

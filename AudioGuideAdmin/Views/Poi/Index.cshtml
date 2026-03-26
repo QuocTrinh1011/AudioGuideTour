@@ -1,40 +1,71 @@
-﻿<h2 class="mb-3">📍 POI Management</h2>
+@model IEnumerable<AudioGuideAdmin.Models.Poi>
 
-<a href="/Poi/Create" class="btn btn-primary mb-3">
-    <i class="bi bi-plus"></i> Add POI
-</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Quan ly POI</h2>
+    <a href="/Poi/Create" class="btn btn-primary">Them POI</a>
+</div>
+
+<form method="get" class="card p-3 mb-3">
+    <div class="row g-2">
+        <div class="col-md-8">
+            <input type="text" name="search" class="form-control" placeholder="Tim theo ten, danh muc, dia chi..." value="@Context.Request.Query["search"]" />
+        </div>
+        <div class="col-md-2">
+            <select name="activeOnly" class="form-select">
+                <option value="">Tat ca</option>
+                <option value="true" selected="@(Context.Request.Query["activeOnly"] == "true" ? "selected" : null)">Dang hoat dong</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-dark w-100">Loc</button>
+        </div>
+    </div>
+</form>
 
 <div class="card p-3">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Lat</th>
-                <th>Lng</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            <form method="get" class="mb-3">
-                <input type="text" name="search" placeholder="Tìm POI..." class="form-control" />
-            </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>POI</th>
+                    <th>Danh muc</th>
+                    <th>Radius</th>
+                    <th>Priority</th>
+                    <th>Trigger</th>
+                    <th>Trang thai</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
             @foreach (var item in Model)
             {
                 <tr>
-                    <td>@item.Name</td>
-                    <td>@item.Latitude</td>
-                    <td>@item.Longitude</td>
                     <td>
-                        <a href="/Poi/Edit/@item.Id" class="btn btn-warning btn-sm">Edit</a>
-                        <a href="/Poi/Delete/@item.Id"
-                           class="btn btn-danger btn-sm"
-                           onclick="return confirm('Bạn có chắc muốn xóa không?')">
-                            Delete
-                        </a>
+                        <div class="fw-semibold">@item.Name</div>
+                        <div class="text-muted small">@item.Address</div>
+                    </td>
+                    <td>@item.Category</td>
+                    <td>@item.Radius m / near @item.ApproachRadiusMeters m</td>
+                    <td>@item.Priority</td>
+                    <td>@item.TriggerMode</td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge text-bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Inactive</span>
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a href="/Poi/Details/@item.Id" class="btn btn-sm btn-outline-dark">Detail</a>
+                        <a href="/Poi/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/Poi/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa POI nay?')">Delete</a>
                     </td>
                 </tr>
             }
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
 </div>

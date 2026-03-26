@@ -1,0 +1,158 @@
+@model AudioGuideAdmin.Models.Poi
+
+<form method="post" class="card p-4">
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Ten POI</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Danh muc</label>
+            <select asp-for="Category" asp-items="ViewBag.Categories" class="form-select"></select>
+            <span asp-validation-for="Category" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Ngon ngu mac dinh</label>
+            <select asp-for="DefaultLanguage" asp-items="ViewBag.Languages" class="form-select"></select>
+            <span asp-validation-for="DefaultLanguage" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tom tat</label>
+            <input asp-for="Summary" class="form-control" />
+            <span asp-validation-for="Summary" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Dia chi</label>
+            <input asp-for="Address" class="form-control" />
+            <span asp-validation-for="Address" class="text-danger small"></span>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Mo ta</label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Description" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Latitude</label>
+            <input asp-for="Latitude" class="form-control" type="number" step="any" />
+            <span asp-validation-for="Latitude" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Longitude</label>
+            <input asp-for="Longitude" class="form-control" type="number" step="any" />
+            <span asp-validation-for="Longitude" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Radius</label>
+            <input asp-for="Radius" class="form-control" type="number" />
+            <span asp-validation-for="Radius" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Near Radius</label>
+            <input asp-for="ApproachRadiusMeters" class="form-control" type="number" />
+            <span asp-validation-for="ApproachRadiusMeters" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Priority</label>
+            <input asp-for="Priority" class="form-control" type="number" />
+            <span asp-validation-for="Priority" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Debounce (s)</label>
+            <input asp-for="DebounceSeconds" class="form-control" type="number" />
+            <span asp-validation-for="DebounceSeconds" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Cooldown (s)</label>
+            <input asp-for="CooldownSeconds" class="form-control" type="number" />
+            <span asp-validation-for="CooldownSeconds" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Trigger mode</label>
+            <select asp-for="TriggerMode" class="form-select">
+                <option value="both">both</option>
+                <option value="enter">enter</option>
+                <option value="nearby">nearby</option>
+                <option value="manual">manual</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Che do thuyet minh</label>
+            <input class="form-control" value="TTS only" disabled />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Image URL</label>
+            <input asp-for="ImageUrl" class="form-control" />
+            <span asp-validation-for="ImageUrl" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Map URL</label>
+            <input asp-for="MapUrl" class="form-control" />
+            <span asp-validation-for="MapUrl" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Estimated duration (s)</label>
+            <input asp-for="EstimatedDurationSeconds" class="form-control" type="number" />
+            <span asp-validation-for="EstimatedDurationSeconds" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label">Dang hoat dong</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Script TTS mac dinh</label>
+            <textarea asp-for="TtsScript" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="TtsScript" class="text-danger small"></span>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Noi dung nay se duoc app mobile doc bang Text-to-Speech neu translation khong co script rieng.</small>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-poi-tts">Nghe thu TTS</button>
+            </div>
+        </div>
+        <div class="col-12">
+            <div id="map" style="height:380px;border-radius:18px;"></div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary">Luu</button>
+            <a href="/Poi" class="btn btn-outline-secondary">Quay lai</a>
+        </div>
+    </div>
+</form>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const latInput = document.querySelector('[name="Latitude"]');
+    const lngInput = document.querySelector('[name="Longitude"]');
+    const lat = parseFloat(latInput.value || "10.7618");
+    const lng = parseFloat(lngInput.value || "106.6613");
+    const map = L.map('map').setView([lat, lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let marker = L.marker([lat, lng]).addTo(map);
+
+    map.on('click', function (e) {
+        latInput.value = e.latlng.lat.toFixed(6);
+        lngInput.value = e.latlng.lng.toFixed(6);
+        marker.setLatLng(e.latlng);
+    });
+</script>
+<script>
+    document.getElementById('preview-poi-tts')?.addEventListener('click', () => {
+        const textarea = document.querySelector('[name="TtsScript"]');
+        const text = textarea?.value?.trim();
+        if (!text) {
+            alert('Chua co TTS script de nghe thu.');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = document.querySelector('[name="DefaultLanguage"]')?.value || 'vi-VN';
+        window.speechSynthesis.speak(utterance);
+    });
+</script>
+
+<partial name="_ValidationScriptsPartial" />

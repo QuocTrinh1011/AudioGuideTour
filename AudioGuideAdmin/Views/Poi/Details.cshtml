@@ -1,15 +1,99 @@
-﻿@model AudioGuideAdmin.Models.Poi
+@model AudioGuideAdmin.Models.Poi
 
-<h2>@Model.Name</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1">@Model.Name</h2>
+        <div class="text-muted">@Model.Address</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/Poi/Edit/@Model.Id" class="btn btn-warning">Edit</a>
+        <a href="/Poi" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
 
-<p>Lat: @Model.Latitude</p>
-<p>Lng: @Model.Longitude</p>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card p-4 mb-4">
+            <h4 class="mb-3">Thong tin chinh</h4>
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Category</dt><dd class="col-sm-8">@Model.Category</dd>
+                <dt class="col-sm-4">Summary</dt><dd class="col-sm-8">@Model.Summary</dd>
+                <dt class="col-sm-4">Radius</dt><dd class="col-sm-8">@Model.Radius m</dd>
+                <dt class="col-sm-4">Near Radius</dt><dd class="col-sm-8">@Model.ApproachRadiusMeters m</dd>
+                <dt class="col-sm-4">Priority</dt><dd class="col-sm-8">@Model.Priority</dd>
+                <dt class="col-sm-4">Trigger</dt><dd class="col-sm-8">@Model.TriggerMode</dd>
+                <dt class="col-sm-4">Thuyet minh</dt><dd class="col-sm-8">TTS only</dd>
+            </dl>
+        </div>
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">TTS mac dinh</h4>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-detail-tts">Nghe thu</button>
+            </div>
+            <div class="text-muted small mb-2">Script nay duoc dung khi translation khong co script rieng.</div>
+            <div class="border rounded-3 p-3 bg-light-subtle">@Model.TtsScript</div>
+        </div>
+        <div class="card p-4">
+            <h4 class="mb-3">Ban dich</h4>
+            <ul class="list-group list-group-flush">
+                @foreach (var t in Model.Translations.OrderBy(x => x.Language))
+                {
+                    <li class="list-group-item px-0">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <div class="fw-semibold">@t.Language - @t.Title</div>
+                                <div class="text-muted small">@t.Summary</div>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-dark translation-tts-preview"
+                                    data-lang="@t.Language"
+                                    data-script="@t.TtsScript">
+                                Nghe thu
+                            </button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h4 class="mb-3">Tour dang su dung POI</h4>
+            <ul class="list-group list-group-flush">
+                @foreach (var stop in Model.TourStops.OrderBy(x => x.SortOrder))
+                {
+                    <li class="list-group-item px-0">@stop.Tour?.Name (Thu tu @stop.SortOrder)</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('preview-detail-tts')?.addEventListener('click', () => {
+        const text = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TtsScript ?? ""));
+        if (!text || !text.trim()) {
+            alert('POI nay chua co TTS script mac dinh.');
+            return;
+        }
 
-<h3>Translations</h3>
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DefaultLanguage ?? "vi-VN"));
+        window.speechSynthesis.speak(utterance);
+    });
 
-<ul>
-    @foreach (var t in Model.Translations)
-    {
-        <li>@t.Language - @t.Title</li>
-    }
-</ul>
+    document.querySelectorAll('.translation-tts-preview').forEach((button) => {
+        button.addEventListener('click', () => {
+            const text = button.dataset.script || '';
+            if (!text.trim()) {
+                alert('Translation nay chua co TTS script.');
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = button.dataset.lang || 'vi-VN';
+            window.speechSynthesis.speak(utterance);
+        });
+    });
+</script>

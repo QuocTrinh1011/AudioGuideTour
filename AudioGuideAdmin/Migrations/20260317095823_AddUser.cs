@@ -1,35 +1,30 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace AudioGuideAdmin.Migrations
 {
-    /// <inheritdoc />
     public partial class AddUser : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "Users",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Username = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Password = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Users", x => x.Id);
-                });
+            migrationBuilder.Sql(
+                """
+                IF OBJECT_ID(N'[Users]', N'U') IS NULL AND OBJECT_ID(N'[AdminUsers]', N'U') IS NULL
+                BEGIN
+                    CREATE TABLE [Users](
+                        [Id] int NOT NULL IDENTITY,
+                        [Username] nvarchar(max) NOT NULL,
+                        [Password] nvarchar(max) NOT NULL,
+                        CONSTRAINT [PK_Users] PRIMARY KEY ([Id])
+                    );
+                END
+                """);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Users");
+            migrationBuilder.Sql("IF OBJECT_ID(N'[Users]', N'U') IS NOT NULL DROP TABLE [Users];");
         }
     }
 }

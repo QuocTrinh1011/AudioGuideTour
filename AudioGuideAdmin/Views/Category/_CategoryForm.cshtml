@@ -1,0 +1,44 @@
+@model AudioGuideAdmin.Models.Category
+
+<form method="post" class="card p-4">
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Name" class="form-label">Ten danh muc</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Slug" class="form-label">Ma danh muc</label>
+            <input asp-for="Slug" class="form-control" />
+            <span asp-validation-for="Slug" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="SortOrder" class="form-label">Thu tu</label>
+            <input asp-for="SortOrder" class="form-control" type="number" />
+            <span asp-validation-for="SortOrder" class="text-danger small"></span>
+        </div>
+        <div class="col-md-9">
+            <label asp-for="Description" class="form-label">Mo ta</label>
+            <input asp-for="Description" class="form-control" />
+            <span asp-validation-for="Description" class="text-danger small"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="ThemeColor" class="form-label">Mau</label>
+            <input asp-for="ThemeColor" class="form-control form-control-color w-100" type="color" />
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label">Bat</label>
+            </div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary">Luu</button>
+            <a href="/Category" class="btn btn-outline-secondary">Quay lai</a>
+        </div>
+    </div>
+</form>
+
+<partial name="_ValidationScriptsPartial" />

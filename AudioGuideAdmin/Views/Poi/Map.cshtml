@@ -1,28 +1,23 @@
-﻿@model IEnumerable<AudioGuideAdmin.Models.Poi>
+@model IEnumerable<AudioGuideAdmin.Models.Poi>
 
-<h2>🗺️ Bản đồ POI</h2>
+<h2 class="mb-3">Ban do POI</h2>
+<div class="card p-3">
+    <div id="map" style="height:620px;border-radius:18px;"></div>
+</div>
 
-<div id="map" style="height:500px;"></div>
+@section Scripts {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        const pois = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+        const center = pois.length ? [pois[0].Latitude, pois[0].Longitude] : [10.7618, 106.6613];
+        const map = L.map('map').setView(center, 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<script>
-    var map = L.map('map').setView([10.762622, 106.660172], 15);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-        .addTo(map);
-
-    // 🔥 FIX QUAN TRỌNG
-    var pois = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
-
-    console.log(pois); // debug
-
-    pois.forEach(p => {
-
-        L.marker([p.Latitude, p.Longitude])
-            .addTo(map)
-            .bindPopup(`<b>${p.Name}</b><br>Radius: ${p.Radius}m`);
-
-    });
-</script>
+        pois.forEach(p => {
+            const marker = L.marker([p.Latitude, p.Longitude]).addTo(map);
+            marker.bindPopup(`<b>${p.Name}</b><br/>Priority ${p.Priority}<br/>Trigger ${p.Radius}m / near ${p.ApproachRadiusMeters}m`);
+            L.circle([p.Latitude, p.Longitude], { radius: p.Radius, color: '#0d6efd', fillOpacity: 0.08 }).addTo(map);
+        });
+    </script>
+}

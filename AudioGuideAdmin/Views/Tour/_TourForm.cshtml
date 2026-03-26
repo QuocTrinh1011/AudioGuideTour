@@ -1,0 +1,50 @@
+@model AudioGuideAdmin.ViewModels.TourFormViewModel
+
+<form method="post" class="card p-4">
+    <input asp-for="Tour.Id" type="hidden" />
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Ten tour</label>
+            <input asp-for="Tour.Name" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Language</label>
+            <input asp-for="Tour.Language" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Duration (min)</label>
+            <input asp-for="Tour.EstimatedDurationMinutes" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Description</label>
+            <textarea asp-for="Tour.Description" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Cover image URL</label>
+            <input asp-for="Tour.CoverImageUrl" class="form-control" />
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input asp-for="Tour.IsActive" class="form-check-input" />
+                <label asp-for="Tour.IsActive" class="form-check-label">Dang hoat dong</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Thu tu POI trong tour</label>
+            <input asp-for="StopPoiIds" class="form-control" placeholder="Vi du: 1,5,2,8" />
+            <div class="form-text">Nhap ID POI cach nhau bang dau phay theo dung thu tu tour.</div>
+        </div>
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var poi in Model.PoiOptions)
+                {
+                    <span class="badge badge-soft">@poi.Text</span>
+                }
+            </div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary">Luu</button>
+            <a href="/Tour" class="btn btn-outline-secondary">Quay lai</a>
+        </div>
+    </div>
+</form>
