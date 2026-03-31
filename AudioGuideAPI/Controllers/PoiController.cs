@@ -56,8 +56,7 @@ public class PoiController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Poi poi)
     {
-        poi.AudioMode = "tts";
-        poi.AudioUrl = string.Empty;
+        poi.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
         poi.CreatedAt = DateTime.UtcNow;
         poi.UpdatedAt = DateTime.UtcNow;
 
@@ -92,8 +91,8 @@ public class PoiController : ControllerBase
         existing.ImageUrl = poi.ImageUrl;
         existing.MapUrl = poi.MapUrl;
         existing.IsActive = poi.IsActive;
-        existing.AudioMode = "tts";
-        existing.AudioUrl = string.Empty;
+        existing.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
+        existing.AudioUrl = poi.AudioUrl;
         existing.TtsScript = poi.TtsScript;
         existing.DefaultLanguage = poi.DefaultLanguage;
         existing.EstimatedDurationSeconds = poi.EstimatedDurationSeconds;

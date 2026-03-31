@@ -10,8 +10,6 @@ public class AnalyticsViewModel
     public double AutoPlayRate { get; set; }
     public List<AnalyticsTopPoiViewModel> TopPois { get; set; } = new();
     public List<DailyListenViewModel> DailyListens { get; set; } = new();
-    public List<MapPointViewModel> HeatPoints { get; set; } = new();
-    public List<TrackingRouteViewModel> Routes { get; set; } = new();
     public List<TriggerLogViewModel> RecentTriggers { get; set; } = new();
     public List<RecentVisitAnalyticsViewModel> RecentVisits { get; set; } = new();
 }
@@ -37,12 +35,6 @@ public class MapPointViewModel
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public string Label { get; set; } = "";
-}
-
-public class TrackingRouteViewModel
-{
-    public string UserId { get; set; } = "";
-    public List<MapPointViewModel> Points { get; set; } = new();
 }
 
 public class TriggerLogViewModel

@@ -1,0 +1,35 @@
+@model AudioGuideAdmin.Models.PoiTranslation
+@using AudioGuideAdmin.ViewModels
+@{
+    var translationLinks = ViewBag.TranslationLinks as List<TranslationLanguageLinkViewModel> ?? new();
+    var contextLocked = ViewBag.ContextLocked as bool? == true;
+}
+
+@if (contextLocked && translationLinks.Any())
+{
+    <div class="card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h4 class="mb-1">Chuyen ban thuyet minh theo ngon ngu</h4>
+                <p class="text-muted mb-0">Moi ngon ngu se mo dung form tao moi hoac cap nhat cua cung POI.</p>
+            </div>
+            <a href="/Poi/Edit/@Model?.PoiId" class="btn btn-outline-secondary">Quay ve POI</a>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var link in translationLinks)
+            {
+                var buttonClass = link.Exists ? "btn btn-outline-dark" : "btn btn-outline-secondary";
+                if (link.IsCurrent)
+                {
+                    buttonClass = "btn btn-dark";
+                }
+
+                <a href="@link.Url" class="@buttonClass">
+                    @link.NativeName
+                    <span class="small ms-1">(@link.Code)</span>
+                    <span class="small ms-1">@(link.Exists ? "Sua" : "Them")</span>
+                </a>
+            }
+        </div>
+    </div>
+}

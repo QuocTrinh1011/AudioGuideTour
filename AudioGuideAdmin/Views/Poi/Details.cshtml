@@ -57,6 +57,17 @@
         </div>
     </div>
     <div class="col-lg-5">
+        <div class="card p-4 mb-4">
+            <h4 class="mb-3">Anh POI</h4>
+            @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+            {
+                <img src="@Model.ImageUrl" alt="@Model.Name" style="width:100%;height:280px;object-fit:cover;border-radius:18px;" />
+            }
+            else
+            {
+                <div class="text-muted">POI nay chua co anh.</div>
+            }
+        </div>
         <div class="card p-4">
             <h4 class="mb-3">Tour dang su dung POI</h4>
             <ul class="list-group list-group-flush">
@@ -69,31 +80,82 @@
     </div>
 </div>
 <script>
-    document.getElementById('preview-detail-tts')?.addEventListener('click', () => {
+    let poiDetailsPreviewVoices = [];
+
+    function refreshPoiDetailsPreviewVoices() {
+        poiDetailsPreviewVoices = window.speechSynthesis?.getVoices?.() || [];
+        return poiDetailsPreviewVoices;
+    }
+
+    async function getPreviewVoice(language) {
+        let voices = refreshPoiDetailsPreviewVoices();
+        if (!voices.length) {
+            window.speechSynthesis?.getVoices?.();
+
+            voices = await new Promise((resolve) => {
+                let attempts = 0;
+                const timer = setInterval(() => {
+                    const available = refreshPoiDetailsPreviewVoices();
+                    attempts += 1;
+
+                    if (available.length || attempts >= 12) {
+                        clearInterval(timer);
+                        resolve(available);
+                    }
+                }, 200);
+            });
+        }
+
+        const normalized = (language || 'vi-VN').toLowerCase();
+        const base = normalized.split('-')[0];
+
+        return voices.find(v => (v.lang || '').toLowerCase() === normalized)
+            || voices.find(v => (v.lang || '').toLowerCase().startsWith(base));
+    }
+
+    async function previewSpeak(text, language) {
+        if (!window.speechSynthesis) {
+            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language || 'vi-VN';
+
+        const voice = await getPreviewVoice(utterance.lang);
+        if (voice) {
+            utterance.voice = voice;
+        } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
+            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+
+    document.getElementById('preview-detail-tts')?.addEventListener('click', async () => {
         const text = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TtsScript ?? ""));
         if (!text || !text.trim()) {
             alert('POI nay chua co TTS script mac dinh.');
             return;
         }
 
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DefaultLanguage ?? "vi-VN"));
-        window.speechSynthesis.speak(utterance);
+        await previewSpeak(text, @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DefaultLanguage ?? "vi-VN")));
     });
 
     document.querySelectorAll('.translation-tts-preview').forEach((button) => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             const text = button.dataset.script || '';
             if (!text.trim()) {
                 alert('Translation nay chua co TTS script.');
                 return;
             }
 
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = button.dataset.lang || 'vi-VN';
-            window.speechSynthesis.speak(utterance);
+            await previewSpeak(text, button.dataset.lang || 'vi-VN');
         });
     });
+
+    refreshPoiDetailsPreviewVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', refreshPoiDetailsPreviewVoices);
 </script>

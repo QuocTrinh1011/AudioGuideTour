@@ -1,19 +1,45 @@
 @model AudioGuideAdmin.Models.PoiTranslation
+@{
+    var contextLocked = ViewBag.ContextLocked as bool? == true;
+    var contextPoiName = ViewBag.ContextPoiName as string ?? "";
+    var formAction = Model.Id > 0 ? "/Translation/Edit" : "/Translation/Create";
+}
 
-<form method="post" class="card p-4">
+<form method="post" action="@formAction" class="card p-4">
+    @Html.AntiForgeryToken()
     <input asp-for="Id" type="hidden" />
+    @if (contextLocked)
+    {
+        <input type="hidden" name="contextLocked" value="true" />
+    }
     <div asp-validation-summary="All" class="alert alert-danger"></div>
     <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label">POI</label>
-            <select asp-for="PoiId" asp-items="ViewBag.Pois" class="form-select"></select>
-            <span asp-validation-for="PoiId" class="text-danger small"></span>
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">Language</label>
-            <select asp-for="Language" asp-items="ViewBag.Languages" class="form-select"></select>
-            <span asp-validation-for="Language" class="text-danger small"></span>
-        </div>
+        @if (contextLocked)
+        {
+            <input asp-for="PoiId" type="hidden" />
+            <input asp-for="Language" type="hidden" />
+            <div class="col-md-6">
+                <label class="form-label">POI</label>
+                <input class="form-control" value="@contextPoiName" disabled />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Language</label>
+                <input class="form-control" value="@Model.Language" disabled />
+            </div>
+        }
+        else
+        {
+            <div class="col-md-6">
+                <label class="form-label">POI</label>
+                <select asp-for="PoiId" asp-items="ViewBag.Pois" class="form-select"></select>
+                <span asp-validation-for="PoiId" class="text-danger small"></span>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Language</label>
+                <select asp-for="Language" asp-items="ViewBag.Languages" class="form-select"></select>
+                <span asp-validation-for="Language" class="text-danger small"></span>
+            </div>
+        }
         <div class="col-md-3 d-flex align-items-end">
             <div class="form-check form-switch">
                 <input asp-for="IsPublished" class="form-check-input" />
@@ -45,18 +71,86 @@
             </div>
         </div>
         <div class="col-12">
+            <label class="form-label">Audio fallback URL</label>
+            <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
+            <span asp-validation-for="AudioUrl" class="text-danger small"></span>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Neu TTS loi cho ngon ngu nay, app co the dung audio du phong.</small>
+                <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mo thu vien audio</a>
+            </div>
+        </div>
+        <div class="col-12">
             <label class="form-label">Description</label>
             <textarea asp-for="Description" class="form-control" rows="6"></textarea>
             <span asp-validation-for="Description" class="text-danger small"></span>
         </div>
         <div class="col-12 d-flex gap-2">
             <button class="btn btn-primary">Luu</button>
-            <a href="/Translation" class="btn btn-outline-secondary">Quay lai</a>
+            <a href="@(contextLocked ? $"/Poi/Edit/{Model.PoiId}#translation-manager" : "/Translation")" class="btn btn-outline-secondary">Quay lai</a>
         </div>
     </div>
 </form>
 <script>
-    document.getElementById('preview-translation-tts')?.addEventListener('click', () => {
+    let translationPreviewVoices = [];
+
+    function refreshTranslationPreviewVoices() {
+        translationPreviewVoices = window.speechSynthesis?.getVoices?.() || [];
+        return translationPreviewVoices;
+    }
+
+    async function getVoicesAsync() {
+        let voices = refreshTranslationPreviewVoices();
+        if (voices.length) {
+            return voices;
+        }
+
+        window.speechSynthesis?.getVoices?.();
+
+        return await new Promise((resolve) => {
+            let attempts = 0;
+            const timer = setInterval(() => {
+                voices = refreshTranslationPreviewVoices();
+                attempts += 1;
+
+                if (voices.length || attempts >= 12) {
+                    clearInterval(timer);
+                    resolve(voices);
+                }
+            }, 200);
+        });
+    }
+
+    async function getPreviewVoice(language) {
+        const voices = await getVoicesAsync();
+        const normalized = (language || 'vi-VN').toLowerCase();
+        const base = normalized.split('-')[0];
+
+        return voices.find(v => (v.lang || '').toLowerCase() === normalized)
+            || voices.find(v => (v.lang || '').toLowerCase().startsWith(base));
+    }
+
+    async function previewSpeak(text, language) {
+        if (!window.speechSynthesis) {
+            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language || 'vi-VN';
+
+        const voice = await getPreviewVoice(utterance.lang);
+        if (voice) {
+            utterance.voice = voice;
+        } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
+            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+
+    document.getElementById('preview-translation-tts')?.addEventListener('click', async () => {
         const textarea = document.querySelector('[name="TtsScript"]');
         const text = textarea?.value?.trim();
         if (!text) {
@@ -64,11 +158,11 @@
             return;
         }
 
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = document.querySelector('[name="Language"]')?.value || 'vi-VN';
-        window.speechSynthesis.speak(utterance);
+        await previewSpeak(text, document.querySelector('[name="Language"]')?.value || 'vi-VN');
     });
+
+    refreshTranslationPreviewVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', refreshTranslationPreviewVoices);
 </script>
 
 <partial name="_ValidationScriptsPartial" />

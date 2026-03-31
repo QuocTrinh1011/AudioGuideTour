@@ -59,23 +59,6 @@ public class AnalyticsController : Controller
             .OrderBy(x => x.Date)
             .ToList();
 
-        var routeGroups = trackingPoints
-            .OrderBy(x => x.RecordedAt)
-            .GroupBy(x => x.UserId)
-            .Take(6)
-            .Select(g => new TrackingRouteViewModel
-            {
-                UserId = g.Key,
-                Points = g.Select(p => new MapPointViewModel
-                {
-                    Latitude = p.Latitude,
-                    Longitude = p.Longitude,
-                    Label = $"{g.Key} - {p.RecordedAt:dd/MM HH:mm}"
-                }).ToList()
-            })
-            .Where(x => x.Points.Count >= 2)
-            .ToList();
-
         var model = new AnalyticsViewModel
         {
             TotalTrackingPoint = trackingPoints.Count,
@@ -86,13 +69,6 @@ public class AnalyticsController : Controller
             AutoPlayRate = visitRows.Any() ? visitRows.Count(x => x.WasAutoPlayed) * 100.0 / visitRows.Count : 0,
             TopPois = topPoiRows,
             DailyListens = dailyRows,
-            HeatPoints = trackingPoints.Select(x => new MapPointViewModel
-            {
-                Latitude = x.Latitude,
-                Longitude = x.Longitude,
-                Label = $"{x.UserId} - {x.RecordedAt:dd/MM HH:mm}"
-            }).ToList(),
-            Routes = routeGroups,
             RecentTriggers = triggerRows.Select(x => new TriggerLogViewModel
             {
                 UserId = x.UserId,

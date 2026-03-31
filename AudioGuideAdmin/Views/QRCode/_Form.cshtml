@@ -1,0 +1,29 @@
+@model AudioGuideAdmin.Models.QRCode
+@{
+    var poiOptions = ViewBag.PoiOptions as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+        ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+}
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">POI</label>
+        <select asp-for="PoiId" asp-items="poiOptions" class="form-select"></select>
+        <span asp-validation-for="PoiId" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Ma QR</label>
+        <input asp-for="Code" class="form-control" placeholder="VD: BUS-VK-001" />
+        <span asp-validation-for="Code" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <label class="form-label">Ghi chu</label>
+        <textarea asp-for="Note" class="form-control" rows="3" placeholder="VD: Tram xe buyt phuong Khanh Hoi"></textarea>
+    </div>
+</div>
+
+<div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Luu QR</button>
+    <a href="/QRCode" class="btn btn-outline-secondary">Quay lai</a>
+</div>

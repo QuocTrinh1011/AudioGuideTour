@@ -86,6 +86,19 @@
             <label class="form-label">Image URL</label>
             <input asp-for="ImageUrl" class="form-control" />
             <span asp-validation-for="ImageUrl" class="text-danger small"></span>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Anh nay se hien thi o admin va trong mobile app.</small>
+                @if (Model.Id > 0)
+                {
+                    <button class="btn btn-sm btn-outline-primary"
+                            type="submit"
+                            formaction="/Poi/ApplySuggestedImage/@Model.Id"
+                            formmethod="post"
+                            formnovalidate>
+                        Gan anh goi y
+                    </button>
+                }
+            </div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Map URL</label>
@@ -110,6 +123,27 @@
             <div class="d-flex justify-content-between align-items-center mt-2">
                 <small class="text-muted">Noi dung nay se duoc app mobile doc bang Text-to-Speech neu translation khong co script rieng.</small>
                 <button type="button" class="btn btn-sm btn-outline-dark" id="preview-poi-tts">Nghe thu TTS</button>
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Audio fallback URL</label>
+            <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
+            <span asp-validation-for="AudioUrl" class="text-danger small"></span>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Neu TTS gap loi, he thong co the dung file audio du phong nay.</small>
+                <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mo thu vien audio</a>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card p-3 bg-light-subtle border-0">
+                <div class="fw-semibold mb-2">Preview anh POI</div>
+                <img id="poi-image-preview"
+                     src="@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "" : Model.ImageUrl)"
+                     alt="Preview anh POI"
+                     style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "none" : "block");" />
+                <div id="poi-image-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "block" : "none");">
+                    Chua co anh. Ban co the nhap Image URL hoac dung nut goi y.
+                </div>
             </div>
         </div>
         <div class="col-12">
@@ -140,7 +174,88 @@
     });
 </script>
 <script>
-    document.getElementById('preview-poi-tts')?.addEventListener('click', () => {
+    const imageInput = document.querySelector('[name="ImageUrl"]');
+    const imagePreview = document.getElementById('poi-image-preview');
+    const imageEmpty = document.getElementById('poi-image-empty');
+
+    function refreshImagePreview() {
+        const value = imageInput?.value?.trim() || '';
+        if (!value) {
+            imagePreview.style.display = 'none';
+            imagePreview.removeAttribute('src');
+            imageEmpty.style.display = 'block';
+            return;
+        }
+
+        imagePreview.src = value;
+        imagePreview.style.display = 'block';
+        imageEmpty.style.display = 'none';
+    }
+
+    imageInput?.addEventListener('input', refreshImagePreview);
+    refreshImagePreview();
+</script>
+<script>
+    let poiPreviewVoices = [];
+
+    function refreshPoiPreviewVoices() {
+        poiPreviewVoices = window.speechSynthesis?.getVoices?.() || [];
+        return poiPreviewVoices;
+    }
+
+    async function getVoicesAsync() {
+        let voices = refreshPoiPreviewVoices();
+        if (voices.length) {
+            return voices;
+        }
+
+        window.speechSynthesis?.getVoices?.();
+
+        return await new Promise((resolve) => {
+            let attempts = 0;
+            const timer = setInterval(() => {
+                voices = refreshPoiPreviewVoices();
+                attempts += 1;
+
+                if (voices.length || attempts >= 12) {
+                    clearInterval(timer);
+                    resolve(voices);
+                }
+            }, 200);
+        });
+    }
+
+    async function getPreviewVoice(language) {
+        const voices = await getVoicesAsync();
+        const normalized = (language || 'vi-VN').toLowerCase();
+        const base = normalized.split('-')[0];
+
+        return voices.find(v => (v.lang || '').toLowerCase() === normalized)
+            || voices.find(v => (v.lang || '').toLowerCase().startsWith(base));
+    }
+
+    async function previewSpeak(text, language) {
+        if (!window.speechSynthesis) {
+            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language || 'vi-VN';
+
+        const voice = await getPreviewVoice(utterance.lang);
+        if (voice) {
+            utterance.voice = voice;
+        } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
+            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+
+    document.getElementById('preview-poi-tts')?.addEventListener('click', async () => {
         const textarea = document.querySelector('[name="TtsScript"]');
         const text = textarea?.value?.trim();
         if (!text) {
@@ -148,11 +263,11 @@
             return;
         }
 
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = document.querySelector('[name="DefaultLanguage"]')?.value || 'vi-VN';
-        window.speechSynthesis.speak(utterance);
+        await previewSpeak(text, document.querySelector('[name="DefaultLanguage"]')?.value || 'vi-VN');
     });
+
+    refreshPoiPreviewVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', refreshPoiPreviewVoices);
 </script>
 
 <partial name="_ValidationScriptsPartial" />

@@ -1,10 +1,4 @@
 @model AudioGuideAdmin.ViewModels.TrackingViewModel
-@using System.Text.Json
-
-@{
-    var mapJson = JsonSerializer.Serialize(Model.MapPoints);
-}
-
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-1">Theo doi van hanh</h2>
@@ -47,14 +41,6 @@
     <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Visit</div><div class="fs-3 fw-bold">@Model.VisitCount</div></div></div>
     <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Trigger</div><div class="fs-3 fw-bold">@Model.TriggerCount</div></div></div>
     <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Visitor</div><div class="fs-3 fw-bold">@Model.UniqueVisitorCount</div></div></div>
-</div>
-
-<div class="card p-4 mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">Ban do tracking gan day</h4>
-        <span class="badge badge-soft">@Model.MapPoints.Count diem</span>
-    </div>
-    <div id="trackingMap" style="height:420px;border-radius:18px;"></div>
 </div>
 
 <div class="row g-4">
@@ -133,60 +119,3 @@
         </div>
     </div>
 </div>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-    const points = @Html.Raw(mapJson);
-    const defaultCenter = points.length
-        ? [points[0].latitude, points[0].longitude]
-        : [10.7618, 106.6613];
-
-    const map = L.map('trackingMap').setView(defaultCenter, 15);
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    });
-
-    const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    });
-
-    let fallbackLoaded = false;
-    osmLayer.on('tileerror', function () {
-        if (!fallbackLoaded) {
-            fallbackLoaded = true;
-            map.removeLayer(osmLayer);
-            cartoLayer.addTo(map);
-        }
-    });
-
-    osmLayer.addTo(map);
-
-    const latLngs = points.map((point) => [point.latitude, point.longitude]);
-    points.forEach((point) => {
-        L.circleMarker([point.latitude, point.longitude], {
-            radius: 6,
-            color: '#17324d',
-            fillColor: '#c97732',
-            fillOpacity: 0.7,
-            weight: 1
-        }).bindPopup(point.label).addTo(map);
-    });
-
-    if (latLngs.length >= 2) {
-        L.polyline(latLngs, {
-            color: '#17324d',
-            weight: 4,
-            opacity: 0.75
-        }).addTo(map);
-        map.fitBounds(latLngs, { padding: [24, 24] });
-    }
-
-    const refreshMap = () => map.invalidateSize();
-    window.addEventListener('load', refreshMap);
-    setTimeout(refreshMap, 250);
-    setTimeout(refreshMap, 1000);
-</script>

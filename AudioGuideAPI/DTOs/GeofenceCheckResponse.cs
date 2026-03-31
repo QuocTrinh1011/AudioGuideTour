@@ -13,17 +13,24 @@ public class GeofencePoiResponse
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
+    public string Category { get; set; } = "";
     public string Title { get; set; } = "";
     public string Language { get; set; } = "vi-VN";
     public string Summary { get; set; } = "";
     public string Description { get; set; } = "";
+    public string Address { get; set; } = "";
     public string TtsScript { get; set; } = "";
+    public string AudioUrl { get; set; } = "";
+    public string AudioMode { get; set; } = "";
     public string VoiceName { get; set; } = "";
     public string ImageUrl { get; set; } = "";
     public string MapUrl { get; set; } = "";
+    public string TriggerMode { get; set; } = "both";
     public double DistanceMeters { get; set; }
     public int Priority { get; set; }
     public int Radius { get; set; }
+    public int ApproachRadiusMeters { get; set; }
     public int CooldownSeconds { get; set; }
     public int DebounceSeconds { get; set; }
+    public int EstimatedDurationSeconds { get; set; }
 }

@@ -1,5 +1,7 @@
 using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
+using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +37,47 @@ public class PoiController : Controller
             .ToList());
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApplySuggestedImages()
+    {
+        var pois = await _context.Pois.ToListAsync();
+        var updated = 0;
+        var missing = 0;
+
+        foreach (var poi in pois)
+        {
+            if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
+            {
+                continue;
+            }
+
+            var suggestion = PoiImageSuggestionHelper.Suggest(poi);
+            if (string.IsNullOrWhiteSpace(suggestion))
+            {
+                missing++;
+                continue;
+            }
+
+            poi.ImageUrl = suggestion;
+            poi.UpdatedAt = DateTime.UtcNow;
+            updated++;
+        }
+
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = updated > 0
+            ? $"Da gan anh goi y cho {updated} POI."
+            : "Khong co POI nao duoc gan anh goi y.";
+
+        if (missing > 0)
+        {
+            TempData["Error"] = $"{missing} POI chua khop tu khoa de gan anh tu dong. Ban co the gan anh thu cong.";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
     public IActionResult Create()
     {
         ViewBag.Categories = BuildCategoryOptions();
@@ -55,8 +98,7 @@ public class PoiController : Controller
 
         try
         {
-            poi.AudioMode = "tts";
-            poi.AudioUrl = string.Empty;
+            poi.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
             poi.CreatedAt = DateTime.UtcNow;
             poi.UpdatedAt = DateTime.UtcNow;
             _context.Pois.Add(poi);
@@ -104,7 +146,10 @@ public class PoiController : Controller
 
     public async Task<IActionResult> Edit(int id)
     {
-        var poi = await _context.Pois.FindAsync(id);
+        var poi = await _context.Pois
+            .Include(x => x.Translations)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
         if (poi == null)
         {
             return NotFound();
@@ -112,7 +157,32 @@ public class PoiController : Controller
 
         ViewBag.Categories = BuildCategoryOptions(poi.Category);
         ViewBag.Languages = BuildLanguageOptions(poi.DefaultLanguage);
+        ViewBag.TranslationLinks = BuildTranslationLinks(poi);
         return View(poi);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApplySuggestedImage(int id)
+    {
+        var poi = await _context.Pois.FindAsync(id);
+        if (poi == null)
+        {
+            return NotFound();
+        }
+
+        var suggestion = PoiImageSuggestionHelper.Suggest(poi);
+        if (string.IsNullOrWhiteSpace(suggestion))
+        {
+            TempData["Error"] = "Chua tim thay anh goi y phu hop cho POI nay. Ban hay gan anh thu cong.";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+
+        poi.ImageUrl = suggestion;
+        poi.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        TempData["Success"] = "Da gan anh goi y cho POI.";
+        return RedirectToAction(nameof(Edit), new { id });
     }
 
     public IActionResult Map()
@@ -132,6 +202,7 @@ public class PoiController : Controller
         {
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
             ViewBag.Languages = BuildLanguageOptions(poi.DefaultLanguage);
+            ViewBag.TranslationLinks = BuildTranslationLinks(poi.Id);
             return View(poi);
         }
 
@@ -159,8 +230,8 @@ public class PoiController : Controller
             existing.ImageUrl = poi.ImageUrl;
             existing.MapUrl = poi.MapUrl;
             existing.IsActive = poi.IsActive;
-            existing.AudioMode = "tts";
-            existing.AudioUrl = string.Empty;
+            existing.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
+            existing.AudioUrl = poi.AudioUrl;
             existing.TtsScript = poi.TtsScript;
             existing.DefaultLanguage = poi.DefaultLanguage;
             existing.EstimatedDurationSeconds = poi.EstimatedDurationSeconds;
@@ -168,13 +239,14 @@ public class PoiController : Controller
 
             await _context.SaveChangesAsync();
             TempData["Success"] = "Da cap nhat POI thanh cong.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Edit), new { id = existing.Id });
         }
         catch (Exception ex)
         {
             ModelState.AddModelError(string.Empty, $"Khong cap nhat duoc POI. {ex.GetBaseException().Message}");
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
             ViewBag.Languages = BuildLanguageOptions(poi.DefaultLanguage);
+            ViewBag.TranslationLinks = BuildTranslationLinks(poi.Id);
             return View(poi);
         }
     }
@@ -196,6 +268,51 @@ public class PoiController : Controller
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
             .Select(x => new SelectListItem($"{x.Name} ({x.Code})", x.Code, x.Code == selected))
+            .ToList();
+    }
+
+    private List<TranslationLanguageLinkViewModel> BuildTranslationLinks(Poi poi)
+    {
+        var existingLanguages = poi.Translations
+            .Select(x => x.Language)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return _context.LanguageOptions
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .Select(x => new TranslationLanguageLinkViewModel
+            {
+                Code = x.Code,
+                Name = x.Name,
+                NativeName = string.IsNullOrWhiteSpace(x.NativeName) ? x.Name : x.NativeName,
+                Exists = existingLanguages.Contains(x.Code),
+                IsCurrent = false,
+                Url = $"/Translation/EditForPoi?poiId={poi.Id}&language={x.Code}"
+            })
+            .ToList();
+    }
+
+    private List<TranslationLanguageLinkViewModel> BuildTranslationLinks(int poiId)
+    {
+        var existingLanguages = _context.PoiTranslations
+            .Where(x => x.PoiId == poiId)
+            .Select(x => x.Language)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return _context.LanguageOptions
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .Select(x => new TranslationLanguageLinkViewModel
+            {
+                Code = x.Code,
+                Name = x.Name,
+                NativeName = string.IsNullOrWhiteSpace(x.NativeName) ? x.Name : x.NativeName,
+                Exists = existingLanguages.Contains(x.Code),
+                IsCurrent = false,
+                Url = $"/Translation/EditForPoi?poiId={poiId}&language={x.Code}"
+            })
             .ToList();
     }
 }

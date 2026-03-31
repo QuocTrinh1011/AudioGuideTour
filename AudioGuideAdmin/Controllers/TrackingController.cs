@@ -122,16 +122,6 @@ public class TrackingController : Controller
                     RecordedAt = x.RecordedAt,
                     CooldownUntil = x.CooldownUntil
                 })
-                .ToList(),
-            MapPoints = trackingRows
-                .OrderBy(x => x.RecordedAt)
-                .Take(120)
-                .Select(x => new MapPointViewModel
-                {
-                    Latitude = x.Latitude,
-                    Longitude = x.Longitude,
-                    Label = $"{x.UserId} - {x.RecordedAt:dd/MM HH:mm}"
-                })
                 .ToList()
         };
 

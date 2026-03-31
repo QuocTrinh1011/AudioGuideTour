@@ -1,5 +1,6 @@
 using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
+using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -26,17 +27,37 @@ public class TranslationController : Controller
         return View(data);
     }
 
-    public IActionResult Create()
+    public IActionResult Create(int? poiId = null, string? language = null, bool contextLocked = false)
     {
-        ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name");
-        ViewBag.Languages = BuildLanguageOptions();
-        return View(new PoiTranslation());
+        var model = new PoiTranslation();
+        if (poiId.HasValue && poiId.Value > 0)
+        {
+            model.PoiId = poiId.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(language))
+        {
+            model.Language = language;
+        }
+
+        PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
+        return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(PoiTranslation model)
+    public async Task<IActionResult> Create(PoiTranslation model, bool contextLocked = false)
     {
+        if (model.PoiId <= 0)
+        {
+            ModelState.AddModelError(nameof(model.PoiId), "Vui long chon POI truoc khi tao ban dich.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Language))
+        {
+            ModelState.AddModelError(nameof(model.Language), "Vui long chon ngon ngu.");
+        }
+
         var exists = await _context.PoiTranslations
             .AnyAsync(x => x.PoiId == model.PoiId && x.Language == model.Language);
 
@@ -52,25 +73,28 @@ public class TranslationController : Controller
 
         if (!ModelState.IsValid)
         {
-            ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name", model.PoiId);
-            ViewBag.Languages = BuildLanguageOptions(model.Language);
+            PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
 
         try
         {
-            model.AudioUrl = string.Empty;
+            model.Id = 0;
             model.UpdatedAt = DateTime.UtcNow;
             _context.PoiTranslations.Add(model);
             await _context.SaveChangesAsync();
             TempData["Success"] = "Da them ban dich thanh cong.";
-            return RedirectToAction(nameof(Index));
+            if (contextLocked)
+            {
+                return RedirectToAction(nameof(EditForPoi), new { poiId = model.PoiId, language = model.Language });
+            }
+
+            return RedirectToAction(nameof(EditForPoi), new { poiId = model.PoiId, language = model.Language });
         }
         catch (Exception ex)
         {
             ModelState.AddModelError(string.Empty, $"Khong them duoc ban dich. {ex.GetBaseException().Message}");
-            ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name", model.PoiId);
-            ViewBag.Languages = BuildLanguageOptions(model.Language);
+            PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
     }
@@ -83,14 +107,48 @@ public class TranslationController : Controller
             return NotFound();
         }
 
-        ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name", item.PoiId);
-        ViewBag.Languages = BuildLanguageOptions(item.Language);
+        PrepareTranslationForm(item.PoiId, item.Language, false);
         return View(item);
+    }
+
+    public async Task<IActionResult> EditForPoi(int poiId, string? language = null)
+    {
+        var poi = await _context.Pois.FindAsync(poiId);
+        if (poi == null)
+        {
+            return NotFound();
+        }
+
+        var selectedLanguage = string.IsNullOrWhiteSpace(language)
+            ? poi.DefaultLanguage
+            : language;
+
+        var item = await _context.PoiTranslations
+            .FirstOrDefaultAsync(x => x.PoiId == poiId && x.Language == selectedLanguage);
+
+        if (item != null)
+        {
+            PrepareTranslationForm(item.PoiId, item.Language, true);
+            return View("Edit", item);
+        }
+
+        var model = new PoiTranslation
+        {
+            PoiId = poiId,
+            Language = selectedLanguage ?? "vi-VN",
+            Title = poi.Name,
+            Summary = poi.Summary,
+            Description = poi.Description,
+            TtsScript = poi.TtsScript
+        };
+
+        PrepareTranslationForm(model.PoiId, model.Language, true);
+        return View("Create", model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(PoiTranslation model)
+    public async Task<IActionResult> Edit(PoiTranslation model, bool contextLocked = false)
     {
         if (!_context.LanguageOptions.Any(x => x.Code == model.Language && x.IsActive))
         {
@@ -99,8 +157,7 @@ public class TranslationController : Controller
 
         if (!ModelState.IsValid)
         {
-            ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name", model.PoiId);
-            ViewBag.Languages = BuildLanguageOptions(model.Language);
+            PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
 
@@ -117,7 +174,7 @@ public class TranslationController : Controller
             existing.Title = model.Title;
             existing.Summary = model.Summary;
             existing.Description = model.Description;
-            existing.AudioUrl = string.Empty;
+            existing.AudioUrl = model.AudioUrl;
             existing.TtsScript = model.TtsScript;
             existing.VoiceName = model.VoiceName;
             existing.IsPublished = model.IsPublished;
@@ -125,13 +182,17 @@ public class TranslationController : Controller
 
             await _context.SaveChangesAsync();
             TempData["Success"] = "Da cap nhat ban dich thanh cong.";
-            return RedirectToAction(nameof(Index));
+            if (contextLocked)
+            {
+                return RedirectToAction(nameof(EditForPoi), new { poiId = existing.PoiId, language = existing.Language });
+            }
+
+            return RedirectToAction(nameof(EditForPoi), new { poiId = existing.PoiId, language = existing.Language });
         }
         catch (Exception ex)
         {
             ModelState.AddModelError(string.Empty, $"Khong cap nhat duoc ban dich. {ex.GetBaseException().Message}");
-            ViewBag.Pois = new SelectList(_context.Pois.OrderBy(x => x.Name), "Id", "Name", model.PoiId);
-            ViewBag.Languages = BuildLanguageOptions(model.Language);
+            PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
     }
@@ -156,6 +217,64 @@ public class TranslationController : Controller
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
             .Select(x => new SelectListItem($"{x.NativeName} ({x.Code})", x.Code, x.Code == selected))
+            .ToList();
+    }
+
+    private void PrepareTranslationForm(int? poiId = null, string? language = null, bool contextLocked = false)
+    {
+        ViewBag.Pois = BuildPoiOptions(poiId, contextLocked);
+        ViewBag.Languages = BuildLanguageOptions(language);
+        ViewBag.TranslationLinks = contextLocked && poiId.HasValue && poiId.Value > 0
+            ? BuildTranslationLinks(poiId, language)
+            : new List<TranslationLanguageLinkViewModel>();
+        ViewBag.ContextLocked = contextLocked;
+        ViewBag.ContextPoiName = poiId.HasValue
+            ? _context.Pois.Where(x => x.Id == poiId.Value).Select(x => x.Name).FirstOrDefault()
+            : null;
+    }
+
+    private List<SelectListItem> BuildPoiOptions(int? selectedPoiId, bool contextLocked)
+    {
+        var items = new List<SelectListItem>();
+
+        if (!contextLocked)
+        {
+            items.Add(new SelectListItem("Chon POI", "", !selectedPoiId.HasValue || selectedPoiId.Value <= 0));
+        }
+
+        items.AddRange(_context.Pois
+            .OrderBy(x => x.Name)
+            .Select(x => new SelectListItem(x.Name, x.Id.ToString(), selectedPoiId.HasValue && x.Id == selectedPoiId.Value))
+            .ToList());
+
+        return items;
+    }
+
+    private List<TranslationLanguageLinkViewModel> BuildTranslationLinks(int? poiId, string? currentLanguage)
+    {
+        if (!poiId.HasValue || poiId.Value <= 0)
+        {
+            return new List<TranslationLanguageLinkViewModel>();
+        }
+
+        var existingLanguages = _context.PoiTranslations
+            .Where(x => x.PoiId == poiId.Value)
+            .Select(x => x.Language)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return _context.LanguageOptions
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .Select(x => new TranslationLanguageLinkViewModel
+            {
+                Code = x.Code,
+                Name = x.Name,
+                NativeName = string.IsNullOrWhiteSpace(x.NativeName) ? x.Name : x.NativeName,
+                Exists = existingLanguages.Contains(x.Code),
+                IsCurrent = x.Code == currentLanguage,
+                Url = $"/Translation/EditForPoi?poiId={poiId.Value}&language={x.Code}"
+            })
             .ToList();
     }
 }

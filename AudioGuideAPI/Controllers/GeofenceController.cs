@@ -173,19 +173,26 @@ public class GeofenceController : ControllerBase
         {
             Id = poi.Id,
             Name = poi.Name,
+            Category = poi.Category,
             Title = translation?.Title ?? poi.Name,
             Language = translation?.Language ?? poi.DefaultLanguage,
             Summary = translation?.Summary ?? poi.Summary,
             Description = translation?.Description ?? poi.Description,
+            Address = poi.Address,
             TtsScript = string.IsNullOrWhiteSpace(translation?.TtsScript) ? poi.TtsScript : translation.TtsScript,
+            AudioUrl = string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation.AudioUrl,
+            AudioMode = poi.AudioMode,
             VoiceName = translation?.VoiceName ?? string.Empty,
             ImageUrl = poi.ImageUrl,
             MapUrl = poi.MapUrl,
+            TriggerMode = poi.TriggerMode,
             DistanceMeters = Math.Round(distance, 2),
             Priority = poi.Priority,
             Radius = poi.Radius,
+            ApproachRadiusMeters = poi.ApproachRadiusMeters,
             CooldownSeconds = poi.CooldownSeconds,
-            DebounceSeconds = poi.DebounceSeconds
+            DebounceSeconds = poi.DebounceSeconds,
+            EstimatedDurationSeconds = poi.EstimatedDurationSeconds
         };
     }
 }

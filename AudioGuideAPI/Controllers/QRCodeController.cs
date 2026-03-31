@@ -16,7 +16,7 @@ public class QRCodeController : ControllerBase
     }
 
     [HttpGet("{code}")]
-    public async Task<IActionResult> GetByCode(string code)
+    public async Task<IActionResult> GetByCode(string code, [FromQuery] string language = "vi-VN")
     {
         var qr = await _context.QRCodes
             .AsNoTracking()
@@ -29,6 +29,48 @@ public class QRCodeController : ControllerBase
             return NotFound();
         }
 
-        return Ok(qr);
+        var poi = qr.Poi;
+        if (poi == null)
+        {
+            return NotFound();
+        }
+
+        var translation = poi.Translations
+            .FirstOrDefault(x => x.IsPublished && x.Language.Equals(language, StringComparison.OrdinalIgnoreCase))
+            ?? poi.Translations.FirstOrDefault(x => x.IsPublished && x.Language.StartsWith(language.Split('-')[0], StringComparison.OrdinalIgnoreCase))
+            ?? poi.Translations.FirstOrDefault(x => x.IsPublished);
+
+        return Ok(new
+        {
+            qr.Id,
+            qr.Code,
+            qr.Note,
+            poi = new
+            {
+                poi.Id,
+                poi.Name,
+                poi.Category,
+                title = translation?.Title ?? poi.Name,
+                summary = translation?.Summary ?? poi.Summary,
+                description = translation?.Description ?? poi.Description,
+                poi.Address,
+                ttsScript = string.IsNullOrWhiteSpace(translation?.TtsScript) ? poi.TtsScript : translation?.TtsScript,
+                audioUrl = string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation?.AudioUrl,
+                poi.AudioMode,
+                voiceName = translation?.VoiceName ?? string.Empty,
+                language = translation?.Language ?? poi.DefaultLanguage,
+                poi.ImageUrl,
+                poi.MapUrl,
+                poi.TriggerMode,
+                poi.Priority,
+                poi.Radius,
+                poi.ApproachRadiusMeters,
+                poi.CooldownSeconds,
+                poi.DebounceSeconds,
+                poi.EstimatedDurationSeconds,
+                poi.Latitude,
+                poi.Longitude
+            }
+        });
     }
 }

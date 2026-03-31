@@ -2,7 +2,13 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Quan ly POI</h2>
-    <a href="/Poi/Create" class="btn btn-primary">Them POI</a>
+    <div class="d-flex gap-2">
+        <form method="post" action="/Poi/ApplySuggestedImages">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-outline-primary" type="submit">Gan anh goi y</button>
+        </form>
+        <a href="/Poi/Create" class="btn btn-primary">Them POI</a>
+    </div>
 </div>
 
 <form method="get" class="card p-3 mb-3">
@@ -27,6 +33,7 @@
         <table class="table align-middle">
             <thead>
                 <tr>
+                    <th>Anh</th>
                     <th>POI</th>
                     <th>Danh muc</th>
                     <th>Radius</th>
@@ -40,6 +47,16 @@
             @foreach (var item in Model)
             {
                 <tr>
+                    <td>
+                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                        {
+                            <img src="@item.ImageUrl" alt="@item.Name" style="width:72px;height:54px;object-fit:cover;border-radius:10px;" />
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Chua co anh</div>
+                        }
+                    </td>
                     <td>
                         <div class="fw-semibold">@item.Name</div>
                         <div class="text-muted small">@item.Address</div>

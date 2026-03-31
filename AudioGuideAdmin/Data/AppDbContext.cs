@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<LanguageOption> LanguageOptions => Set<LanguageOption>();
     public DbSet<Poi> Pois => Set<Poi>();
     public DbSet<PoiTranslation> PoiTranslations => Set<PoiTranslation>();
+    public DbSet<QRCode> QRCodes => Set<QRCode>();
+    public DbSet<VisitorProfile> Visitors => Set<VisitorProfile>();
     public DbSet<UserTracking> UserTrackings => Set<UserTracking>();
     public DbSet<VisitHistory> VisitHistories => Set<VisitHistory>();
     public DbSet<Tour> Tours => Set<Tour>();
@@ -31,6 +33,9 @@ public class AppDbContext : DbContext
             .HasIndex(x => x.Username)
             .IsUnique();
 
+        modelBuilder.Entity<VisitorProfile>()
+            .ToTable("Users");
+
         modelBuilder.Entity<Category>()
             .HasIndex(x => x.Slug)
             .IsUnique();
@@ -46,6 +51,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PoiTranslation>()
             .HasOne(x => x.Poi)
             .WithMany(x => x.Translations)
+            .HasForeignKey(x => x.PoiId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<QRCode>()
+            .HasIndex(x => x.Code)
+            .IsUnique();
+
+        modelBuilder.Entity<QRCode>()
+            .HasOne(x => x.Poi)
+            .WithMany()
             .HasForeignKey(x => x.PoiId)
             .OnDelete(DeleteBehavior.Cascade);
 

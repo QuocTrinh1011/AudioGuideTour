@@ -1,0 +1,45 @@
+@model AudioGuideAdmin.Models.VisitorProfile
+
+<div class="mb-3">
+    <h2 class="mb-1">Sua visitor mobile</h2>
+    <p class="text-muted mb-0">Cap nhat thong tin va tuy chon van hanh cho nguoi dung app.</p>
+</div>
+
+<div class="card p-4">
+    <form method="post">
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="DeviceId" type="hidden" />
+        <input asp-for="CreatedAt" type="hidden" />
+        <input asp-for="LastSeenAt" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Ten hien thi</label>
+                <input asp-for="DisplayName" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Ngon ngu</label>
+                <input asp-for="Language" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Device ID</label>
+                <input asp-for="DeviceId" class="form-control" readonly />
+            </div>
+            <div class="col-md-6 form-check ms-2">
+                <input asp-for="AllowAutoPlay" class="form-check-input" />
+                <label asp-for="AllowAutoPlay" class="form-check-label">Cho phep auto-play</label>
+            </div>
+            <div class="col-md-6 form-check ms-2">
+                <input asp-for="AllowBackgroundTracking" class="form-check-input" />
+                <label asp-for="AllowBackgroundTracking" class="form-check-label">Cho phep background tracking</label>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Luu visitor</button>
+            <a href="/Visitor" class="btn btn-outline-secondary">Quay lai</a>
+        </div>
+    </form>
+</div>

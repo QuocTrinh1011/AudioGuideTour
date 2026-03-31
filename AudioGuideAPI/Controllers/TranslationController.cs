@@ -54,7 +54,6 @@ public class TranslationController : ControllerBase
             return Conflict("Translation already exists for this language.");
         }
 
-        model.AudioUrl = string.Empty;
         model.UpdatedAt = DateTime.UtcNow;
         _context.PoiTranslations.Add(model);
         await _context.SaveChangesAsync();
@@ -74,7 +73,7 @@ public class TranslationController : ControllerBase
         existing.Title = model.Title;
         existing.Summary = model.Summary;
         existing.Description = model.Description;
-        existing.AudioUrl = string.Empty;
+        existing.AudioUrl = model.AudioUrl;
         existing.TtsScript = model.TtsScript;
         existing.VoiceName = model.VoiceName;
         existing.IsPublished = model.IsPublished;

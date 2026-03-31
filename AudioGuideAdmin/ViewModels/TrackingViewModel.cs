@@ -21,7 +21,6 @@ public class TrackingViewModel
     public List<TrackingPointViewModel> TrackingPoints { get; set; } = new();
     public List<VisitRowViewModel> Visits { get; set; } = new();
     public List<TriggerRowViewModel> Triggers { get; set; } = new();
-    public List<MapPointViewModel> MapPoints { get; set; } = new();
 }
 
 public class TrackingPointViewModel
