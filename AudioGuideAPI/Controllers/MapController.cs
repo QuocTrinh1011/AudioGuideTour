@@ -31,8 +31,7 @@ public class MapController : ControllerBase
             {
                 poi = p,
                 distance = GeoMath.DistanceInMeters(request.Latitude, request.Longitude, p.Latitude, p.Longitude),
-                translation = p.Translations.FirstOrDefault(t => t.Language == request.Language)
-                    ?? p.Translations.FirstOrDefault()
+                translation = PoiTranslationSelector.Select(p.Translations, request.Language)
             })
             .OrderBy(x => x.distance)
             .Take(20)
@@ -48,6 +47,7 @@ public class MapController : ControllerBase
                 ttsScript = string.IsNullOrWhiteSpace(x.translation?.TtsScript) ? x.poi.TtsScript : x.translation.TtsScript,
                 audioUrl = string.IsNullOrWhiteSpace(x.translation?.AudioUrl) ? x.poi.AudioUrl : x.translation.AudioUrl,
                 x.poi.AudioMode,
+                voiceName = x.translation?.VoiceName ?? string.Empty,
                 language = x.translation?.Language ?? x.poi.DefaultLanguage,
                 x.poi.Latitude,
                 x.poi.Longitude,
@@ -81,7 +81,7 @@ public class MapController : ControllerBase
 
         var data = pois.Select(p =>
         {
-            var translation = p.Translations.FirstOrDefault(t => t.Language == language) ?? p.Translations.FirstOrDefault();
+            var translation = PoiTranslationSelector.Select(p.Translations, language);
             return new
             {
                 p.Id,

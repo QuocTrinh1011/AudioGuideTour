@@ -16,27 +16,27 @@ public class ToursPage : ContentPage
         Content = BuildContent();
     }
 
-    private async void OnStartTourClicked(object sender, EventArgs e)
+    private async void OnStartTourClicked(object? sender, EventArgs e)
     {
         await _viewModel.StartSelectedTourAsync();
     }
 
-    private async void OnNextTourStopClicked(object sender, EventArgs e)
+    private async void OnNextTourStopClicked(object? sender, EventArgs e)
     {
         await _viewModel.PlayNextTourStopAsync();
     }
 
-    private async void OnPlaySelectedClicked(object sender, EventArgs e)
+    private async void OnPlaySelectedClicked(object? sender, EventArgs e)
     {
         await _viewModel.PlaySelectedAsync();
     }
 
-    private async void OnStopPlaybackClicked(object sender, EventArgs e)
+    private async void OnStopPlaybackClicked(object? sender, EventArgs e)
     {
         await _viewModel.StopPlaybackAsync();
     }
 
-    private async void OnOpenPoiDetailsClicked(object sender, EventArgs e)
+    private async void OnOpenPoiDetailsClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedPoiDetailsAsync();
     }
@@ -112,7 +112,7 @@ public class ToursPage : ContentPage
                 ColumnSpacing = 12
             };
             grid.Add(new Image { HeightRequest = 92, WidthRequest = 104, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.TourItem.CoverImageUrl)));
+                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.TourItem.CoverImageUrl), converter: AppImageSourceConverter.Instance));
             var details = new VerticalStackLayout { Spacing = 4 };
             details.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Name)));

@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Http;
 
 namespace AudioGuideAdmin.Models;
 
@@ -38,4 +40,7 @@ public class Poi
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<TourStop> TourStops { get; set; } = new();
+
+    [NotMapped]
+    public IFormFile? ImageFile { get; set; }
 }

@@ -1,7 +1,9 @@
 @model AudioGuideAdmin.Models.Poi
 
-<form method="post" class="card p-4">
+<form method="post" enctype="multipart/form-data" class="card p-4">
+    @Html.AntiForgeryToken()
     <input asp-for="Id" type="hidden" />
+    <input asp-for="ImageUrl" type="hidden" />
     <div asp-validation-summary="All" class="alert alert-danger"></div>
     <div class="row g-3">
         <div class="col-md-6">
@@ -82,15 +84,18 @@
             <label class="form-label">Che do thuyet minh</label>
             <input class="form-control" value="TTS only" disabled />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Image URL</label>
-            <input asp-for="ImageUrl" class="form-control" />
-            <span asp-validation-for="ImageUrl" class="text-danger small"></span>
-            <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">Anh nay se hien thi o admin va trong mobile app.</small>
+        <div class="col-md-8">
+            <label class="form-label">Upload anh POI</label>
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" />
+            <span asp-validation-for="ImageFile" class="text-danger small"></span>
+            <div class="form-text">Chi can chon file roi bam Luu. Admin se luu vao thu muc dung chung, API tra ve /images/... va mobile app se nhan anh moi ngay sau khi tai du lieu.</div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="d-grid gap-2 w-100">
+                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thu vien anh</a>
                 @if (Model.Id > 0)
                 {
-                    <button class="btn btn-sm btn-outline-primary"
+                    <button class="btn btn-outline-primary"
                             type="submit"
                             formaction="/Poi/ApplySuggestedImage/@Model.Id"
                             formmethod="post"
@@ -136,13 +141,22 @@
         </div>
         <div class="col-12">
             <div class="card p-3 bg-light-subtle border-0">
-                <div class="fw-semibold mb-2">Preview anh POI</div>
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                    <div>
+                        <div class="fw-semibold">Preview anh POI</div>
+                        <div class="text-muted small">Web admin, API va mobile app se dung chung mot file anh.</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Duong dan hien tai</div>
+                        <code id="poi-image-path" class="small">@Model.ImageUrl</code>
+                    </div>
+                </div>
                 <img id="poi-image-preview"
                      src="@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "" : Model.ImageUrl)"
                      alt="Preview anh POI"
                      style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "none" : "block");" />
                 <div id="poi-image-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "block" : "none");">
-                    Chua co anh. Ban co the nhap Image URL hoac dung nut goi y.
+                    Chua co anh. Hay upload file anh o tren, hoac bam nut goi y neu muon dung anh mau.
                 </div>
             </div>
         </div>
@@ -175,24 +189,37 @@
 </script>
 <script>
     const imageInput = document.querySelector('[name="ImageUrl"]');
+    const imageFileInput = document.querySelector('[name="ImageFile"]');
     const imagePreview = document.getElementById('poi-image-preview');
     const imageEmpty = document.getElementById('poi-image-empty');
+    const imagePath = document.getElementById('poi-image-path');
 
     function refreshImagePreview() {
+        const selectedFile = imageFileInput?.files?.[0];
+        if (selectedFile) {
+            imagePreview.src = URL.createObjectURL(selectedFile);
+            imagePreview.style.display = 'block';
+            imageEmpty.style.display = 'none';
+            imagePath.textContent = `Se tao tu dong sau khi luu: ${selectedFile.name}`;
+            return;
+        }
+
         const value = imageInput?.value?.trim() || '';
         if (!value) {
             imagePreview.style.display = 'none';
             imagePreview.removeAttribute('src');
             imageEmpty.style.display = 'block';
+            imagePath.textContent = 'Chua co';
             return;
         }
 
         imagePreview.src = value;
         imagePreview.style.display = 'block';
         imageEmpty.style.display = 'none';
+        imagePath.textContent = value;
     }
 
-    imageInput?.addEventListener('input', refreshImagePreview);
+    imageFileInput?.addEventListener('change', refreshImagePreview);
     refreshImagePreview();
 </script>
 <script>

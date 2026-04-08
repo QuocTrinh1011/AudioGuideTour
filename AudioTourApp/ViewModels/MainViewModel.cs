@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 
 namespace AudioTourApp.ViewModels;
 
@@ -20,10 +21,14 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceVisitorLanguage = "audio-tour-visitor-language";
     private const string PreferenceAllowAutoPlay = "audio-tour-allow-auto-play";
     private const string PreferenceAllowBackground = "audio-tour-allow-background";
+    private const string PreferenceTrackingEnabled = "audio-tour-tracking-enabled";
+    private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
 
     private readonly ApiClient _apiClient;
     private readonly LocationTrackingService _locationService;
     private readonly AudioQueueService _audioQueueService;
+    private readonly AppPermissionService _permissionService;
+    private readonly NarrationService _narrationService;
     private readonly Dictionary<int, DateTime> _recentAutoTriggers = new();
     private readonly Dictionary<int, PoiGeofenceState> _poiGeofenceStates = new();
 
@@ -50,12 +55,20 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _allowBackgroundTracking;
     private bool _appIsForeground = true;
     private bool _isSyncingVisitor;
+    private bool _isRestoringTracking;
+    private bool _canUseCamera;
+    private string _locationPermissionText = "Chua kiem tra";
+    private string _backgroundPermissionText = "Chua kiem tra";
+    private string _cameraPermissionText = "Chua kiem tra";
+    private string _notificationPermissionText = "Chua kiem tra";
 
-    public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService)
+    public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService, AppPermissionService permissionService, NarrationService narrationService)
     {
         _apiClient = apiClient;
         _locationService = locationService;
         _audioQueueService = audioQueueService;
+        _permissionService = permissionService;
+        _narrationService = narrationService;
         _apiBaseUrl = Preferences.Default.Get(PreferenceApiBaseUrl, apiClient.BaseUrl);
         _userId = GetOrCreatePreference(PreferenceUserId, () => Guid.NewGuid().ToString("N"));
         _deviceId = GetOrCreatePreference(PreferenceDeviceId, () => $"{DeviceInfo.Current.Platform}-{Guid.NewGuid().ToString("N")[..8]}");
@@ -64,6 +77,7 @@ public class MainViewModel : INotifyPropertyChanged
         _allowBackgroundTracking = Preferences.Default.Get(PreferenceAllowBackground, true);
         var savedLanguage = Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
         _selectedLanguage = new LanguageItem { Code = savedLanguage, NativeName = savedLanguage, Name = savedLanguage, Locale = savedLanguage };
+        _isTracking = _locationService.IsRunning;
 
         _locationService.LocationChanged += OnLocationChanged;
         _audioQueueService.StatusChanged += (_, status) => Status = status;
@@ -83,6 +97,8 @@ public class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<LanguageItem> Languages { get; } = new();
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<string> CategoryFilterOptions { get; } = new();
+    public ObservableCollection<QrLookupHistoryItem> RecentQrLookups { get; } = new();
+    public ObservableCollection<string> AudioDiagnostics { get; } = new();
 
     public string ApiBaseUrl
     {
@@ -99,13 +115,49 @@ public class MainViewModel : INotifyPropertyChanged
     public string Status
     {
         get => _status;
-        set => SetField(ref _status, value);
+        set
+        {
+            if (SetField(ref _status, value))
+            {
+                PushAudioDiagnostic(value);
+            }
+        }
     }
 
     public string CurrentLocation
     {
         get => _currentLocation;
         set => SetField(ref _currentLocation, value);
+    }
+
+    public string LocationPermissionText
+    {
+        get => _locationPermissionText;
+        set => SetField(ref _locationPermissionText, value);
+    }
+
+    public string BackgroundPermissionText
+    {
+        get => _backgroundPermissionText;
+        set => SetField(ref _backgroundPermissionText, value);
+    }
+
+    public string CameraPermissionText
+    {
+        get => _cameraPermissionText;
+        set => SetField(ref _cameraPermissionText, value);
+    }
+
+    public bool CanUseCamera
+    {
+        get => _canUseCamera;
+        set => SetField(ref _canUseCamera, value);
+    }
+
+    public string NotificationPermissionText
+    {
+        get => _notificationPermissionText;
+        set => SetField(ref _notificationPermissionText, value);
     }
 
     public string PoiSearchText
@@ -206,6 +258,7 @@ public class MainViewModel : INotifyPropertyChanged
             if (SetField(ref _selectedLanguage, value) && value != null)
             {
                 Preferences.Default.Set(PreferenceVisitorLanguage, value.Code ?? "vi-VN");
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedLanguageDisplayText)));
             }
         }
     }
@@ -238,6 +291,8 @@ public class MainViewModel : INotifyPropertyChanged
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPoiCoordinateText)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPoiAudioText)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPoiVoiceText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPoiPositionText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
                 RefreshMap();
             }
         }
@@ -246,6 +301,9 @@ public class MainViewModel : INotifyPropertyChanged
     public bool HasSelectedPoi => SelectedPoi != null;
     public bool HasSelectedTour => SelectedTour != null;
     public bool HasActiveTour => ActiveTour != null;
+    public string SelectedLanguageDisplayText => SelectedLanguage == null
+        ? "Chua chon ngon ngu"
+        : $"{SelectedLanguage.NativeName} ({SelectedLanguage.Code})";
     public string TrackingStatusText => IsTracking ? "Dang bat" : "Dang tat";
     public string TrackingActionText => IsTracking ? "Tat tracking" : "Bat tracking";
     public string PlaybackStatusText => _audioQueueService.CurrentItem == null
@@ -276,7 +334,7 @@ public class MainViewModel : INotifyPropertyChanged
                     : "POI nay chua co script doc.";
     public string SelectedPoiMetaText => SelectedPoi == null
         ? "Chon 1 POI de xem thong tin kich hoat."
-        : $"{SelectedPoi.Category} | Trigger {SelectedPoi.TriggerMode} | Radius {SelectedPoi.Radius}m | Nearby {SelectedPoi.ApproachRadiusMeters}m";
+        : $"{ResolveCategoryDisplayName(SelectedPoi.Category)} | Trigger {SelectedPoi.TriggerMode} | Radius {SelectedPoi.Radius}m | Nearby {SelectedPoi.ApproachRadiusMeters}m";
     public string SelectedPoiCoordinateText => SelectedPoi == null
         ? "Chua co toa do POI."
         : $"{SelectedPoi.Latitude:F6}, {SelectedPoi.Longitude:F6}";
@@ -290,9 +348,44 @@ public class MainViewModel : INotifyPropertyChanged
         : string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl)
             ? $"Che do: {SelectedPoi.AudioMode}. Dang uu tien TTS."
             : $"Che do: {SelectedPoi.AudioMode}. Co audio fallback.";
+    public string SelectedPoiPositionText
+    {
+        get
+        {
+            var source = GetPoiNavigationSource();
+            if (SelectedPoi == null || source.Count == 0)
+            {
+                return "Chua co vi tri POI trong danh sach.";
+            }
+
+            var index = source.FindIndex(x => x.Id == SelectedPoi.Id);
+            return index < 0
+                ? "POI nay chua nam trong danh sach hien tai."
+                : $"POI {index + 1}/{source.Count} trong danh sach hien tai.";
+        }
+    }
+    public string NearestPoiSummaryText
+    {
+        get
+        {
+            var nearest = VisiblePois.FirstOrDefault(x => x.IsNearest)
+                ?? _allPois.Where(x => x.DistanceMeters > 0).OrderBy(x => x.DistanceMeters).FirstOrDefault()
+                ?? NearbyPois.FirstOrDefault();
+
+            return nearest == null
+                ? "Chua xac dinh duoc POI gan nhat."
+                : $"Gan nhat: {nearest.Title} ({nearest.DistanceMeters:F0}m)";
+        }
+    }
     public string VisiblePoisSummary => VisiblePois.Count == 0
         ? "Khong co POI nao khop bo loc hien tai."
         : $"Dang hien {VisiblePois.Count} diem thuyet minh.";
+    public string RecentQrSummary => RecentQrLookups.Count == 0
+        ? "Chua co QR nao duoc mo trong phien nay."
+        : $"Da mo {RecentQrLookups.Count} QR gan day.";
+    public string AudioDiagnosticsSummary => AudioDiagnostics.Count == 0
+        ? "Chua co log chan doan audio."
+        : string.Join(Environment.NewLine, AudioDiagnostics.Take(6));
     public IReadOnlyList<TourStopItem> SelectedTourStops => SelectedTour?.Stops == null
         ? Array.Empty<TourStopItem>()
         : SelectedTour.Stops
@@ -361,6 +454,8 @@ public class MainViewModel : INotifyPropertyChanged
                     ApiBaseUrl = candidateUrl;
                     ReplaceCollection(Languages, bootstrap.Languages);
                     ReplaceCollection(Categories, bootstrap.Categories);
+                    NormalizePoiCategories(bootstrap.Pois);
+                    NormalizeTourCategories(bootstrap.Tours);
                     ReplaceCollection(Tours, bootstrap.Tours);
                     ResetCategoryFilterOptions();
 
@@ -372,6 +467,7 @@ public class MainViewModel : INotifyPropertyChanged
                         ?? Languages.FirstOrDefault(x => x.Code == effectiveLanguage)
                         ?? Languages.FirstOrDefault(x => x.Code == requestedLanguage)
                         ?? Languages.FirstOrDefault();
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedLanguageDisplayText)));
                     SelectedTour = previousSelectedTourId.HasValue
                         ? Tours.FirstOrDefault(x => x.Id == previousSelectedTourId.Value) ?? Tours.FirstOrDefault()
                         : Tours.FirstOrDefault();
@@ -393,7 +489,10 @@ public class MainViewModel : INotifyPropertyChanged
                     }
                     RefreshMap();
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisiblePoisSummary)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
                     Status = $"Da tai {bootstrap.Pois.Count} POI, {bootstrap.Tours.Count} tour va {bootstrap.Languages.Count} ngon ngu. Visitor: {VisitorDisplayName}.";
+                    await RefreshPermissionStatusAsync();
+                    await TryRestoreTrackingAsync(cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -414,6 +513,32 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public async Task RefreshPermissionStatusAsync()
+    {
+        var snapshot = await _permissionService.GetStatusAsync();
+        ApplyPermissionSnapshot(snapshot);
+    }
+
+    public async Task RequestTrackingPermissionsAsync()
+    {
+        var snapshot = await _permissionService.RequestTrackingPermissionsAsync();
+        ApplyPermissionSnapshot(snapshot);
+        Status = "Da cap nhat quyen GPS/background/notification tren app.";
+    }
+
+    public async Task RequestCameraPermissionAsync()
+    {
+        var snapshot = await _permissionService.RequestCameraPermissionAsync();
+        ApplyPermissionSnapshot(snapshot);
+        Status = "Da cap nhat quyen camera tren app.";
+    }
+
+    public async Task OpenSystemSettingsAsync()
+    {
+        await _permissionService.OpenSystemSettingsAsync();
+        Status = "Da mo cai dat he thong de ban cap quyen thu cong neu can.";
+    }
+
     public async Task ChangeLanguageAsync()
     {
         if (SelectedLanguage != null)
@@ -428,20 +553,12 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (IsTracking)
         {
-            await _locationService.StopAsync();
-            IsTracking = false;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
-            Status = "Da dung tracking.";
+            await StopTrackingAsync("Da dung tracking.", clearPreference: true);
             return;
         }
 
         await BootstrapAsync();
-        await _locationService.StartAsync(TimeSpan.FromSeconds(6));
-        IsTracking = true;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
-        Status = AllowBackgroundTracking
-            ? "Dang tracking GPS. Da xin quyen location va san sang geofence/auto narration."
-            : "Dang tracking GPS o foreground. Admin hien dang tat background tracking cho visitor nay.";
+        await StartTrackingInternalAsync(isRestore: false);
     }
 
     public async Task LookupQrAsync(CancellationToken cancellationToken = default)
@@ -469,9 +586,11 @@ public class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
+            NormalizePoiCategory(result.Poi);
             SelectedPoi = result.Poi;
+            PushRecentQr(result);
             Status = $"QR {result.Code} da mo noi dung {result.Poi.Title}.";
-            await _audioQueueService.EnqueueAsync(result.Poi, cancellationToken);
+            await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(result.Poi, "qr", false), cancellationToken);
             RefreshMap();
         }
         catch (Exception ex)
@@ -488,7 +607,49 @@ public class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        await _audioQueueService.EnqueueAsync(SelectedPoi, cancellationToken);
+        PushAudioDiagnostic($"Yeu cau phat: {SelectedPoi.Title} | Lang {SelectedPoi.Language} | Mode {SelectedPoi.AudioMode} | AudioUrl {(string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl) ? "khong co" : SelectedPoi.AudioUrl)}");
+        await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(SelectedPoi, "manual", false), cancellationToken);
+    }
+
+    public async Task RunSelectedPoiAudioDiagnosticsAsync(CancellationToken cancellationToken = default)
+    {
+        if (SelectedPoi == null)
+        {
+            Status = "Chua co POI de chan doan audio.";
+            return;
+        }
+
+        try
+        {
+            _apiClient.BaseUrl = ApiBaseUrl;
+            PushAudioDiagnostic($"Chan doan POI: {SelectedPoi.Title}");
+            PushAudioDiagnostic($"Ngon ngu: {SelectedPoi.Language} | Voice: {(string.IsNullOrWhiteSpace(SelectedPoi.VoiceName) ? "mac dinh" : SelectedPoi.VoiceName)} | AudioMode: {SelectedPoi.AudioMode}");
+
+            if (!string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl))
+            {
+                var probe = await _apiClient.ProbeUrlAsync(SelectedPoi.AudioUrl, cancellationToken);
+                PushAudioDiagnostic($"Audio URL OK? HTTP {probe.StatusCode} | {probe.ContentType} | {FormatLength(probe.ContentLength)}");
+            }
+            else
+            {
+                PushAudioDiagnostic("Audio URL: khong co file audio, app se dung TTS.");
+            }
+
+            var hasNarrationText = !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript) ||
+                                   !string.IsNullOrWhiteSpace(SelectedPoi.Description) ||
+                                   !string.IsNullOrWhiteSpace(SelectedPoi.Summary);
+            PushAudioDiagnostic(hasNarrationText
+                ? "Noi dung TTS: co script/mo ta/tom tat de doc."
+                : "Noi dung TTS: khong co noi dung de doc.");
+
+            var ttsDiagnostic = await _narrationService.GetDiagnosticsAsync(SelectedPoi.Language, SelectedPoi.VoiceName, cancellationToken);
+            PushAudioDiagnostic(ttsDiagnostic);
+            Status = $"Da chay chan doan audio cho {SelectedPoi.Title}.";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Chan doan audio that bai: {BuildConnectionHelpMessage(ex)}";
+        }
     }
 
     public async Task StartSelectedTourAsync(CancellationToken cancellationToken = default)
@@ -521,7 +682,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             SelectedPoi = stop.Poi;
             Status = $"Da bat dau tour {ActiveTour.Name}.";
-            await _audioQueueService.EnqueueAsync(stop.Poi, cancellationToken);
+            await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(stop.Poi, "tour", false), cancellationToken);
             RefreshMap();
         }
     }
@@ -557,7 +718,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             SelectedPoi = nextStop.Poi;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveTourStatus)));
-            await _audioQueueService.EnqueueAsync(nextStop.Poi, cancellationToken);
+            await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(nextStop.Poi, "tour", false), cancellationToken);
             RefreshMap();
         }
     }
@@ -566,19 +727,64 @@ public class MainViewModel : INotifyPropertyChanged
     {
         _appIsForeground = isForeground;
         _locationService.SetForegroundState(isForeground);
-        if (!isForeground)
+        if (isForeground)
         {
-            _ = _audioQueueService.StopAsync();
-            if (!AllowBackgroundTracking && IsTracking)
+            if (Preferences.Default.Get(PreferenceTrackingEnabled, false) && !IsTracking)
             {
-                _ = MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    await _locationService.StopAsync();
-                    IsTracking = false;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
-                    Status = "Admin da tat background tracking cho visitor nay, nen app dung tracking khi chuyen sang nen.";
-                });
+                _ = MainThread.InvokeOnMainThreadAsync(async () => await TryRestoreTrackingAsync());
             }
+
+            return;
+        }
+
+        if (!AllowBackgroundTracking && IsTracking)
+        {
+            _ = MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                await StopTrackingAsync("Admin da tat background tracking cho visitor nay, nen app dung tracking khi chuyen sang nen.", clearPreference: true);
+            });
+        }
+    }
+
+    public async Task TryRestoreTrackingAsync(CancellationToken cancellationToken = default)
+    {
+        if (_isRestoringTracking)
+        {
+            return;
+        }
+
+        if (_locationService.IsRunning)
+        {
+            IsTracking = true;
+            return;
+        }
+
+        if (IsTracking)
+        {
+            IsTracking = false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
+        }
+
+        if (!Preferences.Default.Get(PreferenceTrackingEnabled, false))
+        {
+            return;
+        }
+
+        try
+        {
+            _isRestoringTracking = true;
+            await RefreshPermissionStatusAsync();
+            await StartTrackingInternalAsync(isRestore: true, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            IsTracking = false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
+            Status = $"Khong the khoi phuc tracking tu dong: {BuildConnectionHelpMessage(ex)}";
+        }
+        finally
+        {
+            _isRestoringTracking = false;
         }
     }
 
@@ -599,6 +805,50 @@ public class MainViewModel : INotifyPropertyChanged
         await _audioQueueService.StopAsync();
     }
 
+    public async Task PasteQrFromClipboardAsync()
+    {
+        try
+        {
+            var text = await Clipboard.Default.GetTextAsync();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Status = "Clipboard hien khong co ma QR de dan.";
+                return;
+            }
+
+            QrCodeInput = text.Trim();
+            Status = $"Da dan QR: {QrCodeInput}.";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Khong doc duoc clipboard: {ex.Message}";
+        }
+    }
+
+    public void OpenRecentQr(QrLookupHistoryItem? item)
+    {
+        if (item == null)
+        {
+            Status = "Chua co QR lich su de mo lai.";
+            return;
+        }
+
+        QrCodeInput = item.Code;
+        var poi = _allPois.FirstOrDefault(x => x.Title.Equals(item.PoiTitle, StringComparison.OrdinalIgnoreCase))
+            ?? VisiblePois.FirstOrDefault(x => x.Title.Equals(item.PoiTitle, StringComparison.OrdinalIgnoreCase))
+            ?? NearbyPois.FirstOrDefault(x => x.Title.Equals(item.PoiTitle, StringComparison.OrdinalIgnoreCase));
+
+        if (poi != null)
+        {
+            SelectedPoi = poi;
+            Status = $"Da mo lai QR {item.Code} cho {poi.Title}.";
+        }
+        else
+        {
+            Status = $"Da chon lai QR {item.Code}. Bam Mo QR de tai noi dung moi nhat.";
+        }
+    }
+
     public void ResetApiBaseUrl()
     {
         ApiBaseUrl = DefaultApiUrl;
@@ -608,13 +858,25 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task OpenSelectedMapAsync()
     {
-        if (SelectedPoi == null || string.IsNullOrWhiteSpace(SelectedPoi.MapUrl))
+        if (SelectedPoi == null)
+        {
+            Status = "Chua co POI de mo ban do.";
+            return;
+        }
+
+        var mapUrl = SelectedPoi.MapUrl;
+        if (string.IsNullOrWhiteSpace(mapUrl) && SelectedPoi.Latitude != 0 && SelectedPoi.Longitude != 0)
+        {
+            mapUrl = $"https://www.google.com/maps/search/?api=1&query={SelectedPoi.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)},{SelectedPoi.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+
+        if (string.IsNullOrWhiteSpace(mapUrl))
         {
             Status = "POI nay chua co link ban do.";
             return;
         }
 
-        await Launcher.Default.OpenAsync(SelectedPoi.MapUrl);
+        await Launcher.Default.OpenAsync(mapUrl);
     }
 
     public async Task OpenSelectedPoiDetailsAsync()
@@ -634,6 +896,23 @@ public class MainViewModel : INotifyPropertyChanged
         });
     }
 
+    public async Task OpenSelectedNarrationAsync()
+    {
+        if (SelectedPoi == null)
+        {
+            Status = "Chua co POI de xem ban thuyet minh.";
+            return;
+        }
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (Shell.Current?.CurrentPage != null)
+            {
+                await Shell.Current.Navigation.PushAsync(new NarrationPage(this));
+            }
+        });
+    }
+
     public void SelectPoiById(int poiId)
     {
         var poi = VisiblePois.FirstOrDefault(x => x.Id == poiId)
@@ -648,6 +927,72 @@ public class MainViewModel : INotifyPropertyChanged
 
         SelectedPoi = poi;
         Status = $"Da chon {poi.Title} tu ban do.";
+    }
+
+    public void SelectNearestPoi()
+    {
+        var nearest = VisiblePois.FirstOrDefault(x => x.IsNearest)
+            ?? _allPois.Where(x => x.DistanceMeters > 0).OrderBy(x => x.DistanceMeters).FirstOrDefault()
+            ?? NearbyPois.FirstOrDefault();
+
+        if (nearest == null)
+        {
+            Status = "Chua co POI gan nhat de chon.";
+            return;
+        }
+
+        SelectedPoi = nearest;
+        Status = $"Da chon POI gan nhat: {nearest.Title}.";
+    }
+
+    public void ResetPoiFilters()
+    {
+        PoiSearchText = string.Empty;
+        SelectedCategoryFilter = "Tat ca";
+        ApplyPoiFilters();
+        SelectNearestPoi();
+    }
+
+    public void SelectNextPoi()
+    {
+        var source = GetPoiNavigationSource();
+        if (source.Count == 0)
+        {
+            Status = "Khong co POI nao de chuyen tiep.";
+            return;
+        }
+
+        if (SelectedPoi == null)
+        {
+            SelectedPoi = source.FirstOrDefault();
+            return;
+        }
+
+        var currentIndex = source.FindIndex(x => x.Id == SelectedPoi.Id);
+        var nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % source.Count;
+        SelectedPoi = source[nextIndex];
+        Status = $"Da chuyen sang POI tiep theo: {SelectedPoi?.Title}.";
+    }
+
+    public void SelectPreviousPoi()
+    {
+        var source = GetPoiNavigationSource();
+        if (source.Count == 0)
+        {
+            Status = "Khong co POI nao de quay lai.";
+            return;
+        }
+
+        if (SelectedPoi == null)
+        {
+            SelectedPoi = source.FirstOrDefault();
+            return;
+        }
+
+        var currentIndex = source.FindIndex(x => x.Id == SelectedPoi.Id);
+        var previousIndex = currentIndex <= 0 ? source.Count - 1 : currentIndex - 1;
+        SelectedPoi = source[previousIndex];
+        Status = $"Da quay ve POI truoc: {SelectedPoi?.Title}.";
     }
 
     private async void OnLocationChanged(object? sender, Location location)
@@ -674,6 +1019,7 @@ public class MainViewModel : INotifyPropertyChanged
             await _apiClient.TrackAsync(request);
 
             var nearby = await _apiClient.GetNearbyAsync(request);
+            NormalizePoiCategories(nearby);
             ReplaceCollection(NearbyPois, nearby);
             ApplyNearbyRuntimeState(nearby);
             SelectedPoi ??= NearbyPois.FirstOrDefault();
@@ -683,12 +1029,21 @@ public class MainViewModel : INotifyPropertyChanged
             }
 
             var geofence = await _apiClient.CheckGeofenceAsync(request);
+            NormalizePoiCategories(geofence.NearbyPois);
+            if (geofence.TriggeredPoi != null)
+            {
+                NormalizePoiCategory(geofence.TriggeredPoi);
+            }
             if (geofence.ShouldPlay && geofence.TriggeredPoi != null)
             {
                 if (CanAutoPlay(geofence.TriggeredPoi) && ShouldAutoPlayForTriggerMode(geofence.TriggeredPoi))
                 {
                     SelectedPoi = geofence.TriggeredPoi;
-                    await _audioQueueService.EnqueueAsync(geofence.TriggeredPoi);
+                    await _audioQueueService.EnqueueAsync(
+                        CreatePlaybackRequest(
+                            geofence.TriggeredPoi,
+                            string.IsNullOrWhiteSpace(geofence.Reason) ? "geofence" : geofence.Reason,
+                            true));
                     _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
 
                     if (ActiveTour != null)
@@ -739,50 +1094,441 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var centerLat = _latestLocation?.Latitude ?? (_allPois.FirstOrDefault()?.Latitude ?? 10.7618);
         var centerLng = _latestLocation?.Longitude ?? (_allPois.FirstOrDefault()?.Longitude ?? 106.6613);
-        var nearestId = SelectedPoi?.Id ?? NearbyPois.FirstOrDefault(x => x.IsNearest)?.Id;
-        var poisToRender = VisiblePois.Count > 0 ? VisiblePois.ToList() : _allPois.ToList();
+        var nearestId = _allPois.Where(x => x.DistanceMeters > 0).OrderBy(x => x.DistanceMeters).FirstOrDefault()?.Id
+            ?? NearbyPois.FirstOrDefault(x => x.IsNearest)?.Id;
+        var selectedId = SelectedPoi?.Id;
+        var visiblePoiIds = VisiblePois.Select(x => x.Id).ToHashSet();
+        var poisToRender = _allPois.Count > 0 ? _allPois.ToList() : VisiblePois.ToList();
+        var selectedTitle = SelectedPoi?.Title ?? "Chua chon POI";
+        var nearestTitle = _allPois.Where(x => x.Id == nearestId).Select(x => x.Title).FirstOrDefault()
+            ?? NearbyPois.FirstOrDefault(x => x.Id == nearestId)?.Title
+            ?? "Chua xac dinh";
+        var activeTourStops = (ActiveTour?.Stops ?? new List<TourStopItem>())
+            .Where(x => x.Poi != null)
+            .OrderBy(x => x.SortOrder)
+            .Select((stop, index) => new
+            {
+                stop.PoiId,
+                stop.SortOrder,
+                Title = stop.Poi!.Title,
+                Latitude = stop.Poi.Latitude,
+                Longitude = stop.Poi.Longitude,
+                IsCurrent = index == _activeTourStopIndex
+            })
+            .ToList();
 
-        var html = new StringBuilder();
-        html.Append("""
+        var poisJson = JsonSerializer.Serialize(poisToRender.Select(poi => new
+        {
+            poi.Id,
+            poi.Title,
+            poi.Summary,
+            poi.Category,
+            poi.TriggerMode,
+            poi.Radius,
+            poi.ApproachRadiusMeters,
+            poi.DistanceMeters,
+            poi.Latitude,
+            poi.Longitude,
+            IsSelected = selectedId.HasValue && poi.Id == selectedId.Value,
+            IsNearest = nearestId.HasValue && poi.Id == nearestId.Value,
+            IsVisible = visiblePoiIds.Count == 0 || visiblePoiIds.Contains(poi.Id)
+        }));
+        var activeTourJson = JsonSerializer.Serialize(new
+        {
+            Name = ActiveTour?.Name ?? string.Empty,
+            Status = ActiveTourStatus,
+            Stops = activeTourStops
+        });
+        var userLocationJson = _latestLocation == null
+            ? "null"
+            : JsonSerializer.Serialize(new
+            {
+                Latitude = _latestLocation.Latitude,
+                Longitude = _latestLocation.Longitude,
+                Accuracy = Math.Max(_latestLocation.Accuracy ?? 0, 8d)
+            });
+
+        MapHtml = $$"""
             <html>
             <head>
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-              <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+              <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+              <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
               <style>
-                html,body,#map{height:100%;margin:0;}
-                .leaflet-popup-content{font-family:sans-serif;}
+                html, body { height: 100%; margin: 0; }
+                body {
+                  position: relative;
+                  background:
+                    radial-gradient(circle at top left, rgba(228, 180, 60, 0.16), transparent 34%),
+                    linear-gradient(180deg, #eef4fa 0%, #e6edf5 100%);
+                  font-family: "Segoe UI", sans-serif;
+                }
+                #map { height: 100%; width: 100%; }
+                .leaflet-control-attribution { font-size: 10px; }
+                .map-panel,
+                .map-legend,
+                .map-tour-panel {
+                  position: absolute;
+                  z-index: 999;
+                  border-radius: 18px;
+                  box-shadow: 0 14px 34px rgba(15, 31, 49, 0.16);
+                  backdrop-filter: blur(10px);
+                }
+                .map-panel {
+                  top: 12px;
+                  left: 12px;
+                  padding: 14px 16px;
+                  max-width: 260px;
+                  background: rgba(12, 28, 42, 0.88);
+                  color: #fff;
+                }
+                .map-panel strong,
+                .map-tour-panel strong {
+                  display: block;
+                  font-size: 14px;
+                  margin-bottom: 6px;
+                }
+                .map-panel span,
+                .map-tour-panel span {
+                  display: block;
+                  font-size: 12px;
+                  line-height: 1.45;
+                  opacity: 0.92;
+                }
+                .map-tour-panel {
+                  top: 12px;
+                  right: 12px;
+                  padding: 12px 14px;
+                  max-width: 220px;
+                  background: rgba(255, 255, 255, 0.92);
+                  color: #17324d;
+                }
+                .map-legend {
+                  left: 12px;
+                  right: 12px;
+                  bottom: 12px;
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 8px;
+                  padding: 10px 12px;
+                  background: rgba(255, 255, 255, 0.92);
+                  color: #17324d;
+                  align-items: center;
+                }
+                .map-legend-item {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 11px;
+                  padding: 4px 8px;
+                  border-radius: 999px;
+                  background: #f5f8fb;
+                }
+                .map-dot {
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 50%;
+                  display: inline-block;
+                }
+                .map-user-icon {
+                  width: 18px;
+                  height: 18px;
+                  border-radius: 50%;
+                  border: 3px solid #ffffff;
+                  background: #2563eb;
+                  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.18);
+                }
+                .tour-stop-icon {
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  background: #0f766e;
+                  color: white;
+                  font-size: 12px;
+                  font-weight: 700;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid rgba(255,255,255,0.92);
+                  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.24);
+                }
+                .tour-stop-icon.is-current {
+                  background: #e4b43c;
+                  color: #17324d;
+                }
+                .poi-popup {
+                  min-width: 190px;
+                  color: #17324d;
+                }
+                .poi-popup h4 {
+                  margin: 0 0 6px;
+                  font-size: 15px;
+                }
+                .poi-popup p {
+                  margin: 0 0 8px;
+                  font-size: 12px;
+                  line-height: 1.45;
+                  color: #506579;
+                }
+                .poi-popup .meta {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 6px;
+                }
+                .poi-popup .tag {
+                  font-size: 11px;
+                  padding: 3px 8px;
+                  border-radius: 999px;
+                  background: #eef4fa;
+                  color: #17324d;
+                }
               </style>
             </head>
-            <body><div id="map"></div><script>
-        """);
+            <body>
+              <div id="map"></div>
+              <div class="map-panel">
+                <strong id="selected-label"></strong>
+                <span id="nearest-label"></span>
+                <span id="count-label"></span>
+                <span id="status-label"></span>
+              </div>
+              <div class="map-tour-panel" id="tour-panel" style="display:none;">
+                <strong id="tour-name"></strong>
+                <span id="tour-status"></span>
+                <span id="tour-count"></span>
+              </div>
+              <div class="map-legend">
+                <div class="map-legend-item"><span class="map-dot" style="background:#2563eb;"></span> Vi tri cua ban</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#17324d;"></span> Tat ca POI</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#dc2626;"></span> POI gan nhat</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#f59e0b;"></span> POI dang chon</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#0f766e;"></span> Tuyen tour</div>
+              </div>
+              <script>
+                const center = [{{FormatInvariant(centerLat)}}, {{FormatInvariant(centerLng)}}];
+                const selectedTitle = {{SerializeForJavaScript(selectedTitle)}};
+                const nearestTitle = {{SerializeForJavaScript(nearestTitle)}};
+                const visibleSummary = {{SerializeForJavaScript($"Dang hien {VisiblePois.Count}/{poisToRender.Count} POI tren ban do.")}};
+                const trackingSummary = {{SerializeForJavaScript(_latestLocation == null ? "Chua co vi tri GPS hien tai." : $"Vi tri cap nhat moi nhat: {_latestLocation.Latitude:F6}, {_latestLocation.Longitude:F6}")}};
+                const pois = {{poisJson}};
+                const userLocation = {{userLocationJson}};
+                const activeTour = {{activeTourJson}};
 
-        html.Append($"const map = L.map('map').setView([{centerLat.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {centerLng.ToString(System.Globalization.CultureInfo.InvariantCulture)}], 16);");
-        html.Append("L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);");
+                const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView(center, 16);
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                  maxZoom: 20
+                }).addTo(map);
 
-        if (_latestLocation != null)
-        {
-            html.Append($"L.circleMarker([{_latestLocation.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {_latestLocation.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}],{{radius:8,color:'#0d6efd',fillColor:'#0d6efd',fillOpacity:0.8}}).addTo(map).bindPopup('Vi tri cua ban');");
-        }
+                const bounds = [];
+                let selectedMarker = null;
 
-        foreach (var poi in poisToRender)
-        {
-            var color = poi.Id == nearestId ? "#d9480f" : "#17324d";
-            var radius = poi.Id == nearestId ? 10 : 7;
-            html.Append(
-                "(function() {" +
-                $"const marker = L.circleMarker([{poi.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {poi.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}],{{radius:{radius},color:'{color}',fillColor:'{color}',fillOpacity:0.85}})" +
-                ".addTo(map)" +
-                $".bindPopup('<b>{Escape(poi.Title)}</b><br/>{Escape(poi.Summary)}');" +
-                $"marker.on('click', function() {{ window.location.href = 'audiotour://poi/{poi.Id}'; }});" +
-                "})();");
-        }
+                const escapeHtml = (value) => (value ?? '')
+                  .toString()
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#39;');
 
-        html.Append("</script></body></html>");
-        MapHtml = html.ToString();
+                document.getElementById('selected-label').textContent = `POI dang chon: ${selectedTitle}`;
+                document.getElementById('nearest-label').textContent = `POI gan nhat: ${nearestTitle}`;
+                document.getElementById('count-label').textContent = visibleSummary;
+                document.getElementById('status-label').textContent = trackingSummary;
+
+                if (activeTour && activeTour.Stops && activeTour.Stops.length > 0) {
+                  document.getElementById('tour-panel').style.display = 'block';
+                  document.getElementById('tour-name').textContent = activeTour.Name || 'Tour dang hoat dong';
+                  document.getElementById('tour-status').textContent = activeTour.Status || '';
+                  document.getElementById('tour-count').textContent = `${activeTour.Stops.length} diem dung tren ban do`;
+                }
+
+                if (userLocation) {
+                  const userLatLng = [userLocation.Latitude, userLocation.Longitude];
+                  L.circle(userLatLng, {
+                    radius: Math.max(userLocation.Accuracy || 8, 8),
+                    color: '#60a5fa',
+                    weight: 1,
+                    fillColor: '#93c5fd',
+                    fillOpacity: 0.18
+                  }).addTo(map);
+
+                  const userIcon = L.divIcon({
+                    className: '',
+                    html: '<div class="map-user-icon"></div>',
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                  });
+
+                  L.marker(userLatLng, { icon: userIcon })
+                    .addTo(map)
+                    .bindPopup('<div class="poi-popup"><h4>Vi tri cua ban</h4><p>App dang theo doi GPS de kich hoat POI va geofence.</p></div>');
+
+                  bounds.push(userLatLng);
+                }
+
+                pois.forEach((poi) => {
+                  const latLng = [poi.Latitude, poi.Longitude];
+                  const markerColor = poi.IsSelected ? '#f59e0b' : (poi.IsNearest ? '#dc2626' : '#17324d');
+                  const markerRadius = poi.IsSelected ? 12 : (poi.IsNearest ? 10 : 8);
+                  const fillOpacity = poi.IsVisible ? 0.9 : 0.4;
+                  const marker = L.circleMarker(latLng, {
+                    radius: markerRadius,
+                    color: markerColor,
+                    fillColor: markerColor,
+                    fillOpacity: fillOpacity,
+                    weight: poi.IsSelected ? 3 : (poi.IsNearest ? 2.4 : 1.6)
+                  }).addTo(map);
+
+                  if (poi.IsSelected) {
+                    L.circle(latLng, {
+                      radius: Math.max(poi.Radius || 0, 28),
+                      color: '#f59e0b',
+                      weight: 2,
+                      fillColor: '#fbbf24',
+                      fillOpacity: 0.08
+                    }).addTo(map);
+                  }
+
+                  if (poi.IsNearest) {
+                    L.circle(latLng, {
+                      radius: Math.max(poi.ApproachRadiusMeters || 0, poi.Radius || 0, 48),
+                      color: '#dc2626',
+                      weight: 1.8,
+                      dashArray: '6 6',
+                      fillColor: '#fca5a5',
+                      fillOpacity: 0.04
+                    }).addTo(map);
+                  }
+
+                  const distanceText = poi.DistanceMeters > 0
+                    ? `${Math.round(poi.DistanceMeters)}m`
+                    : 'Dang tinh';
+
+                  marker.bindPopup(
+                    `<div class="poi-popup">
+                      <h4>${escapeHtml(poi.Title)}</h4>
+                      <p>${escapeHtml(poi.Summary || 'Khong co mo ta ngan.')}</p>
+                      <div class="meta">
+                        <span class="tag">${escapeHtml(poi.Category || 'POI')}</span>
+                        <span class="tag">Trigger ${escapeHtml(poi.TriggerMode || 'both')}</span>
+                        <span class="tag">Khoang cach ${distanceText}</span>
+                      </div>
+                    </div>`
+                  );
+
+                  marker.on('click', () => {
+                    window.location.href = `audiotour://poi/${poi.Id}`;
+                  });
+
+                  if (poi.IsSelected) {
+                    selectedMarker = marker;
+                  }
+
+                  bounds.push(latLng);
+                });
+
+                if (activeTour && activeTour.Stops && activeTour.Stops.length > 0) {
+                  const routePoints = activeTour.Stops.map((stop) => [stop.Latitude, stop.Longitude]);
+                  if (routePoints.length > 1) {
+                    L.polyline(routePoints, {
+                      color: '#0f766e',
+                      weight: 4,
+                      opacity: 0.88,
+                      dashArray: '10 8'
+                    }).addTo(map);
+                  }
+
+                  activeTour.Stops.forEach((stop, index) => {
+                    const icon = L.divIcon({
+                      className: '',
+                      html: `<div class="tour-stop-icon${stop.IsCurrent ? ' is-current' : ''}">${index + 1}</div>`,
+                      iconSize: [28, 28],
+                      iconAnchor: [14, 14]
+                    });
+
+                    L.marker([stop.Latitude, stop.Longitude], { icon })
+                      .addTo(map)
+                      .bindPopup(`<div class="poi-popup"><h4>Stop ${index + 1}: ${escapeHtml(stop.Title)}</h4><p>${stop.IsCurrent ? 'Diem dang phat trong tour.' : 'Diem dung nam trong tuyen tour hien tai.'}</p></div>`)
+                      .on('click', () => {
+                        window.location.href = `audiotour://poi/${stop.PoiId}`;
+                      });
+
+                    bounds.push([stop.Latitude, stop.Longitude]);
+                  });
+                }
+
+                if (bounds.length > 1) {
+                  map.fitBounds(bounds, { padding: [36, 36], maxZoom: 17 });
+                } else {
+                  map.setView(center, 16);
+                }
+
+                if (selectedMarker) {
+                  window.setTimeout(() => selectedMarker.openPopup(), 180);
+                }
+
+                window.setTimeout(() => map.invalidateSize(), 220);
+              </script>
+            </body>
+            </html>
+            """;
     }
 
-    private static string Escape(string value) => (value ?? string.Empty).Replace("'", "\\'").Replace("\r", " ").Replace("\n", " ");
+    private static string SerializeForJavaScript<T>(T value) => JsonSerializer.Serialize(value);
+
+    private static string FormatInvariant(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private void NormalizePoiCategories(IEnumerable<PoiItem> pois)
+    {
+        foreach (var poi in pois)
+        {
+            NormalizePoiCategory(poi);
+        }
+    }
+
+    private void NormalizeTourCategories(IEnumerable<TourItem> tours)
+    {
+        foreach (var stop in tours.SelectMany(x => x.Stops ?? new List<TourStopItem>()))
+        {
+            if (stop.Poi != null)
+            {
+                NormalizePoiCategory(stop.Poi);
+            }
+        }
+    }
+
+    private void NormalizePoiCategory(PoiItem poi)
+    {
+        poi.Category = ResolveCategoryDisplayName(poi.Category);
+    }
+
+    private string ResolveCategoryDisplayName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var match = Categories.FirstOrDefault(x =>
+            x.Slug.Equals(value, StringComparison.OrdinalIgnoreCase) ||
+            x.Name.Equals(value, StringComparison.OrdinalIgnoreCase));
+
+        return match?.Name ?? value;
+    }
+
+    private AudioPlaybackRequest CreatePlaybackRequest(PoiItem poi, string triggerType, bool wasAutoPlayed)
+    {
+        return new AudioPlaybackRequest
+        {
+            Poi = poi,
+            UserId = _userId,
+            Language = SelectedLanguage?.Code ?? poi.Language ?? "vi-VN",
+            TriggerType = triggerType,
+            WasAutoPlayed = wasAutoPlayed
+        };
+    }
 
     private void ResetCategoryFilterOptions()
     {
@@ -807,7 +1553,7 @@ public class MainViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(SelectedCategoryFilter) &&
             !SelectedCategoryFilter.Equals("Tat ca", StringComparison.OrdinalIgnoreCase))
         {
-            filtered = filtered.Where(x => x.Category.Equals(SelectedCategoryFilter, StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(x => ResolveCategoryDisplayName(x.Category).Equals(SelectedCategoryFilter, StringComparison.OrdinalIgnoreCase));
         }
 
         if (!string.IsNullOrWhiteSpace(PoiSearchText))
@@ -816,7 +1562,7 @@ public class MainViewModel : INotifyPropertyChanged
             filtered = filtered.Where(x =>
                 x.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                 x.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                x.Category.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                ResolveCategoryDisplayName(x.Category).Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                 x.Address.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                 x.Summary.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
@@ -835,7 +1581,24 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisiblePoisSummary)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPoiPositionText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
         RefreshMap();
+    }
+
+    private List<PoiItem> GetPoiNavigationSource()
+    {
+        if (VisiblePois.Count > 0)
+        {
+            return VisiblePois.ToList();
+        }
+
+        if (_allPois.Count > 0)
+        {
+            return _allPois.ToList();
+        }
+
+        return NearbyPois.ToList();
     }
 
     private bool CanAutoPlay(PoiItem poi)
@@ -991,6 +1754,41 @@ public class MainViewModel : INotifyPropertyChanged
         return created;
     }
 
+    private async Task StartTrackingInternalAsync(bool isRestore, CancellationToken cancellationToken = default)
+    {
+        if (_locationService.IsRunning)
+        {
+            IsTracking = true;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
+            return;
+        }
+
+        await _locationService.StartAsync(TrackingInterval);
+        Preferences.Default.Set(PreferenceTrackingEnabled, true);
+        IsTracking = true;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
+        Status = isRestore
+            ? AllowBackgroundTracking
+                ? "Da khoi phuc tracking GPS tu dong. Geofence va auto narration tiep tuc san sang."
+                : "Da khoi phuc tracking GPS o foreground theo trang thai truoc do."
+            : AllowBackgroundTracking
+                ? "Dang tracking GPS. Da xin quyen location va san sang geofence/auto narration."
+                : "Dang tracking GPS o foreground. Admin hien dang tat background tracking cho visitor nay.";
+    }
+
+    private async Task StopTrackingAsync(string statusMessage, bool clearPreference)
+    {
+        await _locationService.StopAsync();
+        if (clearPreference)
+        {
+            Preferences.Default.Set(PreferenceTrackingEnabled, false);
+        }
+
+        IsTracking = false;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
+        Status = statusMessage;
+    }
+
     private void TryAdvanceActiveTour(int poiId)
     {
         if (ActiveTour == null)
@@ -1090,6 +1888,69 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private void PushRecentQr(QrLookupResponse result)
+    {
+        if (result.Poi == null)
+        {
+            return;
+        }
+
+        var existing = RecentQrLookups.FirstOrDefault(x => x.Code.Equals(result.Code, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            RecentQrLookups.Remove(existing);
+        }
+
+        RecentQrLookups.Insert(0, new QrLookupHistoryItem
+        {
+            Code = result.Code,
+            PoiTitle = result.Poi.Title,
+            PoiSummary = result.Poi.Summary,
+            Language = result.Poi.Language,
+            ImageUrl = result.Poi.ImageUrl,
+            OpenedAt = DateTime.Now
+        });
+
+        while (RecentQrLookups.Count > 8)
+        {
+            RecentQrLookups.RemoveAt(RecentQrLookups.Count - 1);
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecentQrSummary)));
+    }
+
+    private void PushAudioDiagnostic(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var entry = $"[{DateTime.Now:HH:mm:ss}] {message.Trim()}";
+        if (AudioDiagnostics.Count > 0 && string.Equals(AudioDiagnostics[0], entry, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        AudioDiagnostics.Insert(0, entry);
+        while (AudioDiagnostics.Count > 8)
+        {
+            AudioDiagnostics.RemoveAt(AudioDiagnostics.Count - 1);
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AudioDiagnosticsSummary)));
+    }
+
+    private static string FormatLength(long? value)
+    {
+        if (!value.HasValue || value.Value <= 0)
+        {
+            return "khong ro kich thuoc";
+        }
+
+        return $"{value.Value / 1024d:F1} KB";
+    }
+
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (Equals(field, value))
@@ -1101,6 +1962,31 @@ public class MainViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         return true;
     }
+
+    private void ApplyPermissionSnapshot(AppPermissionSnapshot snapshot)
+    {
+        LocationPermissionText = $"GPS khi dang dung app: {FormatPermission(snapshot.LocationWhenInUse)}";
+        BackgroundPermissionText = snapshot.LocationAlways.HasValue
+            ? $"GPS nen: {FormatPermission(snapshot.LocationAlways.Value)}"
+            : "GPS nen: thiet bi khong ho tro doc trang thai.";
+        CameraPermissionText = snapshot.Camera.HasValue
+            ? $"Camera/QR: {FormatPermission(snapshot.Camera.Value)}"
+            : "Camera/QR: chua ho tro tren nen nay.";
+        CanUseCamera = snapshot.Camera == PermissionStatus.Granted;
+        NotificationPermissionText = snapshot.Notifications.HasValue
+            ? $"Thong bao tracking: {FormatPermission(snapshot.Notifications.Value)}"
+            : "Thong bao tracking: khong can hoac khong ho tro.";
+    }
+
+    private static string FormatPermission(PermissionStatus status) => status switch
+    {
+        PermissionStatus.Granted => "Da cap",
+        PermissionStatus.Denied => "Bi tu choi",
+        PermissionStatus.Restricted => "Bi gioi han",
+        PermissionStatus.Disabled => "Bi tat",
+        PermissionStatus.Unknown => "Chua xac dinh",
+        _ => status.ToString()
+    };
 
     private readonly record struct PoiGeofenceState(bool InsideTrigger, bool InsideNearby);
 }

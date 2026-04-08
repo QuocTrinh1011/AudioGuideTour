@@ -1,4 +1,5 @@
 using AudioGuideAPI.Data;
+using AudioGuideAPI.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,10 +36,7 @@ public class QRCodeController : ControllerBase
             return NotFound();
         }
 
-        var translation = poi.Translations
-            .FirstOrDefault(x => x.IsPublished && x.Language.Equals(language, StringComparison.OrdinalIgnoreCase))
-            ?? poi.Translations.FirstOrDefault(x => x.IsPublished && x.Language.StartsWith(language.Split('-')[0], StringComparison.OrdinalIgnoreCase))
-            ?? poi.Translations.FirstOrDefault(x => x.IsPublished);
+        var translation = PoiTranslationSelector.Select(poi.Translations, language);
 
         return Ok(new
         {

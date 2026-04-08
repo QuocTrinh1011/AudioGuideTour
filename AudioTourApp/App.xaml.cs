@@ -75,11 +75,7 @@ internal sealed class MainWindowLifecycle
         var window = new Window(rootPage);
         window.Activated += (_, _) => _mainViewModel.OnAppForegroundChanged(true);
         window.Resumed += (_, _) => _mainViewModel.OnAppForegroundChanged(true);
-        window.Stopped += (_, _) =>
-        {
-            _mainViewModel.OnAppForegroundChanged(false);
-            _ = _audioQueueService.StopAsync();
-        };
+        window.Stopped += (_, _) => _mainViewModel.OnAppForegroundChanged(false);
         window.Destroying += (_, _) =>
         {
             _locationTrackingService.SetForegroundState(false);

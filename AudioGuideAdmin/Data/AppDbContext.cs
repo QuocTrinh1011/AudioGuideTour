@@ -34,7 +34,7 @@ public class AppDbContext : DbContext
             .IsUnique();
 
         modelBuilder.Entity<VisitorProfile>()
-            .ToTable("Users");
+            .ToTable("Visitors");
 
         modelBuilder.Entity<Category>()
             .HasIndex(x => x.Slug)

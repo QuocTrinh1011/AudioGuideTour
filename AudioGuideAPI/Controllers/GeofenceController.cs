@@ -164,10 +164,7 @@ public class GeofenceController : ControllerBase
 
     private static GeofencePoiResponse MapPoi(Poi poi, string language, double distance)
     {
-        var translation = poi.Translations
-            .FirstOrDefault(x => x.Language.Equals(language, StringComparison.OrdinalIgnoreCase))
-            ?? poi.Translations.FirstOrDefault(x => x.Language.StartsWith(language.Split('-')[0], StringComparison.OrdinalIgnoreCase))
-            ?? poi.Translations.FirstOrDefault();
+        var translation = PoiTranslationSelector.Select(poi.Translations, language);
 
         return new GeofencePoiResponse
         {

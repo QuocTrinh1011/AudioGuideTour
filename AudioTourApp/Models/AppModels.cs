@@ -100,6 +100,40 @@ public class QrLookupResponse
     public PoiItem? Poi { get; set; }
 }
 
+public class QrLookupHistoryItem
+{
+    public string Code { get; set; } = "";
+    public string PoiTitle { get; set; } = "";
+    public string PoiSummary { get; set; } = "";
+    public string Language { get; set; } = "vi-VN";
+    public string ImageUrl { get; set; } = "";
+    public DateTime OpenedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class AudioPlaybackRequest
+{
+    public PoiItem Poi { get; set; } = new();
+    public string UserId { get; set; } = "";
+    public string Language { get; set; } = "vi-VN";
+    public string TriggerType { get; set; } = "manual";
+    public bool WasAutoPlayed { get; set; }
+}
+
+public class VisitHistoryRequest
+{
+    public string UserId { get; set; } = "";
+    public int PoiId { get; set; }
+    public string Language { get; set; } = "vi-VN";
+    public DateTime StartTime { get; set; } = DateTime.UtcNow;
+    public DateTime EndTime { get; set; } = DateTime.UtcNow;
+    public int Duration { get; set; }
+    public string TriggerType { get; set; } = "manual";
+    public string PlaybackMode { get; set; } = "tts";
+    public bool WasAutoPlayed { get; set; }
+    public bool WasCompleted { get; set; } = true;
+    public double ActivationDistanceMeters { get; set; }
+}
+
 public class LocationUpdateRequest
 {
     public string UserId { get; set; } = "";

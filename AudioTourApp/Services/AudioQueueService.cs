@@ -5,33 +5,43 @@ namespace AudioTourApp.Services;
 
 public class AudioQueueService
 {
+    private readonly ApiClient _apiClient;
     private readonly AudioFallbackPlayer _audioFallbackPlayer;
     private readonly AudioInterruptionService _audioInterruptionService;
     private readonly NarrationService _narrationService;
-    private readonly ConcurrentQueue<PoiItem> _queue = new();
+    private readonly ConcurrentQueue<AudioPlaybackRequest> _queue = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Dictionary<int, DateTime> _recentPlay = new();
     private CancellationTokenSource? _playbackCts;
     private bool _processing;
-    private PoiItem? _currentItem;
+    private AudioPlaybackRequest? _currentRequest;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler? QueueChanged;
 
-    public IReadOnlyCollection<PoiItem> PendingItems => _queue.ToArray();
-    public PoiItem? CurrentItem => _currentItem;
-    public bool IsPlaying => _currentItem != null;
+    public IReadOnlyCollection<PoiItem> PendingItems => _queue.Select(x => x.Poi).ToArray();
+    public PoiItem? CurrentItem => _currentRequest?.Poi;
+    public bool IsPlaying => _currentRequest != null;
 
-    public AudioQueueService(AudioFallbackPlayer audioFallbackPlayer, AudioInterruptionService audioInterruptionService, NarrationService narrationService)
+    public AudioQueueService(ApiClient apiClient, AudioFallbackPlayer audioFallbackPlayer, AudioInterruptionService audioInterruptionService, NarrationService narrationService)
     {
+        _apiClient = apiClient;
         _audioFallbackPlayer = audioFallbackPlayer;
         _audioInterruptionService = audioInterruptionService;
         _narrationService = narrationService;
         _audioInterruptionService.Interrupted += async (_, reason) => await StopForInterruptionAsync(reason);
     }
 
-    public async Task EnqueueAsync(PoiItem poi, CancellationToken cancellationToken = default)
+    public Task EnqueueAsync(PoiItem poi, CancellationToken cancellationToken = default)
+        => EnqueueAsync(new AudioPlaybackRequest
+        {
+            Poi = poi,
+            Language = poi.Language
+        }, cancellationToken);
+
+    public async Task EnqueueAsync(AudioPlaybackRequest request, CancellationToken cancellationToken = default)
     {
+        var poi = request.Poi;
         if (_recentPlay.TryGetValue(poi.Id, out var lastPlay) &&
             (DateTime.UtcNow - lastPlay).TotalSeconds < Math.Max(poi.CooldownSeconds, 1))
         {
@@ -39,13 +49,13 @@ public class AudioQueueService
             return;
         }
 
-        if (_queue.Any(x => x.Id == poi.Id))
+        if (_currentRequest?.Poi.Id == poi.Id || _queue.Any(x => x.Poi.Id == poi.Id))
         {
-            StatusChanged?.Invoke(this, $"Hang doi da co {poi.Title}.");
+            StatusChanged?.Invoke(this, $"Hang doi da co hoac dang phat {poi.Title}.");
             return;
         }
 
-        _queue.Enqueue(poi);
+        _queue.Enqueue(request);
         RaiseQueueChanged();
         StatusChanged?.Invoke(this, $"Da them {poi.Title} vao hang doi.");
         await ProcessQueueAsync(cancellationToken);
@@ -54,11 +64,12 @@ public class AudioQueueService
     public Task StopAsync()
     {
         _playbackCts?.Cancel();
+        _queue.Clear();
         _ = _narrationService.StopAsync();
         _ = _audioFallbackPlayer.StopAsync();
-        _currentItem = null;
+        _currentRequest = null;
         RaiseQueueChanged();
-        StatusChanged?.Invoke(this, "Dung phat audio hien tai.");
+        StatusChanged?.Invoke(this, "Da dung phat audio va xoa hang doi.");
         return Task.CompletedTask;
     }
 
@@ -73,21 +84,30 @@ public class AudioQueueService
             }
 
             _processing = true;
-            while (_queue.TryDequeue(out var poi))
+            while (_queue.TryDequeue(out var request))
             {
+                var poi = request.Poi;
                 _playbackCts?.Cancel();
                 _playbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                _currentItem = poi;
+                _currentRequest = request;
                 RaiseQueueChanged();
                 StatusChanged?.Invoke(this, $"Dang phat {poi.Title}...");
 
                 var played = false;
-                var lastFailure = "";
+                var wasCompleted = false;
+                var playbackMode = !string.IsNullOrWhiteSpace(poi.AudioUrl) ? "audio" : "tts";
+                var failureReasons = new List<string>();
+                var playbackStartedAt = DateTime.UtcNow;
                 var hasFocus = await _audioInterruptionService.BeginPlaybackAsync();
+                var audioMode = poi.AudioMode?.Trim() ?? string.Empty;
+                var audioOnly = string.Equals(audioMode, "audio", StringComparison.OrdinalIgnoreCase);
+                var preferAudioFirst = !string.IsNullOrWhiteSpace(poi.AudioUrl) &&
+                    (string.Equals(audioMode, "audio", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(audioMode, "audio-priority", StringComparison.OrdinalIgnoreCase));
 
                 if (!hasFocus)
                 {
-                    _currentItem = null;
+                    _currentRequest = null;
                     RaiseQueueChanged();
                     StatusChanged?.Invoke(this, $"Khong lay duoc audio focus de phat {poi.Title}.");
                     continue;
@@ -95,34 +115,54 @@ public class AudioQueueService
 
                 try
                 {
-                    if (!string.IsNullOrWhiteSpace(poi.TtsScript))
+                    if (preferAudioFirst)
                     {
-                        var result = await _narrationService.SpeakAsync(poi.TtsScript, poi.Language, _playbackCts.Token);
+                        var result = await _audioFallbackPlayer.TryPlayAsync(poi.AudioUrl, _playbackCts.Token);
                         played = result.Played;
-                        lastFailure = result.Message;
+                        wasCompleted = result.WasCompleted;
+                        playbackMode = "audio";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"Dang doc TTS {poi.Title} bang {poi.Language}.");
+                            StatusChanged?.Invoke(this, $"Dang phat audio uu tien cho {poi.Title}.");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(result.Message))
+                        {
+                            failureReasons.Add($"Audio: {result.Message}");
+                            StatusChanged?.Invoke(this, $"Audio cua {poi.Title} gap loi. {(audioOnly ? "Khong co fallback TTS cho POI nay." : "Dang thu TTS du phong...")}");
                         }
                     }
 
-                    if (!played && !string.IsNullOrWhiteSpace(poi.Description))
+                    var ttsText = BuildTtsText(poi, out var ttsSourceLabel);
+
+                    if (!played && !audioOnly && !string.IsNullOrWhiteSpace(ttsText))
                     {
-                        var result = await _narrationService.SpeakAsync(poi.Description, poi.Language, _playbackCts.Token);
+                        var result = await _narrationService.SpeakAsync(ttsText, poi.Language, poi.VoiceName, _playbackCts.Token);
                         played = result.Played;
-                        lastFailure = result.Message;
+                        wasCompleted = result.WasCompleted;
+                        playbackMode = "tts";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"Dang doc mo ta du phong cho {poi.Title}.");
+                            StatusChanged?.Invoke(this, $"Dang doc {ttsSourceLabel} cho {poi.Title} bang {poi.Language}.");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(result.Message))
+                        {
+                            failureReasons.Add($"TTS: {result.Message}");
                         }
                     }
 
-                    if (!played && !string.IsNullOrWhiteSpace(poi.AudioUrl))
+                    if (!played && !preferAudioFirst && !string.IsNullOrWhiteSpace(poi.AudioUrl))
                     {
-                        played = await _audioFallbackPlayer.TryPlayAsync(poi.AudioUrl, _playbackCts.Token);
+                        var result = await _audioFallbackPlayer.TryPlayAsync(poi.AudioUrl, _playbackCts.Token);
+                        played = result.Played;
+                        wasCompleted = result.WasCompleted;
+                        playbackMode = "audio";
                         if (played)
                         {
                             StatusChanged?.Invoke(this, $"TTS khong dung duoc, dang phat audio du phong cho {poi.Title}.");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(result.Message))
+                        {
+                            failureReasons.Add($"Audio: {result.Message}");
                         }
                     }
                 }
@@ -131,18 +171,29 @@ public class AudioQueueService
                     await _audioInterruptionService.EndPlaybackAsync();
                 }
 
-                _recentPlay[poi.Id] = DateTime.UtcNow;
-                _currentItem = null;
+                if (played)
+                {
+                    _recentPlay[poi.Id] = DateTime.UtcNow;
+                }
+
+                _currentRequest = null;
                 RaiseQueueChanged();
+
+                await SaveVisitAsync(request, playbackStartedAt, DateTime.UtcNow, played, wasCompleted, playbackMode);
+                var lastFailure = failureReasons.Count == 0
+                    ? string.Empty
+                    : string.Join(" | ", failureReasons.Distinct());
                 StatusChanged?.Invoke(this, played
-                    ? $"Da xong {poi.Title}."
+                    ? wasCompleted
+                        ? $"Da xong {poi.Title}."
+                        : $"Da dung giua chung {poi.Title}."
                     : $"Khong the phat {poi.Title}. {lastFailure}".Trim());
             }
         }
         finally
         {
             _processing = false;
-            _currentItem = null;
+            _currentRequest = null;
             RaiseQueueChanged();
             _gate.Release();
         }
@@ -152,13 +203,74 @@ public class AudioQueueService
         QueueChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    private static string? BuildTtsText(PoiItem poi, out string sourceLabel)
+    {
+        if (!string.IsNullOrWhiteSpace(poi.TtsScript))
+        {
+            sourceLabel = "script TTS";
+            return poi.TtsScript;
+        }
+
+        if (!string.IsNullOrWhiteSpace(poi.Description))
+        {
+            sourceLabel = "mo ta du phong";
+            return poi.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(poi.Summary))
+        {
+            sourceLabel = "tom tat du phong";
+            return poi.Summary;
+        }
+
+        sourceLabel = "TTS";
+        return null;
+    }
+
     private async Task StopForInterruptionAsync(string reason)
     {
         _playbackCts?.Cancel();
+        _queue.Clear();
         await _narrationService.StopAsync();
         await _audioFallbackPlayer.StopAsync();
-        _currentItem = null;
+        _currentRequest = null;
         RaiseQueueChanged();
-        StatusChanged?.Invoke(this, reason);
+        StatusChanged?.Invoke(this, $"{reason} Hang doi audio da duoc dung.");
+    }
+
+    private async Task SaveVisitAsync(AudioPlaybackRequest request, DateTime startedAt, DateTime endedAt, bool played, bool wasCompleted, string playbackMode)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserId))
+        {
+            return;
+        }
+
+        var duration = Math.Max((int)(endedAt - startedAt).TotalSeconds, 0);
+        if (!played && duration <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.SaveVisitAsync(new VisitHistoryRequest
+            {
+                UserId = request.UserId,
+                PoiId = request.Poi.Id,
+                Language = string.IsNullOrWhiteSpace(request.Language) ? request.Poi.Language : request.Language,
+                StartTime = startedAt,
+                EndTime = endedAt,
+                Duration = duration,
+                TriggerType = string.IsNullOrWhiteSpace(request.TriggerType) ? "manual" : request.TriggerType,
+                PlaybackMode = string.IsNullOrWhiteSpace(playbackMode) ? "tts" : playbackMode,
+                WasAutoPlayed = request.WasAutoPlayed,
+                WasCompleted = wasCompleted,
+                ActivationDistanceMeters = request.Poi.DistanceMeters
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusChanged?.Invoke(this, $"Khong luu duoc lich su nghe cho {request.Poi.Title}: {ex.Message}");
+        }
     }
 }

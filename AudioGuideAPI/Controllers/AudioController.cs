@@ -1,3 +1,4 @@
+using AudioGuideAPI.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AudioGuideAPI.Controllers;
@@ -6,17 +7,17 @@ namespace AudioGuideAPI.Controllers;
 [Route("api/[controller]")]
 public class AudioController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly AudioStorageOptions _audioStorageOptions;
 
-    public AudioController(IWebHostEnvironment env)
+    public AudioController(AudioStorageOptions audioStorageOptions)
     {
-        _env = env;
+        _audioStorageOptions = audioStorageOptions;
     }
 
     [HttpGet("library")]
     public IActionResult Library()
     {
-        var folder = Path.Combine(_env.WebRootPath, "audio");
+        var folder = _audioStorageOptions.RootPath;
 
         if (!Directory.Exists(folder))
         {
@@ -44,7 +45,7 @@ public class AudioController : ControllerBase
             return BadRequest("No file uploaded");
         }
 
-        var folder = Path.Combine(_env.WebRootPath, "audio");
+        var folder = _audioStorageOptions.RootPath;
 
         if (!Directory.Exists(folder))
         {

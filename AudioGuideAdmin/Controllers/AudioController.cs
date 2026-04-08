@@ -1,17 +1,18 @@
+using AudioGuideAdmin.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
 public class AudioController : Controller
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly AudioStorageOptions _audioStorageOptions;
 
-    public AudioController(IWebHostEnvironment env)
+    public AudioController(AudioStorageOptions audioStorageOptions)
     {
-        _env = env;
+        _audioStorageOptions = audioStorageOptions;
     }
 
     public IActionResult Upload()
     {
-        var path = Path.Combine(_env.WebRootPath, "audio");
+        var path = _audioStorageOptions.RootPath;
 
         if (!Directory.Exists(path))
         {
@@ -30,7 +31,7 @@ public class AudioController : Controller
     {
         if (file != null && file.Length > 0)
         {
-            var path = Path.Combine(_env.WebRootPath, "audio");
+            var path = _audioStorageOptions.RootPath;
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
@@ -48,7 +49,7 @@ public class AudioController : Controller
 
     public IActionResult Delete(string fileName)
     {
-        var path = Path.Combine(_env.WebRootPath, "audio", fileName);
+        var path = Path.Combine(_audioStorageOptions.RootPath, fileName);
 
         if (System.IO.File.Exists(path))
         {

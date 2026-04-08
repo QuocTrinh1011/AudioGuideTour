@@ -28,24 +28,25 @@ public class HomePage : ContentPage
 
         _didAutoBootstrap = true;
         _ = _viewModel.BootstrapAsync();
+        _ = _viewModel.RefreshPermissionStatusAsync();
     }
 
-    private async void OnBootstrapClicked(object sender, EventArgs e)
+    private async void OnBootstrapClicked(object? sender, EventArgs e)
     {
         await _viewModel.BootstrapAsync();
     }
 
-    private async void OnToggleTrackingClicked(object sender, EventArgs e)
+    private async void OnToggleTrackingClicked(object? sender, EventArgs e)
     {
         await _viewModel.ToggleTrackingAsync();
     }
 
-    private async void OnLookupQrClicked(object sender, EventArgs e)
+    private async void OnLookupQrClicked(object? sender, EventArgs e)
     {
         await _viewModel.LookupQrAsync();
     }
 
-    private async void OnQuickQrClicked(object sender, EventArgs e)
+    private async void OnQuickQrClicked(object? sender, EventArgs e)
     {
         if (sender is Button button && button.CommandParameter is string code)
         {
@@ -53,24 +54,29 @@ public class HomePage : ContentPage
         }
     }
 
-    private async void OnPlaySelectedClicked(object sender, EventArgs e)
+    private async void OnPlaySelectedClicked(object? sender, EventArgs e)
     {
         await _viewModel.PlaySelectedAsync();
     }
 
-    private async void OnStopPlaybackClicked(object sender, EventArgs e)
+    private async void OnStopPlaybackClicked(object? sender, EventArgs e)
     {
         await _viewModel.StopPlaybackAsync();
     }
 
-    private async void OnOpenMapClicked(object sender, EventArgs e)
+    private async void OnOpenMapClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedMapAsync();
     }
 
-    private async void OnOpenPoiDetailsClicked(object sender, EventArgs e)
+    private async void OnOpenPoiDetailsClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedPoiDetailsAsync();
+    }
+
+    private async void OnOpenNarrationClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.OpenSelectedNarrationAsync();
     }
 
     private async void OnLanguageChanged(object? sender, EventArgs e)
@@ -281,7 +287,7 @@ public class HomePage : ContentPage
         };
         var bodyLayout = new VerticalStackLayout { Spacing = 10 };
         bodyLayout.Add(new Image { HeightRequest = 220, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-            .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl"));
+            .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
         bodyLayout.Add(new Label { FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
             .Bind(Label.TextProperty, "SelectedPoi.Title"));
         bodyLayout.Add(new Label { TextColor = Color.FromArgb("#566C82") }.Bind(Label.TextProperty, "SelectedPoi.Summary"));
@@ -317,7 +323,20 @@ public class HomePage : ContentPage
         Grid.SetColumn(mapButton, 2);
         poiActions.Add(mapButton);
         bodyLayout.Add(poiActions);
-        bodyLayout.Add(CreateActionButton("Xem chi tiet", OnOpenPoiDetailsClicked, "#F2F6FA", "#17324D"));
+        var extraActions = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 10
+        };
+        extraActions.Add(CreateActionButton("Xem chi tiet", OnOpenPoiDetailsClicked, "#F2F6FA", "#17324D"));
+        var narrationButton = CreateActionButton("Ban thuyet minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D");
+        Grid.SetColumn(narrationButton, 1);
+        extraActions.Add(narrationButton);
+        bodyLayout.Add(extraActions);
         selectedBody.Content = bodyLayout;
         selectedPoiLayout.Add(selectedBody);
         selectedPoiCard.Content = selectedPoiLayout;
@@ -354,7 +373,7 @@ public class HomePage : ContentPage
 
             var layout = new VerticalStackLayout { Spacing = 10 };
             layout.Add(new Image { HeightRequest = 118, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.PoiItem.ImageUrl)));
+                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
             layout.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Title)));
             layout.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
@@ -430,10 +449,10 @@ public class HomePage : ContentPage
 
 internal static class ViewBindingExtensions
 {
-    public static T Bind<T>(this T target, BindableProperty property, string path, BindingMode mode = BindingMode.Default, string? stringFormat = null)
+    public static T Bind<T>(this T target, BindableProperty property, string path, BindingMode mode = BindingMode.Default, string? stringFormat = null, IValueConverter? converter = null)
         where T : BindableObject
     {
-        target.SetBinding(property, new Binding(path, mode, stringFormat: stringFormat));
+        target.SetBinding(property, new Binding(path, mode, converter, stringFormat: stringFormat));
         return target;
     }
 }

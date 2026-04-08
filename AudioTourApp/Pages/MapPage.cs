@@ -17,24 +17,44 @@ public class MapPage : ContentPage
         Content = BuildContent();
     }
 
-    private async void OnToggleTrackingClicked(object sender, EventArgs e)
+    private async void OnToggleTrackingClicked(object? sender, EventArgs e)
     {
         await _viewModel.ToggleTrackingAsync();
     }
 
-    private async void OnPlaySelectedClicked(object sender, EventArgs e)
+    private async void OnPlaySelectedClicked(object? sender, EventArgs e)
     {
         await _viewModel.PlaySelectedAsync();
     }
 
-    private async void OnOpenMapClicked(object sender, EventArgs e)
+    private async void OnOpenMapClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedMapAsync();
     }
 
-    private async void OnOpenPoiDetailsClicked(object sender, EventArgs e)
+    private async void OnOpenPoiDetailsClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedPoiDetailsAsync();
+    }
+
+    private async void OnOpenNarrationClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.OpenSelectedNarrationAsync();
+    }
+
+    private async void OnDiagnoseAudioClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.RunSelectedPoiAudioDiagnosticsAsync();
+    }
+
+    private async void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        await _viewModel.ChangeLanguageAsync();
+    }
+
+    private void OnNearestPoiClicked(object? sender, EventArgs e)
+    {
+        _viewModel.SelectNearestPoi();
     }
 
     private View BuildContent()
@@ -92,15 +112,54 @@ public class MapPage : ContentPage
             Children =
             {
                 new Label { Text = "Ban do hien tai", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
-                new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentLocation))
+                new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentLocation)),
+                new Label { FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedLanguageDisplayText))
             }
         });
-        var trackingButton = CreateActionButton(string.Empty, OnToggleTrackingClicked, "#E4B43C", "#17324D");
-        trackingButton.SetBinding(Button.TextProperty, nameof(MainViewModel.TrackingActionText));
-        Grid.SetColumn(trackingButton, 1);
-        mapHeader.Add(trackingButton);
+        var headerActions = new VerticalStackLayout
+        {
+            Spacing = 8,
+            HorizontalOptions = LayoutOptions.End,
+            Children =
+            {
+                CreateLanguagePicker(),
+                CreateBoundActionButton(nameof(MainViewModel.TrackingActionText), OnToggleTrackingClicked, "#E4B43C", "#17324D")
+            }
+        };
+        Grid.SetColumn(headerActions, 1);
+        mapHeader.Add(headerActions);
 
-        var webView = new WebView { HeightRequest = 380 };
+        var statusStrip = new Grid
+        {
+            Padding = new Thickness(16, 12, 16, 12),
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 10
+        };
+        statusStrip.Add(CreateInfoChip("Tracking", nameof(MainViewModel.TrackingStatusText), "#EEF5FB", "#17324D"));
+        var nearestChip = CreateInfoChip("POI gan nhat", nameof(MainViewModel.NearestPoiSummaryText), "#FFF7E2", "#8B5E00");
+        Grid.SetColumn(nearestChip, 1);
+        statusStrip.Add(nearestChip);
+
+        var mapLegend = new HorizontalStackLayout
+        {
+            Spacing = 10,
+            Padding = new Thickness(16, 0, 16, 14)
+        };
+        mapLegend.Add(CreateLegendPill("Ban", "#0D6EFD"));
+        mapLegend.Add(CreateLegendPill("Gan nhat", "#D9480F"));
+        mapLegend.Add(CreateLegendPill("Dang chon", "#F0B429"));
+        mapLegend.Add(new Label
+        {
+            TextColor = Color.FromArgb("#667C92"),
+            FontSize = 12,
+            VerticalTextAlignment = TextAlignment.Center
+        }.Bind(Label.TextProperty, nameof(MainViewModel.VisiblePoisSummary)));
+
+        var webView = new WebView { HeightRequest = 420 };
         webView.Source = new HtmlWebViewSource();
         webView.SetBinding(WebView.SourceProperty, new Binding(nameof(MainViewModel.MapHtml), converter: new HtmlToSourceConverter()));
         webView.Navigating += OnMapNavigating;
@@ -109,7 +168,7 @@ public class MapPage : ContentPage
         mapCard.Content = new VerticalStackLayout
         {
             Spacing = 0,
-            Children = { mapHeader, webView }
+            Children = { mapHeader, statusStrip, mapLegend, webView }
         };
         root.Add(mapCard);
 
@@ -123,7 +182,7 @@ public class MapPage : ContentPage
         var selectedLayout = new VerticalStackLayout { Spacing = 12 };
         selectedLayout.Add(new Label { Text = "POI dang duoc chon tren ban do", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         selectedLayout.Add(new Image { HeightRequest = 200, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-            .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl"));
+            .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
         selectedLayout.Add(new Label { FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
             .Bind(Label.TextProperty, "SelectedPoi.Title"));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiMetaText)));
@@ -154,6 +213,30 @@ public class MapPage : ContentPage
         Grid.SetColumn(selectedDetailButton, 2);
         selectedActions.Add(selectedDetailButton);
         selectedLayout.Add(selectedActions);
+        var bottomSelectedActions = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 10
+        };
+        bottomSelectedActions.Add(CreateActionButton("Mo ban thuyet minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
+        var nearestButton = CreateActionButton("POI gan nhat", OnNearestPoiClicked, "#F3F7FB", "#17324D");
+        Grid.SetColumn(nearestButton, 1);
+        bottomSelectedActions.Add(nearestButton);
+        selectedLayout.Add(bottomSelectedActions);
+        selectedLayout.Add(CreateActionButton("Chan doan audio", OnDiagnoseAudioClicked, "#EEF5FB", "#17324D"));
+        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
+        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B"), FontAttributes = FontAttributes.Bold }
+            .Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
+        selectedLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#667C92"),
+            FontSize = 12,
+            LineBreakMode = LineBreakMode.WordWrap
+        }.Bind(Label.TextProperty, nameof(MainViewModel.AudioDiagnosticsSummary)));
         selectedCard.Content = selectedLayout;
         root.Add(selectedCard);
 
@@ -208,7 +291,7 @@ public class MapPage : ContentPage
                 ColumnSpacing = 12
             };
             grid.Add(new Image { HeightRequest = 90, WidthRequest = 100, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.PoiItem.ImageUrl)));
+                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
             var details = new VerticalStackLayout { Spacing = 4 };
             details.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Title)));
@@ -273,6 +356,101 @@ public class MapPage : ContentPage
         };
         button.Clicked += handler;
         return button;
+    }
+
+    private static Button CreateBoundActionButton(string propertyName, EventHandler handler, string backgroundColor, string textColor)
+    {
+        var button = new Button
+        {
+            BackgroundColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Color.FromArgb(backgroundColor) : Color.FromArgb(backgroundColor),
+            TextColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Colors.White : Color.FromArgb(textColor),
+            CornerRadius = 18
+        };
+        button.SetBinding(Button.TextProperty, propertyName);
+        button.Clicked += handler;
+        return button;
+    }
+
+    private Picker CreateLanguagePicker()
+    {
+        var picker = new Picker
+        {
+            Title = "Ngon ngu",
+            ItemDisplayBinding = new Binding("NativeName"),
+            WidthRequest = 170,
+            BackgroundColor = Color.FromArgb("#F8FAFD"),
+            TextColor = Color.FromArgb("#17324D")
+        };
+        picker.SetBinding(Picker.ItemsSourceProperty, nameof(MainViewModel.Languages));
+        picker.SetBinding(Picker.SelectedItemProperty, nameof(MainViewModel.SelectedLanguage), BindingMode.TwoWay);
+        picker.SelectedIndexChanged += OnLanguageChanged;
+        return picker;
+    }
+
+    private static Border CreateInfoChip(string title, string bindingPath, string backgroundColor, string accentColor)
+    {
+        var stack = new VerticalStackLayout
+        {
+            Spacing = 2,
+            Children =
+            {
+                new Label
+                {
+                    Text = title,
+                    FontSize = 12,
+                    TextColor = Color.FromArgb(accentColor)
+                },
+                new Label
+                {
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#17324D"),
+                    FontSize = 13,
+                    LineBreakMode = LineBreakMode.TailTruncation
+                }.Bind(Label.TextProperty, bindingPath)
+            }
+        };
+
+        return new Border
+        {
+            StrokeThickness = 0,
+            BackgroundColor = Color.FromArgb(backgroundColor),
+            Padding = new Thickness(12, 10),
+            StrokeShape = new RoundRectangle { CornerRadius = 18 },
+            Content = stack
+        };
+    }
+
+    private static Border CreateLegendPill(string text, string dotColor)
+    {
+        return new Border
+        {
+            StrokeThickness = 0,
+            BackgroundColor = Color.FromArgb("#F5F8FB"),
+            Padding = new Thickness(10, 6),
+            StrokeShape = new RoundRectangle { CornerRadius = 16 },
+            Content = new HorizontalStackLayout
+            {
+                Spacing = 6,
+                Children =
+                {
+                    new BoxView
+                    {
+                        WidthRequest = 10,
+                        HeightRequest = 10,
+                        CornerRadius = 5,
+                        BackgroundColor = Color.FromArgb(dotColor),
+                        VerticalOptions = LayoutOptions.Center
+                    },
+                    new Label
+                    {
+                        Text = text,
+                        FontSize = 12,
+                        TextColor = Color.FromArgb("#17324D"),
+                        VerticalTextAlignment = TextAlignment.Center
+                    }
+                }
+            }
+        };
     }
 }
 

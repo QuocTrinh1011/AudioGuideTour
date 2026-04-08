@@ -1,4 +1,5 @@
 using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -10,10 +11,12 @@ namespace AudioGuideAdmin.Controllers;
 public class TourController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly ImageStorageOptions _imageStorageOptions;
 
-    public TourController(AppDbContext context)
+    public TourController(AppDbContext context, ImageStorageOptions imageStorageOptions)
     {
         _context = context;
+        _imageStorageOptions = imageStorageOptions;
     }
 
     public IActionResult Index()
@@ -39,6 +42,7 @@ public class TourController : Controller
             return View(BuildForm(model.Tour, model.StopPoiIds));
         }
 
+        model.Tour.CoverImageUrl = await SaveImageAsync(model.CoverImageFile, model.Tour.CoverImageUrl);
         model.Tour.CreatedAt = DateTime.UtcNow;
         model.Tour.UpdatedAt = DateTime.UtcNow;
         model.Tour.Stops = BuildStops(model.StopPoiIds, model.Tour.Id);
@@ -78,7 +82,7 @@ public class TourController : Controller
         existing.Name = model.Tour.Name;
         existing.Description = model.Tour.Description;
         existing.Language = model.Tour.Language;
-        existing.CoverImageUrl = model.Tour.CoverImageUrl;
+        existing.CoverImageUrl = await SaveImageAsync(model.CoverImageFile, model.Tour.CoverImageUrl);
         existing.IsActive = model.Tour.IsActive;
         existing.EstimatedDurationMinutes = model.Tour.EstimatedDurationMinutes;
         existing.UpdatedAt = DateTime.UtcNow;
@@ -130,5 +134,26 @@ public class TourController : Controller
             .Where(x => x != null)
             .Cast<TourStop>()
             .ToList();
+    }
+
+    private async Task<string> SaveImageAsync(IFormFile? imageFile, string? currentUrl)
+    {
+        if (imageFile == null || imageFile.Length <= 0)
+        {
+            return (currentUrl ?? string.Empty).Trim();
+        }
+
+        Directory.CreateDirectory(_imageStorageOptions.RootPath);
+        var extension = Path.GetExtension(imageFile.FileName);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".png";
+        }
+
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var physicalPath = Path.Combine(_imageStorageOptions.RootPath, fileName);
+        await using var stream = new FileStream(physicalPath, FileMode.Create);
+        await imageFile.CopyToAsync(stream);
+        return $"/images/{fileName}";
     }
 }

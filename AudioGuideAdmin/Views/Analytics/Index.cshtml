@@ -1,61 +1,214 @@
+@using System.Text.Json
 @model AudioGuideAdmin.ViewModels.AnalyticsViewModel
 
 @{
     var peakListen = Model.DailyListens.Any() ? Model.DailyListens.Max(x => x.ListenCount) : 1;
+    var topPoiPeak = Model.TopPois.Any() ? Model.TopPois.Max(x => x.ListenCount) : 1;
 }
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    .analytics-map {
+        height: 420px;
+        border-radius: 18px;
+        overflow: hidden;
+        background: linear-gradient(180deg, #eef4fa, #dfe8f2);
+    }
+
+    .analytics-map-caption {
+        color: #5f7488;
+        font-size: 0.92rem;
+    }
+
+    .analytics-note {
+        border-radius: 16px;
+        background: #f8fbff;
+        border: 1px solid #dde7f1;
+        padding: 14px 16px;
+    }
+
+    .route-session-item {
+        border-radius: 16px;
+        border: 1px solid #e3ebf3;
+        padding: 12px 14px;
+        background: #fbfdff;
+    }
+
+    .route-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+
+    .poi-rank-bar {
+        height: 10px;
+        border-radius: 999px;
+        background: #eef4fa;
+        overflow: hidden;
+    }
+
+    .poi-rank-bar > span {
+        display: block;
+        height: 10px;
+        background: linear-gradient(90deg, #17324d, #c97732);
+    }
+</style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-1">Analytics</h2>
-        <p class="text-muted mb-0">Theo doi luot nghe, trigger geofence va hieu qua van hanh tren admin.</p>
+        <p class="text-muted mb-0">Tong hop du lieu nghe, heat map vi tri va tuyen di chuyen an danh trong @Model.TrackingWindowLabel.</p>
     </div>
     <a href="/Tracking" class="btn btn-outline-dark">Xem log chi tiet</a>
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking points</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitors</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking @Model.TrackingWindowLabel</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor an danh</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Triggers</div><div class="fs-3 fw-bold">@Model.TotalTrigger</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Heat clusters</div><div class="fs-3 fw-bold">@Model.HeatmapClusterCount</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Route sessions</div><div class="fs-3 fw-bold">@Model.RouteSessionCount</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Avg nghe</div><div class="fs-3 fw-bold">@Math.Round(Model.AverageListenDuration, 1)s</div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Hoan thanh</div><div class="fs-3 fw-bold">@Math.Round(Model.CompletionRate, 0)%</div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Auto play</div><div class="fs-3 fw-bold">@Math.Round(Model.AutoPlayRate, 0)%</div></div></div>
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="card p-4">
-            <h4 class="mb-3">Luot nghe 7 ngay gan nhat</h4>
-            <div class="d-flex flex-column gap-3">
-                @foreach (var item in Model.DailyListens)
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h4 class="mb-1">Heat map vi tri</h4>
+                    <div class="analytics-map-caption">Tong hop cac diem GPS da duoc an danh va gom cum de hien mat do di chuyen.</div>
+                </div>
+                <span class="badge text-bg-light">@Model.HeatmapClusterCount cum</span>
+            </div>
+            <div id="heatmap-map" class="analytics-map"></div>
+            <div class="analytics-note mt-3">
+                <div class="fw-semibold mb-1">Dap ung yeu cau</div>
+                <div class="analytics-map-caption">Heat map hien thi mat do vi tri nguoi dung tren nen ban do that, co them marker Top POI de doi chieu diem nghe nhieu.</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h4 class="mb-1">Tuyen di chuyen an danh</h4>
+                    <div class="analytics-map-caption">Moi duong la mot phien di chuyen gan day cua mot visitor, khong hien raw user id.</div>
+                </div>
+                <span class="badge text-bg-light">@Model.RouteSessionCount phien</span>
+            </div>
+            <div id="route-map" class="analytics-map"></div>
+            <div class="row g-2 mt-3">
+                @if (Model.RouteSessions.Any())
                 {
-                    var width = peakListen == 0 ? 0 : (int)Math.Round(item.ListenCount * 100.0 / peakListen);
-                    <div>
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span>@item.Date.ToString("dd/MM")</span>
-                            <span>@item.ListenCount luot / @Math.Round(item.AverageDuration, 1)s</span>
+                    @foreach (var route in Model.RouteSessions.Take(6))
+                    {
+                        <div class="col-md-6">
+                            <div class="route-session-item">
+                                <div class="fw-semibold">
+                                    <span class="route-swatch" style="background:@route.Color;"></span>@route.VisitorAlias
+                                </div>
+                                <div class="text-muted small">@route.PointCount diem | @route.StartedAt.ToLocalTime().ToString("dd/MM HH:mm") - @route.EndedAt.ToLocalTime().ToString("HH:mm")</div>
+                            </div>
                         </div>
-                        <div class="bg-light rounded-3 overflow-hidden" style="height: 14px;">
-                            <div style="width:@width%;height:14px;background:linear-gradient(90deg,#17324d,#c97732);"></div>
-                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="col-12">
+                        <div class="analytics-note">Chua co du lieu route du de ve tuyen di chuyen.</div>
                     </div>
                 }
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-5">
+        <div class="card p-4 h-100">
+            <h4 class="mb-3">Luot nghe 7 ngay gan nhat</h4>
+            <div class="d-flex flex-column gap-3">
+                @if (Model.DailyListens.Any())
+                {
+                    @foreach (var item in Model.DailyListens)
+                    {
+                        var width = peakListen == 0 ? 0 : (int)Math.Round(item.ListenCount * 100.0 / peakListen);
+                        <div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>@item.Date.ToString("dd/MM")</span>
+                                <span>@item.ListenCount luot / @Math.Round(item.AverageDuration, 1)s</span>
+                            </div>
+                            <div class="bg-light rounded-3 overflow-hidden" style="height: 14px;">
+                                <div style="width:@width%;height:14px;background:linear-gradient(90deg,#17324d,#c97732);"></div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="analytics-note">Chua co visit history trong 7 ngay gan nhat.</div>
+                }
+            </div>
             <hr />
-            <h5 class="mb-3">Top POI</h5>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <div class="analytics-note h-100">
+                        <div class="text-muted small">Hoan thanh nghe</div>
+                        <div class="fs-4 fw-bold">@Math.Round(Model.CompletionRate, 0)%</div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="analytics-note h-100">
+                        <div class="text-muted small">Auto play</div>
+                        <div class="fs-4 fw-bold">@Math.Round(Model.AutoPlayRate, 0)%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-7">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h4 class="mb-1">Top dia diem duoc nghe nhieu nhat</h4>
+                    <div class="analytics-map-caption">Kem thoi gian nghe trung binh va marker hien tren heat map.</div>
+                </div>
+                <span class="badge text-bg-light">@Model.TopPois.Count POI</span>
+            </div>
             <div class="table-responsive">
                 <table class="table align-middle">
-                    <thead><tr><th>POI</th><th>Luot nghe</th><th>Avg</th></tr></thead>
-                    <tbody>
-                    @foreach (var item in Model.TopPois)
-                    {
+                    <thead>
                         <tr>
-                            <td>
-                                <div class="fw-semibold">@item.PoiName</div>
-                                <div class="text-muted small">Auto: @Math.Round(item.AutoPlayRate, 0)%</div>
-                            </td>
-                            <td>@item.ListenCount</td>
-                            <td>@Math.Round(item.AverageDuration, 1)s</td>
+                            <th>POI</th>
+                            <th>Luot nghe</th>
+                            <th>Avg</th>
+                            <th>Ti le auto</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                    @if (Model.TopPois.Any())
+                    {
+                        @foreach (var item in Model.TopPois)
+                        {
+                            var width = topPoiPeak == 0 ? 0 : (int)Math.Round(item.ListenCount * 100.0 / topPoiPeak);
+                            <tr>
+                                <td style="min-width:260px;">
+                                    <div class="fw-semibold">@item.PoiName</div>
+                                    <div class="poi-rank-bar mt-2"><span style="width:@width%;"></span></div>
+                                </td>
+                                <td>@item.ListenCount</td>
+                                <td>@Math.Round(item.AverageDuration, 1)s</td>
+                                <td>@Math.Round(item.AutoPlayRate, 0)%</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="4" class="text-muted">Chua co POI nao duoc nghe trong 7 ngay gan nhat.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -66,23 +219,30 @@
 
 <div class="row g-4">
     <div class="col-lg-6">
-        <div class="card p-4">
+        <div class="card p-4 h-100">
             <h4 class="mb-3">Geofence trigger gan day</h4>
             <div class="table-responsive">
                 <table class="table align-middle">
-                    <thead><tr><th>User</th><th>POI</th><th>Trigger</th><th>Distance</th></tr></thead>
+                    <thead><tr><th>Visitor</th><th>POI</th><th>Trigger</th><th>Distance</th></tr></thead>
                     <tbody>
-                    @foreach (var item in Model.RecentTriggers)
+                    @if (Model.RecentTriggers.Any())
                     {
-                        <tr>
-                            <td>@item.UserId</td>
-                            <td>@item.PoiName</td>
-                            <td>
-                                <div class="fw-semibold">@item.TriggerType</div>
-                                <div class="text-muted small">@item.Status</div>
-                            </td>
-                            <td>@Math.Round(item.DistanceMeters, 1)m</td>
-                        </tr>
+                        @foreach (var item in Model.RecentTriggers)
+                        {
+                            <tr>
+                                <td>@item.VisitorAlias</td>
+                                <td>@item.PoiName</td>
+                                <td>
+                                    <div class="fw-semibold">@item.TriggerType</div>
+                                    <div class="text-muted small">@item.Status</div>
+                                </td>
+                                <td>@Math.Round(item.DistanceMeters, 1)m</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="4" class="text-muted">Chua co trigger gan day.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -90,23 +250,30 @@
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card p-4">
+        <div class="card p-4 h-100">
             <h4 class="mb-3">Visit history gan day</h4>
             <div class="table-responsive">
                 <table class="table align-middle">
-                    <thead><tr><th>User</th><th>POI</th><th>Duration</th><th>Mode</th></tr></thead>
+                    <thead><tr><th>Visitor</th><th>POI</th><th>Duration</th><th>Mode</th></tr></thead>
                     <tbody>
-                    @foreach (var item in Model.RecentVisits)
+                    @if (Model.RecentVisits.Any())
                     {
-                        <tr>
-                            <td>@item.UserId</td>
-                            <td>@item.PoiName</td>
-                            <td>@item.Duration s</td>
-                            <td>
-                                <div class="fw-semibold">@item.Language</div>
-                                <div class="text-muted small">@(item.WasAutoPlayed ? "Auto" : "Manual")</div>
-                            </td>
-                        </tr>
+                        @foreach (var item in Model.RecentVisits)
+                        {
+                            <tr>
+                                <td>@item.VisitorAlias</td>
+                                <td>@item.PoiName</td>
+                                <td>@item.Duration s</td>
+                                <td>
+                                    <div class="fw-semibold">@item.Language</div>
+                                    <div class="text-muted small">@item.TriggerType / @(item.WasAutoPlayed ? "Auto" : "Manual")</div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="4" class="text-muted">Chua co visit history gan day.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -114,3 +281,139 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script>
+        const heatmapPoints = @Html.Raw(JsonSerializer.Serialize(Model.HeatmapPoints));
+        const routeSessions = @Html.Raw(JsonSerializer.Serialize(Model.RouteSessions));
+        const topPois = @Html.Raw(JsonSerializer.Serialize(Model.TopPoiMapPoints));
+        const districtCenter = [10.7589, 106.7039];
+
+        function createBaseMap(elementId) {
+            const map = L.map(elementId, { preferCanvas: true, zoomControl: false }).setView(districtCenter, 15);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 20
+            }).addTo(map);
+            return map;
+        }
+
+        function bindPoiMarkers(map, bounds) {
+            topPois.forEach((poi) => {
+                if (!poi.Latitude || !poi.Longitude) {
+                    return;
+                }
+
+                const latLng = [poi.Latitude, poi.Longitude];
+                L.circleMarker(latLng, {
+                    radius: 8,
+                    color: '#17324d',
+                    fillColor: '#e4b43c',
+                    fillOpacity: 0.88,
+                    weight: 2
+                }).addTo(map).bindPopup(
+                    `<div style="min-width:190px;">
+                        <div style="font-weight:700;margin-bottom:4px;">${poi.PoiName}</div>
+                        <div style="color:#5f7488;font-size:12px;">${poi.ListenCount} luot nghe</div>
+                        <div style="color:#5f7488;font-size:12px;">Avg ${poi.AverageDuration.toFixed(1)}s</div>
+                    </div>`
+                );
+
+                bounds.push(latLng);
+            });
+        }
+
+        function initHeatmap() {
+            const map = createBaseMap('heatmap-map');
+            const bounds = [];
+
+            if (heatmapPoints.length > 0) {
+                const heatLayerData = heatmapPoints.map((point) => {
+                    bounds.push([point.Latitude, point.Longitude]);
+                    return [point.Latitude, point.Longitude, point.Intensity];
+                });
+
+                L.heatLayer(heatLayerData, {
+                    radius: 28,
+                    blur: 24,
+                    minOpacity: 0.32,
+                    maxZoom: 18,
+                    gradient: {
+                        0.2: '#93c5fd',
+                        0.45: '#38bdf8',
+                        0.65: '#22c55e',
+                        0.82: '#f59e0b',
+                        1.0: '#dc2626'
+                    }
+                }).addTo(map);
+            }
+
+            bindPoiMarkers(map, bounds);
+
+            if (bounds.length > 1) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+            }
+        }
+
+        function initRouteMap() {
+            const map = createBaseMap('route-map');
+            const bounds = [];
+
+            routeSessions.forEach((route) => {
+                const latLngs = route.Points.map((point) => [point.Latitude, point.Longitude]);
+                if (latLngs.length < 2) {
+                    return;
+                }
+
+                latLngs.forEach((point) => bounds.push(point));
+
+                const polyline = L.polyline(latLngs, {
+                    color: route.Color,
+                    weight: 4,
+                    opacity: 0.82
+                }).addTo(map);
+
+                polyline.bindPopup(
+                    `<div style="min-width:200px;">
+                        <div style="font-weight:700;margin-bottom:4px;">${route.VisitorAlias}</div>
+                        <div style="color:#5f7488;font-size:12px;">${route.PointCount} diem GPS</div>
+                        <div style="color:#5f7488;font-size:12px;">${new Date(route.StartedAt).toLocaleString()} - ${new Date(route.EndedAt).toLocaleString()}</div>
+                    </div>`
+                );
+
+                const start = route.Points[0];
+                const end = route.Points[route.Points.length - 1];
+
+                L.circleMarker([start.Latitude, start.Longitude], {
+                    radius: 6,
+                    color: route.Color,
+                    fillColor: '#ffffff',
+                    fillOpacity: 1,
+                    weight: 3
+                }).addTo(map).bindPopup(`${route.VisitorAlias} · bat dau`);
+
+                L.circleMarker([end.Latitude, end.Longitude], {
+                    radius: 7,
+                    color: route.Color,
+                    fillColor: route.Color,
+                    fillOpacity: 0.92,
+                    weight: 2
+                }).addTo(map).bindPopup(`${route.VisitorAlias} · ket thuc`);
+            });
+
+            bindPoiMarkers(map, bounds);
+
+            if (bounds.length > 1) {
+                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initHeatmap();
+            initRouteMap();
+        });
+    </script>
+}

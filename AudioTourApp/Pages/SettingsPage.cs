@@ -16,24 +16,44 @@ public class SettingsPage : ContentPage
         Content = BuildContent();
     }
 
-    private async void OnBootstrapClicked(object sender, EventArgs e)
+    private async void OnBootstrapClicked(object? sender, EventArgs e)
     {
         await _viewModel.BootstrapAsync();
     }
 
-    private async void OnSyncVisitorClicked(object sender, EventArgs e)
+    private async void OnSyncVisitorClicked(object? sender, EventArgs e)
     {
         await _viewModel.SyncVisitorSettingsAsync();
     }
 
-    private async void OnLanguageChanged(object sender, EventArgs e)
+    private async void OnLanguageChanged(object? sender, EventArgs e)
     {
         await _viewModel.ChangeLanguageAsync();
     }
 
-    private void OnResetApiClicked(object sender, EventArgs e)
+    private void OnResetApiClicked(object? sender, EventArgs e)
     {
         _viewModel.ResetApiBaseUrl();
+    }
+
+    private async void OnRefreshPermissionsClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.RefreshPermissionStatusAsync();
+    }
+
+    private async void OnRequestTrackingPermissionsClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.RequestTrackingPermissionsAsync();
+    }
+
+    private async void OnRequestCameraPermissionClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.RequestCameraPermissionAsync();
+    }
+
+    private async void OnOpenSystemSettingsClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.OpenSystemSettingsAsync();
     }
 
     private View BuildContent()
@@ -117,6 +137,39 @@ public class SettingsPage : ContentPage
         visitorLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
         visitorCard.Content = visitorLayout;
         root.Add(visitorCard);
+
+        var permissionsCard = CreateCard();
+        var permissionsLayout = new VerticalStackLayout { Spacing = 12 };
+        permissionsLayout.Add(new Label { Text = "Quyen truy cap", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.LocationPermissionText)));
+        permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.BackgroundPermissionText)));
+        permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CameraPermissionText)));
+        permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.NotificationPermissionText)));
+
+        var permissionRow = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
+            ColumnSpacing = 10
+        };
+        permissionRow.Add(CreateActionButton("Xin quyen tracking", OnRequestTrackingPermissionsClicked, "#17324D", "White"));
+        var cameraButton = CreateActionButton("Xin quyen camera", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
+        Grid.SetColumn(cameraButton, 1);
+        permissionRow.Add(cameraButton);
+        permissionsLayout.Add(permissionRow);
+
+        var permissionRow2 = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
+            ColumnSpacing = 10
+        };
+        permissionRow2.Add(CreateActionButton("Kiem tra lai", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D"));
+        var settingsButton = CreateActionButton("Mo cai dat he thong", OnOpenSystemSettingsClicked, "#F3F7FB", "#17324D");
+        Grid.SetColumn(settingsButton, 1);
+        permissionRow2.Add(settingsButton);
+        permissionsLayout.Add(permissionRow2);
+
+        permissionsCard.Content = permissionsLayout;
+        root.Add(permissionsCard);
 
         return new ScrollView { Content = root };
     }

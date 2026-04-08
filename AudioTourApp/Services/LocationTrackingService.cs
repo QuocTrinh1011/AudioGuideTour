@@ -113,7 +113,10 @@ public class LocationTrackingService
     public Task StopAsync()
     {
         _cts?.Cancel();
+        _cts = null;
         _isRunning = false;
+        _lastLocation = null;
+        _adaptiveInterval = _requestedInterval;
         return _trackingForegroundBridge.StopAsync();
     }
 

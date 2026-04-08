@@ -11,10 +11,12 @@ namespace AudioGuideAdmin.Controllers;
 public class PoiController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly ImageStorageOptions _imageStorageOptions;
 
-    public PoiController(AppDbContext context)
+    public PoiController(AppDbContext context, ImageStorageOptions imageStorageOptions)
     {
         _context = context;
+        _imageStorageOptions = imageStorageOptions;
     }
 
     public IActionResult Index(string? search, bool? activeOnly)
@@ -98,6 +100,7 @@ public class PoiController : Controller
 
         try
         {
+            poi.ImageUrl = await SaveImageAsync(poi.ImageFile, poi.ImageUrl);
             poi.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
             poi.CreatedAt = DateTime.UtcNow;
             poi.UpdatedAt = DateTime.UtcNow;
@@ -227,7 +230,7 @@ public class PoiController : Controller
             existing.DebounceSeconds = poi.DebounceSeconds;
             existing.CooldownSeconds = poi.CooldownSeconds;
             existing.TriggerMode = poi.TriggerMode;
-            existing.ImageUrl = poi.ImageUrl;
+            existing.ImageUrl = await SaveImageAsync(poi.ImageFile, poi.ImageUrl);
             existing.MapUrl = poi.MapUrl;
             existing.IsActive = poi.IsActive;
             existing.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
@@ -249,6 +252,27 @@ public class PoiController : Controller
             ViewBag.TranslationLinks = BuildTranslationLinks(poi.Id);
             return View(poi);
         }
+    }
+
+    private async Task<string> SaveImageAsync(IFormFile? imageFile, string? currentUrl)
+    {
+        if (imageFile == null || imageFile.Length <= 0)
+        {
+            return (currentUrl ?? string.Empty).Trim();
+        }
+
+        Directory.CreateDirectory(_imageStorageOptions.RootPath);
+        var extension = Path.GetExtension(imageFile.FileName);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".png";
+        }
+
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var physicalPath = Path.Combine(_imageStorageOptions.RootPath, fileName);
+        await using var stream = new FileStream(physicalPath, FileMode.Create);
+        await imageFile.CopyToAsync(stream);
+        return $"/images/{fileName}";
     }
 
     private List<SelectListItem> BuildCategoryOptions(string? selected = null)

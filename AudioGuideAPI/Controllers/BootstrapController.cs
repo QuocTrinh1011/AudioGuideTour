@@ -1,4 +1,5 @@
 using AudioGuideAPI.Data;
+using AudioGuideAPI.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -51,9 +52,7 @@ public class BootstrapController : ControllerBase
 
         var poiData = pois.Select(p =>
         {
-            var translation = p.Translations.FirstOrDefault(t => t.Language == language)
-                ?? p.Translations.FirstOrDefault(t => t.Language.StartsWith(language.Split('-')[0]))
-                ?? p.Translations.FirstOrDefault();
+            var translation = PoiTranslationSelector.Select(p.Translations, language);
 
             return new
             {
@@ -100,9 +99,7 @@ public class BootstrapController : ControllerBase
 
                     if (poi != null)
                     {
-                        var translation = poi.Translations.FirstOrDefault(t => t.Language == language)
-                            ?? poi.Translations.FirstOrDefault(t => t.Language.StartsWith(language.Split('-')[0]))
-                            ?? poi.Translations.FirstOrDefault();
+                        var translation = PoiTranslationSelector.Select(poi.Translations, language);
 
                         mappedPoi = new
                         {

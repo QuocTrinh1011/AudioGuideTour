@@ -10,7 +10,10 @@ namespace AudioGuideAdmin.Migrations
         {
             migrationBuilder.Sql(
                 """
-                IF OBJECT_ID(N'[Users]', N'U') IS NOT NULL AND OBJECT_ID(N'[AdminUsers]', N'U') IS NULL
+                IF OBJECT_ID(N'[Users]', N'U') IS NOT NULL
+                   AND OBJECT_ID(N'[AdminUsers]', N'U') IS NULL
+                   AND COL_LENGTH('Users', 'Username') IS NOT NULL
+                   AND COL_LENGTH('Users', 'Password') IS NOT NULL
                 BEGIN
                     EXEC sp_rename N'[Users]', N'AdminUsers';
                 END

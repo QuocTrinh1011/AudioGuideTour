@@ -16,19 +16,39 @@ public class PoiDetailPage : ContentPage
         Content = BuildContent();
     }
 
-    private async void OnPlaySelectedClicked(object sender, EventArgs e)
+    private async void OnPlaySelectedClicked(object? sender, EventArgs e)
     {
         await _viewModel.PlaySelectedAsync();
     }
 
-    private async void OnStopPlaybackClicked(object sender, EventArgs e)
+    private async void OnStopPlaybackClicked(object? sender, EventArgs e)
     {
         await _viewModel.StopPlaybackAsync();
     }
 
-    private async void OnOpenMapClicked(object sender, EventArgs e)
+    private async void OnOpenMapClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedMapAsync();
+    }
+
+    private async void OnOpenNarrationClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.OpenSelectedNarrationAsync();
+    }
+
+    private void OnPreviousPoiClicked(object? sender, EventArgs e)
+    {
+        _viewModel.SelectPreviousPoi();
+    }
+
+    private void OnNearestPoiClicked(object? sender, EventArgs e)
+    {
+        _viewModel.SelectNearestPoi();
+    }
+
+    private void OnNextPoiClicked(object? sender, EventArgs e)
+    {
+        _viewModel.SelectNextPoi();
     }
 
     private View BuildContent()
@@ -68,7 +88,7 @@ public class PoiDetailPage : ContentPage
             HeightRequest = 240,
             Aspect = Aspect.AspectFill,
             BackgroundColor = Color.FromArgb("#E8EDF3")
-        }.Bind(Image.SourceProperty, "SelectedPoi.ImageUrl"));
+        }.Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
 
         var infoCard = CreateCard();
         infoCard.Content = new VerticalStackLayout
@@ -77,6 +97,8 @@ public class PoiDetailPage : ContentPage
             Children =
             {
                 new Label { Text = "Thong tin diem thuyet minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiPositionText)),
+                new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.NearestPoiSummaryText)),
                 new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, "SelectedPoi.Description"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Address", stringFormat: "Dia chi: {0}"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Language", stringFormat: "Ngon ngu: {0}"),
@@ -150,6 +172,25 @@ public class PoiDetailPage : ContentPage
         Grid.SetColumn(mapButton, 2);
         actions.Add(mapButton);
         root.Add(actions);
+        var navigationActions = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 10
+        };
+        navigationActions.Add(CreateActionButton("POI truoc", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
+        var nearestButton = CreateActionButton("Gan nhat", OnNearestPoiClicked, "#EEF3F8", "#17324D");
+        Grid.SetColumn(nearestButton, 1);
+        navigationActions.Add(nearestButton);
+        var nextButton = CreateActionButton("POI tiep", OnNextPoiClicked, "#F5F8FB", "#17324D");
+        Grid.SetColumn(nextButton, 2);
+        navigationActions.Add(nextButton);
+        root.Add(navigationActions);
+        root.Add(CreateActionButton("Mo ban thuyet minh day du", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
 
         return new ScrollView { Content = root };
     }

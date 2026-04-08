@@ -1,0 +1,37 @@
+@model IEnumerable<AudioGuideAdmin.Controllers.ImageController.ImageFileItem>
+
+<h2 class="mb-3">Thu vien anh</h2>
+<p class="text-muted">Upload anh POI vao thu muc dung chung. URL /images/... nay se duoc admin, API va mobile app dung chung.</p>
+
+<form method="post" enctype="multipart/form-data" class="card p-3 mb-3">
+    @Html.AntiForgeryToken()
+    <div class="row g-2">
+        <div class="col-md-9">
+            <input type="file" name="file" class="form-control" accept="image/*" />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-primary w-100">Upload anh</button>
+        </div>
+    </div>
+</form>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Preview</th><th>File</th><th>URL</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var file in Model)
+            {
+                <tr>
+                    <td style="width: 180px;">
+                        <img src="@file.Url" alt="@file.FileName" style="width:160px;height:90px;object-fit:cover;border-radius:12px;" />
+                    </td>
+                    <td>@file.FileName</td>
+                    <td><input value="@file.Url" class="form-control" readonly /></td>
+                    <td class="text-end"><a href="/Image/Delete?fileName=@file.FileName" class="btn btn-sm btn-danger">Delete</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
