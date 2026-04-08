@@ -1,4 +1,4 @@
-using Android.App;
+﻿using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Content.PM;
@@ -28,8 +28,8 @@ public class TrackingForegroundService : Service
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
         var action = intent?.Action ?? ActionStart;
-        var title = intent?.GetStringExtra(ExtraTitle) ?? "Audio Tour dang tracking";
-        var text = intent?.GetStringExtra(ExtraText) ?? "GPS, geofence va thuyet minh dang san sang.";
+        var title = intent?.GetStringExtra(ExtraTitle) ?? "Audio Tour đang tracking";
+        var text = intent?.GetStringExtra(ExtraText) ?? "GPS, geofence và thuyết minh đang sẵn sàng.";
 
         switch (action)
         {

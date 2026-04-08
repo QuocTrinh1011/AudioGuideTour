@@ -1,4 +1,4 @@
-using AudioTourApp.Models;
+﻿using AudioTourApp.Models;
 using Microsoft.Maui.Storage;
 using System.Globalization;
 using System.Net.Http.Json;

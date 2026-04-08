@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -39,7 +39,7 @@ public class QRCodeController : Controller
 
         if (!_context.Pois.Any(x => x.Id == model.PoiId))
         {
-            ModelState.AddModelError(nameof(model.PoiId), "POI khong hop le.");
+            ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
         if (_context.QRCodes.Any(x => x.Code == model.Code))
@@ -55,7 +55,7 @@ public class QRCodeController : Controller
 
         _context.QRCodes.Add(model);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da tao QR moi cho mobile app.";
+        TempData["Success"] = "Đã tạo QR mới cho mobile app.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -79,7 +79,7 @@ public class QRCodeController : Controller
 
         if (!_context.Pois.Any(x => x.Id == model.PoiId))
         {
-            ModelState.AddModelError(nameof(model.PoiId), "POI khong hop le.");
+            ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
         if (_context.QRCodes.Any(x => x.Id != model.Id && x.Code == model.Code))
@@ -104,7 +104,7 @@ public class QRCodeController : Controller
         existing.Note = model.Note;
 
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da cap nhat QR.";
+        TempData["Success"] = "Đã cấp nhat QR.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -115,7 +115,7 @@ public class QRCodeController : Controller
         {
             _context.QRCodes.Remove(item);
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da xoa QR.";
+            TempData["Success"] = "Đã xóa QR.";
         }
 
         return RedirectToAction(nameof(Index));
@@ -132,9 +132,9 @@ public class QRCodeController : Controller
 
         var specs = new[]
         {
-            new { Code = "BUS-KH-001", Label = "Khanh Hoi", Note = "Diem dung xe buyt phuong Khanh Hoi" },
-            new { Code = "BUS-VH-002", Label = "Vinh Hoi", Note = "Diem dung xe buyt phuong Vinh Hoi" },
-            new { Code = "BUS-XC-003", Label = "Xuan Chieu", Note = "Diem dung xe buyt phuong Xuan Chieu / Xom Chieu" }
+            new { Code = "BUS-KH-001", Label = "Khánh Hội", Note = "Điểm dừng xe buýt phường Khánh Hội" },
+            new { Code = "BUS-VH-002", Label = "Vĩnh Hội", Note = "Điểm dừng xe buýt phường Vĩnh Hội" },
+            new { Code = "BUS-XC-003", Label = "Xuân Chiếu", Note = "Điểm dừng xe buýt phường Xuân Chiếu / Xóm Chiếu" }
         };
 
         var created = 0;
@@ -170,12 +170,12 @@ public class QRCodeController : Controller
 
         if (created > 0)
         {
-            TempData["Success"] = $"Da tao/cap nhat bo QR xe buyt cho mobile app. Tao moi: {created}.";
+            TempData["Success"] = $"Đã tạo/cập nhật bộ QR xe buýt cho mobile app. Tạo mới: {created}.";
         }
 
         if (missing.Count > 0)
         {
-            TempData["Error"] = $"Chua tim thay POI thuc te cho: {string.Join(", ", missing)}. Hay tao POI that roi bam lai.";
+            TempData["Error"] = $"Chưa tìm thấy POI thực tế cho: {string.Join(", ", missing)}. Hãy tạo POI thật rồi bấm lại.";
         }
 
         return RedirectToAction(nameof(Index));

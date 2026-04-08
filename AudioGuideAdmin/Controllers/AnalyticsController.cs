@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -115,7 +115,7 @@ public class AnalyticsController : Controller
 
         var model = new AnalyticsViewModel
         {
-            TrackingWindowLabel = "7 ngay gan nhat",
+            TrackingWindowLabel = "7 ngày gần nhất",
             TotalTrackingPoint = trackingRows.Count,
             UniqueVisitors = visitorAliases.Count,
             TotalTrigger = triggerRows.Count,

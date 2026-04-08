@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Helpers;
+﻿using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;

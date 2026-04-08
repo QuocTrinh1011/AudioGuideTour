@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
@@ -54,7 +54,7 @@ public class AuthController : Controller
             }
         }
 
-        ViewBag.Error = "Sai tai khoan hoac mat khau";
+        ViewBag.Error = "Sai tài khoản hoặc mật khẩu";
         ViewBag.ReturnUrl = returnUrl;
         return View();
     }
@@ -79,7 +79,7 @@ public class AuthController : Controller
 
         if (_context.Users.Any(x => x.Username == model.Username))
         {
-            ViewBag.Error = "Ten dang nhap da ton tai";
+            ViewBag.Error = "Tên đăng nhập đã tồn tại";
             return View(model);
         }
 

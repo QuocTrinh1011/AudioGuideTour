@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.Models.PoiTranslation
+﻿@model AudioGuideAdmin.Models.PoiTranslation
 @{
     var contextLocked = ViewBag.ContextLocked as bool? == true;
     var contextPoiName = ViewBag.ContextPoiName as string ?? "";
@@ -66,8 +66,8 @@
             <textarea asp-for="TtsScript" class="form-control" rows="3"></textarea>
             <span asp-validation-for="TtsScript" class="text-danger small"></span>
             <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">He thong hien dang dung TTS, khong can nhap audio URL.</small>
-                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-translation-tts">Nghe thu TTS</button>
+                <small class="text-muted">Hệ thống hiện đang dùng TTS, không cần nhập audio URL.</small>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-translation-tts">Nghe thử TTS</button>
             </div>
         </div>
         <div class="col-12">
@@ -75,7 +75,7 @@
             <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
             <span asp-validation-for="AudioUrl" class="text-danger small"></span>
             <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">Neu TTS loi cho ngon ngu nay, app co the dung audio du phong.</small>
+                <small class="text-muted">Nếu TTS lỗi cho ngôn ngữ này, app có thể dùng audio dự phòng.</small>
                 <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mo thu vien audio</a>
             </div>
         </div>
@@ -85,8 +85,8 @@
             <span asp-validation-for="Description" class="text-danger small"></span>
         </div>
         <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary">Luu</button>
-            <a href="@(contextLocked ? $"/Poi/Edit/{Model.PoiId}#translation-manager" : "/Translation")" class="btn btn-outline-secondary">Quay lai</a>
+            <button class="btn btn-primary">Lưu</button>
+            <a href="@(contextLocked ? $"/Poi/Edit/{Model.PoiId}#translation-manager" : "/Translation")" class="btn btn-outline-secondary">Quay lại</a>
         </div>
     </div>
 </form>
@@ -131,7 +131,7 @@
 
     async function previewSpeak(text, language) {
         if (!window.speechSynthesis) {
-            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            alert('Trình duyệt này không hỗ trợ nghe thử TTS.');
             return;
         }
 
@@ -142,7 +142,7 @@
         if (voice) {
             utterance.voice = voice;
         } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
-            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            alert('Máy/trình duyệt hiện chưa có voice Tiếng Việt. Hãy cài thêm voice vi-VN để nghe đúng giọng Việt.');
             return;
         }
 
@@ -154,7 +154,7 @@
         const textarea = document.querySelector('[name="TtsScript"]');
         const text = textarea?.value?.trim();
         if (!text) {
-            alert('Chua co TTS script de nghe thu.');
+            alert('Chưa có TTS script để nghe thử.');
             return;
         }
 

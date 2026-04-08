@@ -1,4 +1,4 @@
-using AudioTourApp.Models;
+﻿using AudioTourApp.Models;
 using AudioTourApp.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
@@ -45,7 +45,7 @@ public class QrPage : ContentPage
 
         if (!_viewModel.CanUseCamera)
         {
-            await DisplayAlert("Camera", "App chua co quyen camera de quet QR.", "OK");
+            await DisplayAlert("Camera", "App chưa có quyền camera để quét QR.", "OK");
             return;
         }
 
@@ -104,15 +104,15 @@ public class QrPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "QR kich hoat nhanh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Nhap, dan, hoac dung ma nhanh de mo ngay noi dung xe buyt ma khong can GPS.", TextColor = Color.FromArgb("#E8F0F7") }
+                    new Label { Text = "QR kích hoạt nhanh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Nhập, dán, hoặc dùng mã nhanh để mở ngay nội dung xe buýt mà không cần GPS.", TextColor = Color.FromArgb("#E8F0F7") }
                 }
             }
         });
 
         var qrCard = CreateCard();
         var qrLayout = new VerticalStackLayout { Spacing = 12 };
-        qrLayout.Add(new Label { Text = "Mo ma QR", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        qrLayout.Add(new Label { Text = "Mở mã QR", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         qrLayout.Add(new Entry
         {
             Placeholder = "BUS-KH-001",
@@ -121,9 +121,9 @@ public class QrPage : ContentPage
         }.Bind(Entry.TextProperty, nameof(MainViewModel.QrCodeInput), BindingMode.TwoWay));
 
         var quickCodes = new HorizontalStackLayout { Spacing = 8 };
-        quickCodes.Add(CreateActionButton("Khanh Hoi", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-KH-001"));
-        quickCodes.Add(CreateActionButton("Vinh Hoi", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-VH-002"));
-        quickCodes.Add(CreateActionButton("Xuan Chieu", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-XC-003"));
+        quickCodes.Add(CreateActionButton("Khánh Hội", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-KH-001"));
+        quickCodes.Add(CreateActionButton("Vĩnh Hội", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-VH-002"));
+        quickCodes.Add(CreateActionButton("Xuân Chiếu", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-XC-003"));
         qrLayout.Add(quickCodes);
 
         var qrActions = new Grid
@@ -131,8 +131,8 @@ public class QrPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        qrActions.Add(CreateActionButton("Mo QR", OnLookupQrClicked, "#17324D", "White"));
-        var pasteButton = CreateActionButton("Dan tu clipboard", OnPasteQrClicked, "#E4B43C", "#17324D");
+        qrActions.Add(CreateActionButton("Mở QR", OnLookupQrClicked, "#17324D", "White"));
+        var pasteButton = CreateActionButton("Dán từ clipboard", OnPasteQrClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(pasteButton, 1);
         qrActions.Add(pasteButton);
         qrLayout.Add(qrActions);
@@ -142,11 +142,11 @@ public class QrPage : ContentPage
 
         var cameraCard = CreateCard();
         var cameraLayout = new VerticalStackLayout { Spacing = 12 };
-        cameraLayout.Add(new Label { Text = "Quyen camera", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        cameraLayout.Add(new Label { Text = "Quyền camera", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         cameraLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CameraPermissionText)));
         cameraLayout.Add(new Label
         {
-            Text = "Ban co the quet camera that, hoac dung luong nhap/dan ma QR neu dang test tren emulator.",
+            Text = "Bạn có thể quét camera thật, hoặc dùng luồng nhập/dán mã QR nếu đang test trên emulator.",
             TextColor = Color.FromArgb("#667C92"),
             FontSize = 12
         });
@@ -156,11 +156,11 @@ public class QrPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        cameraActions.Add(CreateActionButton("Quet bang camera", OnOpenScannerClicked, "#17324D", "White"));
-        var requestButton = CreateActionButton("Xin quyen", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
+        cameraActions.Add(CreateActionButton("Quét bằng camera", OnOpenScannerClicked, "#17324D", "White"));
+        var requestButton = CreateActionButton("Xin quyền", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(requestButton, 1);
         cameraActions.Add(requestButton);
-        var refreshButton = CreateActionButton("Kiem tra lai", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D");
+        var refreshButton = CreateActionButton("Kiểm tra lại", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(refreshButton, 2);
         cameraActions.Add(refreshButton);
         cameraLayout.Add(cameraActions);
@@ -169,9 +169,9 @@ public class QrPage : ContentPage
 
         var historyCard = CreateCard();
         var historyLayout = new VerticalStackLayout { Spacing = 12 };
-        historyLayout.Add(new Label { Text = "QR da mo gan day", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        historyLayout.Add(new Label { Text = "QR đã mở gần đây", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         historyLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.RecentQrSummary)));
-        var historyCollection = new CollectionView { SelectionMode = SelectionMode.Single, EmptyView = "Chua co QR nao duoc mo." };
+        var historyCollection = new CollectionView { SelectionMode = SelectionMode.Single, EmptyView = "Chưa có QR nào được mở." };
         historyCollection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.RecentQrLookups));
         historyCollection.SelectionChanged += OnRecentQrSelected;
         historyCollection.ItemTemplate = new DataTemplate(() =>
@@ -202,9 +202,9 @@ public class QrPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.PoiSummary)));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.Code), stringFormat: "Ma: {0}"));
+                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.Code), stringFormat: "Mã: {0}"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A"), FontSize = 12 }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.OpenedAt), stringFormat: "Mo luc: {0:HH:mm dd/MM}"));
+                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.OpenedAt), stringFormat: "Mở lúc: {0:HH:mm dd/MM}"));
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;

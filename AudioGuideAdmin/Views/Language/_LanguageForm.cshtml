@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.Models.LanguageOption
+﻿@model AudioGuideAdmin.Models.LanguageOption
 
 <form method="post" class="card p-4">
     <input asp-for="Id" type="hidden" />
@@ -31,12 +31,12 @@
         <div class="col-md-3 d-flex align-items-end">
             <div class="form-check form-switch">
                 <input asp-for="IsActive" class="form-check-input" />
-                <label asp-for="IsActive" class="form-check-label">Dang su dung</label>
+                <label asp-for="IsActive" class="form-check-label">Đang sử dụng</label>
             </div>
         </div>
         <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary">Luu</button>
-            <a href="/Language" class="btn btn-outline-secondary">Quay lai</a>
+            <button class="btn btn-primary">Lưu</button>
+            <a href="/Language" class="btn btn-outline-secondary">Quay lại</a>
         </div>
     </div>
 </form>

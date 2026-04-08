@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.Maui.ApplicationModel;
 #if ANDROID
 using Android.OS;
@@ -26,7 +26,7 @@ public sealed class NarrationService : IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(text))
         {
-            return NarrationResult.Failed("Khong co noi dung TTS de doc.");
+            return NarrationResult.Failed("Không có nội dung TTS để đọc.");
         }
 
 #if ANDROID
@@ -61,7 +61,7 @@ public sealed class NarrationService : IAsyncDisposable
         {
             _currentUtteranceId = null;
             _speakTcs = null;
-            return NarrationResult.Failed("Engine TTS khong bat dau doc duoc.");
+            return NarrationResult.Failed("Engine TTS không bắt đầu đọc được.");
         }
 
         try
@@ -71,14 +71,14 @@ public sealed class NarrationService : IAsyncDisposable
         }
         catch (System.OperationCanceledException)
         {
-            return NarrationResult.Interrupted("Da dung TTS.");
+            return NarrationResult.Interrupted("Đã dừng TTS.");
         }
         catch (Exception ex)
         {
             return NarrationResult.Failed(ex.Message);
         }
 #else
-        return NarrationResult.Failed("Nen tang hien tai chua ho tro TTS native.");
+        return NarrationResult.Failed("Nền tảng hiện tại chưa hỗ trợ TTS native.");
 #endif
     }
 
@@ -107,14 +107,14 @@ public sealed class NarrationService : IAsyncDisposable
         var availableVoices = _textToSpeech.Voices?.Count ?? 0;
         var preferredVoice = ResolveVoice(language, voiceName);
         var availability = locale == null
-            ? "khong co locale"
+            ? "không có locale"
             : _textToSpeech.IsLanguageAvailable(locale).ToString();
 
         return preferredVoice != null
-            ? $"TTS: san sang | locale {localeTag} | availability {availability} | voice {preferredVoice.Name} | total voices {availableVoices}"
-            : $"TTS: san sang | locale {localeTag} | availability {availability} | khong tim thay voice cu the, se dung locale mac dinh | total voices {availableVoices}";
+            ? $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | voice {preferredVoice.Name} | total voices {availableVoices}"
+            : $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | không tìm thấy voice cụ thể, sẽ dùng locale mặc định | total voices {availableVoices}";
 #else
-        return "TTS: nen tang hien tai chua ho tro chan doan TTS native.";
+        return "TTS: nền tảng hiện tại chưa hỗ trợ chẩn đoán TTS native.";
 #endif
     }
 
@@ -149,7 +149,7 @@ public sealed class NarrationService : IAsyncDisposable
             if (_textToSpeech == null)
             {
                 _initTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _lastInitializationMessage = "Dang khoi tao TTS...";
+                _lastInitializationMessage = "Đang khởi tạo TTS...";
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     _textToSpeech = new AndroidTextToSpeech(
@@ -165,7 +165,7 @@ public sealed class NarrationService : IAsyncDisposable
 
         if (_initTcs == null)
         {
-            return TtsInitializationResult.Failed("Khong tao duoc tien trinh khoi tao TTS.");
+            return TtsInitializationResult.Failed("Không tạo được tiến trình khởi tạo TTS.");
         }
 
         try
@@ -175,7 +175,7 @@ public sealed class NarrationService : IAsyncDisposable
                 return MarkInitializationFailure("Khoi tao TTS qua lau, vui long thu lai.");
             }
 
-            _lastInitializationMessage = "TTS da san sang.";
+            _lastInitializationMessage = "TTS đã sẵn sàng.";
             _lastInitializationFailureUtc = DateTime.MinValue;
             return TtsInitializationResult.Success(_lastInitializationMessage);
         }
@@ -257,7 +257,7 @@ public sealed class NarrationService : IAsyncDisposable
     {
         if (_textToSpeech == null)
         {
-            return NarrationResult.Failed("Thiet bi khong khoi tao duoc engine TTS.");
+            return NarrationResult.Failed("Thiết bị không khởi tạo được engine TTS.");
         }
 
         var preferredVoice = ResolveVoice(language, voiceName);
@@ -273,15 +273,15 @@ public sealed class NarrationService : IAsyncDisposable
         var locale = ResolveLocale(language);
         if (locale == null)
         {
-            return NarrationResult.Failed($"Khong tim thay locale TTS cho {language}.");
+            return NarrationResult.Failed($"Không tìm thấy locale TTS cho {language}.");
         }
 
         var languageResult = _textToSpeech.SetLanguage(locale);
         if (languageResult is Android.Speech.Tts.LanguageAvailableResult.MissingData or Android.Speech.Tts.LanguageAvailableResult.NotSupported)
         {
             return NarrationResult.Failed(!string.IsNullOrWhiteSpace(voiceName)
-                ? $"Thiet bi chua ho tro voice '{voiceName}' hoac ngon ngu {language}."
-                : $"Thiet bi chua ho tro voice {language}.");
+                ? $"Thiết bị chưa hỗ trợ voice '{voiceName}' hoặc ngôn ngữ {language}."
+                : $"Thiết bị chưa hỗ trợ voice {language}.");
         }
 
         return NarrationResult.Success();
@@ -362,7 +362,7 @@ public sealed class NarrationService : IAsyncDisposable
         {
             if (status == Android.Speech.Tts.OperationResult.Success)
             {
-                _onStatus("TTS da khoi tao thanh cong.");
+                _onStatus("TTS đã khởi tạo thành công.");
                 _onReady();
                 _tcs.TrySetResult(true);
                 return;
@@ -410,9 +410,9 @@ public sealed class NarrationService : IAsyncDisposable
 
 public readonly record struct NarrationResult(bool Played, bool WasCompleted, string Message)
 {
-    public static NarrationResult Success(string message = "Da doc bang TTS.") => new(true, true, message);
+    public static NarrationResult Success(string message = "Đã đọc bằng TTS.") => new(true, true, message);
 
-    public static NarrationResult Interrupted(string message = "Da dung TTS.") => new(true, false, message);
+    public static NarrationResult Interrupted(string message = "Đã dừng TTS.") => new(true, false, message);
 
     public static NarrationResult Failed(string message) => new(false, false, message);
 }

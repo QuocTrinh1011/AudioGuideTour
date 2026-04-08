@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Models;
+﻿using AudioGuideAdmin.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAdmin.Data;
@@ -258,10 +258,10 @@ public static class AppDataInitializer
         }
 
         context.Categories.AddRange(
-            new Category { Slug = "food-street", Name = "Pho am thuc", Description = "Danh muc mon an va cum quan an.", ThemeColor = "#c97732", SortOrder = 1 },
-            new Category { Slug = "history", Name = "Lich su dia phuong", Description = "Cac diem ke chuyen lich su khu vuc.", ThemeColor = "#17324d", SortOrder = 2 },
-            new Category { Slug = "culture", Name = "Van hoa - doi song", Description = "Net sinh hoat va van hoa pho Vinh Khanh.", ThemeColor = "#2a9d8f", SortOrder = 3 },
-            new Category { Slug = "check-in", Name = "Check-in - trai nghiem", Description = "Cac diem dung chan va chup anh.", ThemeColor = "#6d597a", SortOrder = 4 });
+            new Category { Slug = "food-street", Name = "Phố ẩm thực", Description = "Danh mục món ăn và cụm quán ăn.", ThemeColor = "#c97732", SortOrder = 1 },
+            new Category { Slug = "history", Name = "Lịch sử địa phương", Description = "Các điểm kể chuyện lịch sử khu vực.", ThemeColor = "#17324d", SortOrder = 2 },
+            new Category { Slug = "culture", Name = "Văn hóa - đời sống", Description = "Nét sinh hoạt và văn hóa phố Vĩnh Khánh.", ThemeColor = "#2a9d8f", SortOrder = 3 },
+            new Category { Slug = "check-in", Name = "Check-in - trải nghiệm", Description = "Các điểm dừng chân và chụp ảnh.", ThemeColor = "#6d597a", SortOrder = 4 });
 
         await context.SaveChangesAsync();
     }
@@ -278,11 +278,11 @@ public static class AppDataInitializer
         {
             new Poi
             {
-                Name = "Pho am thuc Vinh Khanh",
+                Name = "Phố ẩm thực Vĩnh Khánh",
                 Category = "food-street",
-                Summary = "Diem bat dau pho am thuc noi tieng cua Quan 4.",
-                Description = "Khu pho nay sang den tu chieu toi den khuya, noi bat voi cac quan oc, mon nuong va khong khi an dem rat soi dong.",
-                Address = "Duong Vinh Khanh, Phuong 8, Quan 4, TP.HCM",
+                Summary = "Điểm bắt đầu phố ẩm thực nổi tiếng của Quận 4.",
+                Description = "Khu phố này sáng đèn từ chiều tới đêm khuya, nổi bật với các quán ốc, món nướng và không khí ăn đêm rất sôi động.",
+                Address = "Đường Vĩnh Khánh, Phường 8, Quận 4, TP.HCM",
                 Latitude = 10.760950,
                 Longitude = 106.704120,
                 Radius = 45,
@@ -292,7 +292,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 120,
                 TriggerMode = "both",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76095,106.70412",
-                TtsScript = "Ban dang dung tai cua ngo pho am thuc Vinh Khanh. Day la diem hop ly de bat dau tour va lam quen voi khong khi an dem cua Quan 4.",
+                TtsScript = "Bạn đang đứng tại cửa ngõ phố ẩm thực Vĩnh Khánh. Đây là điểm hợp lý để bắt đầu tour và làm quen với không khí ăn đêm của Quận 4.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 90,
                 CreatedAt = now,
@@ -300,11 +300,11 @@ public static class AppDataInitializer
             },
             new Poi
             {
-                Name = "Cum quan oc Vinh Khanh",
+                Name = "Cụm quán ốc Vĩnh Khánh",
                 Category = "food-street",
-                Summary = "Cum quan oc va mon an dem dong khach nhat tren tuyen pho.",
-                Description = "Du khach thuong dung lai tai day de thu oc, hai san, mon nuong va nhieu phien ban nuoc cham dac trung cua khu vuc.",
-                Address = "Giua pho Vinh Khanh, Quan 4, TP.HCM",
+                Summary = "Cụm quán ốc và món ăn đêm đông khách nhất trên tuyến phố.",
+                Description = "Du khách thường dừng lại tại đây để thử ốc, hải sản, món nướng và nhiều phiên bản nước chấm đặc trưng của khu vực.",
+                Address = "Giữa phố Vĩnh Khánh, Quận 4, TP.HCM",
                 Latitude = 10.760620,
                 Longitude = 106.703760,
                 Radius = 35,
@@ -314,7 +314,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 120,
                 TriggerMode = "both",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76062,106.70376",
-                TtsScript = "Day la cum quan oc tieu bieu cua Vinh Khanh. Nhac do an nhanh, ban ngan sat via he va mui nuong tao nen ban sac rat rieng cua khu pho nay.",
+                TtsScript = "Đây là cụm quán ốc tiêu biểu của Vĩnh Khánh. Nhịp phục vụ nhanh, bàn sát vỉa hè và mùi nướng tạo nên bản sắc rất riêng của khu phố này.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 75,
                 CreatedAt = now,
@@ -322,11 +322,11 @@ public static class AppDataInitializer
             },
             new Poi
             {
-                Name = "Tram xe buyt Khanh Hoi",
+                Name = "Trạm xe buýt Khánh Hội",
                 Category = "check-in",
-                Summary = "Diem vao tour bang QR cho visitor den bang xe buyt.",
-                Description = "Khach co the quet QR tai diem nay de nghe gioi thieu ngay ma khong can doi GPS kich hoat.",
-                Address = "Khu vuc Khanh Hoi, Quan 4, TP.HCM",
+                Summary = "Điểm vào tour bằng QR cho visitor đến bằng xe buýt.",
+                Description = "Khách có thể quét QR tại điểm này để nghe giới thiệu ngay mà không cần đợi GPS kích hoạt.",
+                Address = "Khu vực Khánh Hội, Quận 4, TP.HCM",
                 Latitude = 10.761480,
                 Longitude = 106.703020,
                 Radius = 25,
@@ -336,7 +336,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 90,
                 TriggerMode = "manual",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76148,106.70302",
-                TtsScript = "Tram xe buyt Khanh Hoi la diem vao nhanh cho tour. Neu ban vua xuong xe, hay quet QR de nghe tong quan va bat dau hanh trinh ngay lap tuc.",
+                TtsScript = "Trạm xe buýt Khánh Hội la diem vao nhanh cho tour. Neu ban vua xuong xe, hay quet QR de nghe tong quan va bat dau hanh trinh ngay lap tuc.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 50,
                 CreatedAt = now,
@@ -344,11 +344,11 @@ public static class AppDataInitializer
             },
             new Poi
             {
-                Name = "Tram xe buyt Vinh Hoi",
+                Name = "Trạm xe buýt Vĩnh Hội",
                 Category = "check-in",
-                Summary = "Diem dung chan de vao hoac ket thuc lo trinh tham quan.",
-                Description = "Tai day visitor co the quet QR, nghe tom tat va chon huong tiep tuc di bo vao pho am thuc.",
-                Address = "Khu vuc Vinh Hoi, Quan 4, TP.HCM",
+                Summary = "Điểm dừng chân để vào hoặc kết thúc lộ trình tham quan.",
+                Description = "Tại đây visitor có thể quét QR, nghe tóm tắt và chọn hướng tiếp tục đi bộ vào phố ẩm thực.",
+                Address = "Khu vực Vĩnh Hội, Quận 4, TP.HCM",
                 Latitude = 10.761980,
                 Longitude = 106.704030,
                 Radius = 25,
@@ -358,7 +358,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 90,
                 TriggerMode = "manual",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76198,106.70403",
-                TtsScript = "Tram xe buyt Vinh Hoi phu hop lam diem ket tour hoac trung chuyen. Noi dung QR tai day giup visitor nghe nhanh ma khong phu thuoc vao vi tri GPS.",
+                TtsScript = "Trạm xe buýt Vĩnh Hội phù hợp làm điểm kết tour hoặc trung chuyển. Nội dung QR tại đây giúp visitor nghe nhanh mà không phụ thuộc vào vị trí GPS.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 50,
                 CreatedAt = now,
@@ -366,11 +366,11 @@ public static class AppDataInitializer
             },
             new Poi
             {
-                Name = "Tram xe buyt Xuan Chieu",
+                Name = "Trạm xe buýt Xuân Chiếu",
                 Category = "check-in",
-                Summary = "Diem QR cho visitor tiep can tu huong Xuan Chieu - Xom Chieu.",
-                Description = "Noi dung duoc kich hoat bang QR de visitor nghe ngay khi vua den khu vuc bang xe buyt.",
-                Address = "Khu vuc Xuan Chieu - Xom Chieu, Quan 4, TP.HCM",
+                Summary = "Điểm QR cho visitor tiếp cận từ hướng Xuân Chiếu - Xóm Chiếu.",
+                Description = "Nội dung được kích hoạt bằng QR để visitor nghe ngay khi vừa đến khu vực bằng xe buýt.",
+                Address = "Khu vực Xuân Chiếu - Xóm Chiếu, Quận 4, TP.HCM",
                 Latitude = 10.762530,
                 Longitude = 106.704820,
                 Radius = 25,
@@ -380,7 +380,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 90,
                 TriggerMode = "manual",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76253,106.70482",
-                TtsScript = "Day la diem vao tu huong Xuan Chieu, con goi la Xom Chieu. QR tai day giup visitor vao noi dung nhanh va khong can doi app bat geofence.",
+                TtsScript = "Đây là điểm vào từ hướng Xuân Chiếu, còn gọi là Xóm Chiếu. QR tại đây giúp visitor vào nội dung nhanh và không cần đợi app bật geofence.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 50,
                 CreatedAt = now,
@@ -388,11 +388,11 @@ public static class AppDataInitializer
             },
             new Poi
             {
-                Name = "Nhip song khu vuc Vinh Khanh",
+                Name = "Nhịp sống khu vực Vĩnh Khánh",
                 Category = "culture",
-                Summary = "Diem ke chuyen ve khong khi duong pho, sinh hoat va nhip song ve dem.",
-                Description = "Ngoai am thuc, khu vuc nay con hap dan nho su nhon nhip cua nguoi ban, khach di bo va khong gian sinh hoat sat nhau tren via he.",
-                Address = "Truc duong Vinh Khanh, Quan 4, TP.HCM",
+                Summary = "Điểm kể chuyện về không khí đường phố, sinh hoạt và nhịp sống về đêm.",
+                Description = "Ngoài ẩm thực, khu vực này còn hấp dẫn nhờ sự nhộn nhịp của người bán, khách đi bộ và không gian sinh hoạt sát nhau trên vỉa hè.",
+                Address = "Trục đường Vĩnh Khánh, Quận 4, TP.HCM",
                 Latitude = 10.761120,
                 Longitude = 106.703580,
                 Radius = 30,
@@ -402,7 +402,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 120,
                 TriggerMode = "nearby",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76112,106.70358",
-                TtsScript = "Diem nay giup visitor hieu them ve doi song pho phuong o Quan 4. Khong chi co mon an, Vinh Khanh con la noi the hien nhip song va van hoa giao tiep rat rieng.",
+                TtsScript = "Điểm này giúp visitor hiểu thêm về đời sống phố phường ở Quận 4. Không chỉ có món ăn, Vĩnh Khánh còn là nơi thể hiện nhịp sống và văn hóa giao tiếp rất riêng.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 60,
                 CreatedAt = now,
@@ -413,7 +413,7 @@ public static class AppDataInitializer
         context.Pois.AddRange(pois);
         await context.SaveChangesAsync();
 
-        var foodStreet = await context.Pois.FirstAsync(x => x.Name == "Pho am thuc Vinh Khanh");
+        var foodStreet = await context.Pois.FirstAsync(x => x.Name == "Phố ẩm thực Vĩnh Khánh");
         context.PoiTranslations.AddRange(
             new PoiTranslation
             {
@@ -450,14 +450,14 @@ public static class AppDataInitializer
             });
 
         context.QRCodes.AddRange(
-            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Tram xe buyt Khanh Hoi")).Id, Code = "BUS-KH-001", Note = "Diem dung xe buyt phuong Khanh Hoi" },
-            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Tram xe buyt Vinh Hoi")).Id, Code = "BUS-VH-002", Note = "Diem dung xe buyt phuong Vinh Hoi" },
-            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Tram xe buyt Xuan Chieu")).Id, Code = "BUS-XC-003", Note = "Diem dung xe buyt phuong Xuan Chieu / Xom Chieu" });
+            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Trạm xe buýt Khánh Hội")).Id, Code = "BUS-KH-001", Note = "Điểm dừng xe buýt phường Khánh Hội" },
+            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Trạm xe buýt Vĩnh Hội")).Id, Code = "BUS-VH-002", Note = "Điểm dừng xe buýt phường Vĩnh Hội" },
+            new QRCode { PoiId = (await context.Pois.FirstAsync(x => x.Name == "Trạm xe buýt Xuân Chiếu")).Id, Code = "BUS-XC-003", Note = "Điểm dừng xe buýt phường Xuân Chiếu / Xóm Chiếu" });
 
         var tour = new Tour
         {
-            Name = "Dem Vinh Khanh 45 phut",
-            Description = "Lo trinh demo di bo tu tram xe buyt den pho am thuc va cac diem nhip song khu Vinh Khanh.",
+            Name = "Đêm Vĩnh Khánh 45 phút",
+            Description = "Lộ trình demo đi bộ từ trạm xe buýt đến phố ẩm thực và các điểm nhịp sống khu Vĩnh Khánh.",
             Language = "vi-VN",
             EstimatedDurationMinutes = 45,
             IsActive = true,
@@ -469,11 +469,11 @@ public static class AppDataInitializer
 
         var stops = new[]
         {
-            new { PoiName = "Tram xe buyt Khanh Hoi", SortOrder = 1, AutoPlay = false, Note = "Diem vao tour bang QR hoac tu chon." },
-            new { PoiName = "Pho am thuc Vinh Khanh", SortOrder = 2, AutoPlay = true, Note = "Tong quan ve pho am thuc." },
-            new { PoiName = "Cum quan oc Vinh Khanh", SortOrder = 3, AutoPlay = true, Note = "Gioi thieu cum quan oc va mon an dem." },
-            new { PoiName = "Nhip song khu vuc Vinh Khanh", SortOrder = 4, AutoPlay = true, Note = "Ke chuyen ve khong khi va nhan nhip ve dem." },
-            new { PoiName = "Tram xe buyt Vinh Hoi", SortOrder = 5, AutoPlay = false, Note = "Diem ket tour va dinh huong di chuyen tiep." }
+            new { PoiName = "Trạm xe buýt Khánh Hội", SortOrder = 1, AutoPlay = false, Note = "Điểm vào tour bằng QR hoặc tự chọn." },
+            new { PoiName = "Phố ẩm thực Vĩnh Khánh", SortOrder = 2, AutoPlay = true, Note = "Tổng quan về phố ẩm thực." },
+            new { PoiName = "Cụm quán ốc Vĩnh Khánh", SortOrder = 3, AutoPlay = true, Note = "Giới thiệu cụm quán ốc và món ăn đêm." },
+            new { PoiName = "Nhịp sống khu vực Vĩnh Khánh", SortOrder = 4, AutoPlay = true, Note = "Kể chuyện về không khí và nhịp sống về đêm." },
+            new { PoiName = "Trạm xe buýt Vĩnh Hội", SortOrder = 5, AutoPlay = false, Note = "Điểm kết tour và định hướng di chuyển tiếp." }
         };
 
         foreach (var stop in stops)
@@ -502,12 +502,12 @@ public static class AppDataInitializer
         var now = DateTime.UtcNow;
         var poiIds = await context.Pois
             .Where(x =>
-                x.Name == "Pho am thuc Vinh Khanh" ||
-                x.Name == "Cum quan oc Vinh Khanh" ||
-                x.Name == "Tram xe buyt Khanh Hoi" ||
-                x.Name == "Tram xe buyt Vinh Hoi" ||
-                x.Name == "Tram xe buyt Xuan Chieu" ||
-                x.Name == "Nhip song khu vuc Vinh Khanh")
+                x.Name == "Phố ẩm thực Vĩnh Khánh" ||
+                x.Name == "Cụm quán ốc Vĩnh Khánh" ||
+                x.Name == "Trạm xe buýt Khánh Hội" ||
+                x.Name == "Trạm xe buýt Vĩnh Hội" ||
+                x.Name == "Trạm xe buýt Xuân Chiếu" ||
+                x.Name == "Nhịp sống khu vực Vĩnh Khánh")
             .ToDictionaryAsync(x => x.Name, x => x.Id);
 
         if (poiIds.Count == 0)
@@ -524,24 +524,24 @@ public static class AppDataInitializer
 
         var definitions = new (string PoiName, string Language, string Title, string Summary, string Description, string TtsScript)[]
         {
-            ("Pho am thuc Vinh Khanh", "en-US", "Vinh Khanh Food Street", "A lively entry point to District 4 night-food culture.", "This street lights up from late afternoon to night with seafood, grilled dishes, and dense street-side dining.", "You are at the entrance of Vinh Khanh Food Street. This is a good starting point to get the overview before walking deeper into the food corridor."),
-            ("Pho am thuc Vinh Khanh", "zh-CN", "Vinh Khanh Mei Shi Jie", "Qu 4 ye jian mei shi jie de ru kou.", "Zhe tiao jie zai bang wan hou bian de re nao, ji zhong le hai xian, shao kao he jie bian yong can khong gian.", "Nin xianzai zai Vinh Khanh mei shi jie ru kou. Zheli shi kaishi zhe tiao yesheng canyin luxian de hao difang."),
-            ("Pho am thuc Vinh Khanh", "ja-JP", "Vinh Khanh Gurume Street", "4-ku no yoru no shokugai e no iriguchi desu.", "Yuugata kara yoru ni kakete, seafood, grilled food, soshite rojou no shokubunka de kono toori wa totemo nigiyaka ni narimasu.", "Koko wa Vinh Khanh gurume street no iriguchi desu. Mazu wa koko de kuiki no funiki o tsukande kara aruite susumu no ga osusume desu."),
-            ("Cum quan oc Vinh Khanh", "en-US", "Vinh Khanh Seafood Cluster", "One of the busiest late-night seafood stretches on the route.", "Visitors often stop here for snails, shellfish, grilled plates, and dipping sauces that define the street-food identity of the area.", "This seafood cluster represents the most energetic dining section of Vinh Khanh. It is where the smell of grilled dishes and the sidewalk atmosphere feel strongest."),
-            ("Cum quan oc Vinh Khanh", "zh-CN", "Vinh Khanh Hai Xian Qu", "Zhe shi zhe tiao jie zui re nao de yejian hai xian qu.", "Youke chang chang zai zheli ting liu, pinchang luo, bei lei, shao kao he dai you difang tese de jiangliao.", "Zheli shi Vinh Khanh zui ju daibiao xing de hai xian qu. Shaokao xiangqi he lu bian canyin de fenwei tebie qianglie."),
-            ("Cum quan oc Vinh Khanh", "ja-JP", "Vinh Khanh Seafood Zone", "Kono toori de mottomo nigiwai no aru yoru no kaisen eria desu.", "Kankoukyaku wa koko de tamemono, kai, yakimono, soshite chiiki rashii sauce o tanoshimu koto ga dekimasu.", "Koko wa Vinh Khanh no kaisen eria no chuushin desu. Yakimono no kaori to rojou no kuuki ga kono machi rashisa o tsukutteimasu."),
-            ("Tram xe buyt Khanh Hoi", "en-US", "Khanh Hoi Bus Stop", "A QR entry point for visitors arriving by bus.", "Visitors can scan the code here and start listening immediately without waiting for GPS activation.", "This bus stop is a fast entry point to the tour. Scan the QR code here if you want to begin listening right after getting off the bus."),
-            ("Tram xe buyt Khanh Hoi", "zh-CN", "Khanh Hoi Gong Che Zhan", "Da ba shi daoda de youke keyi cong zheli saoma kaishi.", "Youke keyi zai zheli saoma bing liji shiting, er bu xu dengdai GPS chufa.", "Khanh Hoi gongchezhan shi yi ge kuaisu jinru dian. Ruguo nin gang xiache, keyi zhijie saoma kaishi ting jie shao."),
-            ("Tram xe buyt Khanh Hoi", "ja-JP", "Khanh Hoi Bus Stop", "Basu de kita hito no tame no QR start point desu.", "Koko de QR o yomeba, GPS no handou o matazu ni sugu ni annai o kiku koto ga dekimasu.", "Koko wa Khanh Hoi no basutei desu. Basu o orita ato, sugu ni QR de tour o hajimeru no ni muiteimasu."),
-            ("Tram xe buyt Vinh Hoi", "en-US", "Vinh Hoi Bus Stop", "A flexible stop for entering or ending the walking route.", "From here visitors can scan a QR code, hear a short summary, and decide whether to continue into the food street on foot.", "Vinh Hoi Bus Stop works well as a transfer point or tour ending point. The QR content here lets visitors listen quickly without depending on GPS."),
-            ("Tram xe buyt Vinh Hoi", "zh-CN", "Vinh Hoi Gong Che Zhan", "Zheli shi jinru huo jieshu canyin bushixingcheng de linghuo zhandian.", "Youke keyi zai zheli saoma, xian ting yi duan jianjie, zai jueding shifou jixu zou jin mei shijie.", "Vinh Hoi gongchezhan keyi zuowei zhuancheng dian huo jieshu dian. Zheli de QR neirong neng rang youke kuaisu shiting."),
-            ("Tram xe buyt Vinh Hoi", "ja-JP", "Vinh Hoi Bus Stop", "Aruki route no hajimari ni mo owari ni mo tsukaeru basutei desu.", "Koko de QR o yonde mijikai setsumei o kiite kara, aruite susumu ka douka o erabu koto ga dekimasu.", "Vinh Hoi no basutei wa tour no shuuten ni mo chuukei ni mo muki masu. QR o tsukatte sugu ni naiyou o kaku nin dekimasu."),
-            ("Tram xe buyt Xuan Chieu", "en-US", "Xuan Chieu Bus Stop", "A QR point for visitors entering from the Xuan Chieu direction.", "The narration here is designed to start right away for visitors who reach the area by bus from the Xuan Chieu - Xom Chieu side.", "This is the QR entry point from the Xuan Chieu side, also known as Xom Chieu. It helps visitors access the content quickly without waiting for geofence activation."),
-            ("Tram xe buyt Xuan Chieu", "zh-CN", "Xuan Chieu Gong Che Zhan", "Cong Xuan Chieu fangxiang dao da de youke keyi zai zheli saoma.", "Zheli de neirong sheji gei cong Xuan Chieu huo Xom Chieu yi ce daoda de youke, keyi liji kaishi shiting.", "Zhe shi cong Xuan Chieu huo Xom Chieu fangxiang jinru de QR dian. Ta keyi rang youke bu yong deng geofence ye neng kuaisu ting dao neirong."),
-            ("Tram xe buyt Xuan Chieu", "ja-JP", "Xuan Chieu Bus Stop", "Xuan Chieu gawa kara hairu hito no tame no QR point desu.", "Koko no annai wa, Xuan Chieu ya Xom Chieu no houkou kara kuru hito ga sugu ni kikeru you ni settei sareteimasu.", "Koko wa Xuan Chieu gawa kara no nyuuryokuten desu. Geofence o matanai demo, QR de sugu ni annai naiyou ni haireru no ga tokuchou desu."),
-            ("Nhip song khu vuc Vinh Khanh", "en-US", "Vinh Khanh Street Life", "A stop that explains the nighttime rhythm and social life of the neighborhood.", "Beyond food, this area is memorable for its busy sidewalks, close-knit street trading, and the flow of people through the evening.", "This stop helps visitors understand the local street rhythm of District 4. Vinh Khanh is not only about food, but also about how people gather, trade, and socialize at night."),
-            ("Nhip song khu vuc Vinh Khanh", "zh-CN", "Vinh Khanh Jie Tou Sheng Huo", "Zhe ge dian jieshao de shi zheli de yejian jietou jiezhou he shenghuo qiwei.", "Chu le meishi, zhe li hai yin manglu de renxingdao, linjin de xiaotan he buduan liudong de renqun er rang ren jixu lianshang.", "Zhe ge dian bangzhu youke liaojie Qu 4 de jietou shenghuo. Vinh Khanh bu zhi shi chi de difang, ye shi yi ge neng kanjian renmen jiaoliu he yewan qifen de kongjian."),
-            ("Nhip song khu vuc Vinh Khanh", "ja-JP", "Vinh Khanh Street Rhythm", "Kono point de wa, yoru no machi no rizumu to kurashi no kuuki o shoukai shimasu.", "Tabemono dake de naku, isogashii hodou, chikaku de eigyou suru mise, soshite yoru no hito no nagare ga kono chiiki no miryoku desu.", "Koko de wa Quan 4 no machi no seikatsu kan o rikaisuru koto ga dekimasu. Vinh Khanh wa tabemono dake de naku, yoru no kouryuu ga mienai tokoro made tsunagatteimasu.")
+            ("Phố ẩm thực Vĩnh Khánh", "en-US", "Vinh Khanh Food Street", "A lively entry point to District 4 night-food culture.", "This street lights up from late afternoon to night with seafood, grilled dishes, and dense street-side dining.", "You are at the entrance of Vinh Khanh Food Street. This is a good starting point to get the overview before walking deeper into the food corridor."),
+            ("Phố ẩm thực Vĩnh Khánh", "zh-CN", "Vinh Khanh Mei Shi Jie", "Qu 4 ye jian mei shi jie de ru kou.", "Zhe tiao jie zai bang wan hou bian de re nao, ji zhong le hai xian, shao kao he jie bian yong can khong gian.", "Nin xianzai zai Vinh Khanh mei shi jie ru kou. Zheli shi kaishi zhe tiao yesheng canyin luxian de hao difang."),
+            ("Phố ẩm thực Vĩnh Khánh", "ja-JP", "Vinh Khanh Gurume Street", "4-ku no yoru no shokugai e no iriguchi desu.", "Yuugata kara yoru ni kakete, seafood, grilled food, soshite rojou no shokubunka de kono toori wa totemo nigiyaka ni narimasu.", "Koko wa Vinh Khanh gurume street no iriguchi desu. Mazu wa koko de kuiki no funiki o tsukande kara aruite susumu no ga osusume desu."),
+            ("Cụm quán ốc Vĩnh Khánh", "en-US", "Vinh Khanh Seafood Cluster", "One of the busiest late-night seafood stretches on the route.", "Visitors often stop here for snails, shellfish, grilled plates, and dipping sauces that define the street-food identity of the area.", "This seafood cluster represents the most energetic dining section of Vinh Khanh. It is where the smell of grilled dishes and the sidewalk atmosphere feel strongest."),
+            ("Cụm quán ốc Vĩnh Khánh", "zh-CN", "Vinh Khanh Hai Xian Qu", "Zhe shi zhe tiao jie zui re nao de yejian hai xian qu.", "Youke chang chang zai zheli ting liu, pinchang luo, bei lei, shao kao he dai you difang tese de jiangliao.", "Zheli shi Vinh Khanh zui ju daibiao xing de hai xian qu. Shaokao xiangqi he lu bian canyin de fenwei tebie qianglie."),
+            ("Cụm quán ốc Vĩnh Khánh", "ja-JP", "Vinh Khanh Seafood Zone", "Kono toori de mottomo nigiwai no aru yoru no kaisen eria desu.", "Kankoukyaku wa koko de tamemono, kai, yakimono, soshite chiiki rashii sauce o tanoshimu koto ga dekimasu.", "Koko wa Vinh Khanh no kaisen eria no chuushin desu. Yakimono no kaori to rojou no kuuki ga kono machi rashisa o tsukutteimasu."),
+            ("Trạm xe buýt Khánh Hội", "en-US", "Khánh Hội Bus Stop", "A QR entry point for visitors arriving by bus.", "Visitors can scan the code here and start listening immediately without waiting for GPS activation.", "This bus stop is a fast entry point to the tour. Scan the QR code here if you want to begin listening right after getting off the bus."),
+            ("Trạm xe buýt Khánh Hội", "zh-CN", "Khánh Hội Gong Che Zhan", "Da ba shi daoda de youke keyi cong zheli saoma kaishi.", "Youke keyi zai zheli saoma bing liji shiting, er bu xu dengdai GPS chufa.", "Khánh Hội gongchezhan shi yi ge kuaisu jinru dian. Ruguo nin gang xiache, keyi zhijie saoma kaishi ting jie shao."),
+            ("Trạm xe buýt Khánh Hội", "ja-JP", "Khánh Hội Bus Stop", "Basu de kita hito no tame no QR start point desu.", "Koko de QR o yomeba, GPS no handou o matazu ni sugu ni annai o kiku koto ga dekimasu.", "Koko wa Khánh Hội no basutei desu. Basu o orita ato, sugu ni QR de tour o hajimeru no ni muiteimasu."),
+            ("Trạm xe buýt Vĩnh Hội", "en-US", "Vĩnh Hội Bus Stop", "A flexible stop for entering or ending the walking route.", "From here visitors can scan a QR code, hear a short summary, and decide whether to continue into the food street on foot.", "Vĩnh Hội Bus Stop works well as a transfer point or tour ending point. The QR content here lets visitors listen quickly without depending on GPS."),
+            ("Trạm xe buýt Vĩnh Hội", "zh-CN", "Vĩnh Hội Gong Che Zhan", "Zheli shi jinru huo jieshu canyin bushixingcheng de linghuo zhandian.", "Youke keyi zai zheli saoma, xian ting yi duan jianjie, zai jueding shifou jixu zou jin mei shijie.", "Vĩnh Hội gongchezhan keyi zuowei zhuancheng dian huo jieshu dian. Zheli de QR neirong neng rang youke kuaisu shiting."),
+            ("Trạm xe buýt Vĩnh Hội", "ja-JP", "Vĩnh Hội Bus Stop", "Aruki route no hajimari ni mo owari ni mo tsukaeru basutei desu.", "Koko de QR o yonde mijikai setsumei o kiite kara, aruite susumu ka douka o erabu koto ga dekimasu.", "Vĩnh Hội no basutei wa tour no shuuten ni mo chuukei ni mo muki masu. QR o tsukatte sugu ni naiyou o kaku nin dekimasu."),
+            ("Trạm xe buýt Xuân Chiếu", "en-US", "Xuân Chiếu Bus Stop", "A QR point for visitors entering from the Xuân Chiếu direction.", "The narration here is designed to start right away for visitors who reach the area by bus from the Xuân Chiếu - Xóm Chiếu side.", "This is the QR entry point from the Xuân Chiếu side, also known as Xóm Chiếu. It helps visitors access the content quickly without waiting for geofence activation."),
+            ("Trạm xe buýt Xuân Chiếu", "zh-CN", "Xuân Chiếu Gong Che Zhan", "Cong Xuân Chiếu fangxiang dao da de youke keyi zai zheli saoma.", "Zheli de neirong sheji gei cong Xuân Chiếu huo Xóm Chiếu yi ce daoda de youke, keyi liji kaishi shiting.", "Zhe shi cong Xuân Chiếu huo Xóm Chiếu fangxiang jinru de QR dian. Ta keyi rang youke bu yong deng geofence ye neng kuaisu ting dao neirong."),
+            ("Trạm xe buýt Xuân Chiếu", "ja-JP", "Xuân Chiếu Bus Stop", "Xuân Chiếu gawa kara hairu hito no tame no QR point desu.", "Koko no annai wa, Xuân Chiếu ya Xóm Chiếu no houkou kara kuru hito ga sugu ni kikeru you ni settei sareteimasu.", "Koko wa Xuân Chiếu gawa kara no nyuuryokuten desu. Geofence o matanai demo, QR de sugu ni annai naiyou ni haireru no ga tokuchou desu."),
+            ("Nhịp sống khu vực Vĩnh Khánh", "en-US", "Vinh Khanh Street Life", "A stop that explains the nighttime rhythm and social life of the neighborhood.", "Beyond food, this area is memorable for its busy sidewalks, close-knit street trading, and the flow of people through the evening.", "This stop helps visitors understand the local street rhythm of District 4. Vinh Khanh is not only about food, but also about how people gather, trade, and socialize at night."),
+            ("Nhịp sống khu vực Vĩnh Khánh", "zh-CN", "Vinh Khanh Jie Tou Sheng Huo", "Zhe ge dian jieshao de shi zheli de yejian jietou jiezhou he shenghuo qiwei.", "Chu le meishi, zhe li hai yin manglu de renxingdao, linjin de xiaotan he buduan liudong de renqun er rang ren jixu lianshang.", "Zhe ge dian bangzhu youke liaojie Qu 4 de jietou shenghuo. Vinh Khanh bu zhi shi chi de difang, ye shi yi ge neng kanjian renmen jiaoliu he yewan qifen de kongjian."),
+            ("Nhịp sống khu vực Vĩnh Khánh", "ja-JP", "Vinh Khanh Street Rhythm", "Kono point de wa, yoru no machi no rizumu to kurashi no kuuki o shoukai shimasu.", "Tabemono dake de naku, isogashii hodou, chikaku de eigyou suru mise, soshite yoru no hito no nagare ga kono chiiki no miryoku desu.", "Koko de wa Quan 4 no machi no seikatsu kan o rikaisuru koto ga dekimasu. Vinh Khanh wa tabemono dake de naku, yoru no kouryuu ga mienai tokoro made tsunagatteimasu.")
         };
 
         foreach (var definition in definitions)
@@ -581,21 +581,21 @@ public static class AppDataInitializer
         var now = DateTime.UtcNow;
         var poiImageMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Pho am thuc Vinh Khanh"] = "/images/poi-vinh-khanh-food-street.png",
-            ["Cum quan oc Vinh Khanh"] = "/images/poi-vinh-khanh-seafood-cluster.png",
-            ["Tram xe buyt Khanh Hoi"] = "/images/poi-khanh-hoi-bus-stop.png",
-            ["Tram xe buyt Vinh Hoi"] = "/images/poi-vinh-hoi-bus-stop.png",
-            ["Tram xe buyt Xuan Chieu"] = "/images/poi-xuan-chieu-bus-stop.png",
-            ["Nhip song khu vuc Vinh Khanh"] = "/images/poi-vinh-khanh-street-life.png"
+            ["Phố ẩm thực Vĩnh Khánh"] = "/images/poi-vinh-khanh-food-street.png",
+            ["Cụm quán ốc Vĩnh Khánh"] = "/images/poi-vinh-khanh-seafood-cluster.png",
+            ["Trạm xe buýt Khánh Hội"] = "/images/poi-khanh-hoi-bus-stop.png",
+            ["Trạm xe buýt Vĩnh Hội"] = "/images/poi-vinh-hoi-bus-stop.png",
+            ["Trạm xe buýt Xuân Chiếu"] = "/images/poi-xuan-chieu-bus-stop.png",
+            ["Nhịp sống khu vực Vĩnh Khánh"] = "/images/poi-vinh-khanh-street-life.png"
         };
         var poiAudioMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Pho am thuc Vinh Khanh"] = "/audio/poi-vinh-khanh-food-street-vi.wav",
-            ["Cum quan oc Vinh Khanh"] = "/audio/poi-vinh-khanh-seafood-cluster-vi.wav",
-            ["Tram xe buyt Khanh Hoi"] = "/audio/poi-khanh-hoi-bus-stop-vi.wav",
-            ["Tram xe buyt Vinh Hoi"] = "/audio/poi-vinh-hoi-bus-stop-vi.wav",
-            ["Tram xe buyt Xuan Chieu"] = "/audio/poi-xuan-chieu-bus-stop-vi.wav",
-            ["Nhip song khu vuc Vinh Khanh"] = "/audio/poi-vinh-khanh-street-life-vi.wav"
+            ["Phố ẩm thực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-food-street-vi.wav",
+            ["Cụm quán ốc Vĩnh Khánh"] = "/audio/poi-vinh-khanh-seafood-cluster-vi.wav",
+            ["Trạm xe buýt Khánh Hội"] = "/audio/poi-khanh-hoi-bus-stop-vi.wav",
+            ["Trạm xe buýt Vĩnh Hội"] = "/audio/poi-vinh-hoi-bus-stop-vi.wav",
+            ["Trạm xe buýt Xuân Chiếu"] = "/audio/poi-xuan-chieu-bus-stop-vi.wav",
+            ["Nhịp sống khu vực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-street-life-vi.wav"
         };
 
         var pois = await context.Pois
@@ -625,7 +625,7 @@ public static class AppDataInitializer
             }
         }
 
-        var tour = await context.Tours.FirstOrDefaultAsync(x => x.Name == "Dem Vinh Khanh 45 phut");
+        var tour = await context.Tours.FirstOrDefaultAsync(x => x.Name == "Đêm Vĩnh Khánh 45 phút");
         if (tour != null && !string.Equals(tour.CoverImageUrl, "/images/tour-dem-vinh-khanh-45-phut.png", StringComparison.OrdinalIgnoreCase))
         {
             tour.CoverImageUrl = "/images/tour-dem-vinh-khanh-45-phut.png";
@@ -641,12 +641,12 @@ public static class AppDataInitializer
     {
         var poiAudioMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Pho am thuc Vinh Khanh"] = "/audio/poi-vinh-khanh-food-street-en.wav",
-            ["Cum quan oc Vinh Khanh"] = "/audio/poi-vinh-khanh-seafood-cluster-en.wav",
-            ["Tram xe buyt Khanh Hoi"] = "/audio/poi-khanh-hoi-bus-stop-en.wav",
-            ["Tram xe buyt Vinh Hoi"] = "/audio/poi-vinh-hoi-bus-stop-en.wav",
-            ["Tram xe buyt Xuan Chieu"] = "/audio/poi-xuan-chieu-bus-stop-en.wav",
-            ["Nhip song khu vuc Vinh Khanh"] = "/audio/poi-vinh-khanh-street-life-en.wav"
+            ["Phố ẩm thực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-food-street-en.wav",
+            ["Cụm quán ốc Vĩnh Khánh"] = "/audio/poi-vinh-khanh-seafood-cluster-en.wav",
+            ["Trạm xe buýt Khánh Hội"] = "/audio/poi-khanh-hoi-bus-stop-en.wav",
+            ["Trạm xe buýt Vĩnh Hội"] = "/audio/poi-vinh-hoi-bus-stop-en.wav",
+            ["Trạm xe buýt Xuân Chiếu"] = "/audio/poi-xuan-chieu-bus-stop-en.wav",
+            ["Nhịp sống khu vực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-street-life-en.wav"
         };
 
         var pois = await context.Pois

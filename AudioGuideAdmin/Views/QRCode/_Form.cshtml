@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.Models.QRCode
+﻿@model AudioGuideAdmin.Models.QRCode
 @{
     var poiOptions = ViewBag.PoiOptions as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
         ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
@@ -19,11 +19,11 @@
     </div>
     <div class="col-12">
         <label class="form-label">Ghi chu</label>
-        <textarea asp-for="Note" class="form-control" rows="3" placeholder="VD: Tram xe buyt phuong Khanh Hoi"></textarea>
+        <textarea asp-for="Note" class="form-control" rows="3" placeholder="VD: Trạm xe buýt phường Khánh Hội"></textarea>
     </div>
 </div>
 
 <div class="mt-4 d-flex gap-2">
-    <button class="btn btn-primary" type="submit">Luu QR</button>
-    <a href="/QRCode" class="btn btn-outline-secondary">Quay lai</a>
+    <button class="btn btn-primary" type="submit">Lưu QR</button>
+    <a href="/QRCode" class="btn btn-outline-secondary">Quay lại</a>
 </div>

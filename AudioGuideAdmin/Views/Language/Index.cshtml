@@ -1,11 +1,11 @@
-@model IEnumerable<AudioGuideAdmin.Models.LanguageOption>
+﻿@model IEnumerable<AudioGuideAdmin.Models.LanguageOption>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h2 class="mb-1">Quan ly ngon ngu</h2>
-        <p class="text-muted mb-0">Mac dinh web chi dung 4 ngon ngu: Viet, Anh, Trung, Nhat. Ban van co the them ngon ngu khac sau nay.</p>
+        <h2 class="mb-1">Quản lý ngôn ngữ</h2>
+        <p class="text-muted mb-0">Mặc định web chỉ dùng 4 ngôn ngữ: Việt, Anh, Trung, Nhật. Bạn vẫn có thể thêm ngôn ngữ khác sau này.</p>
     </div>
-    <a href="/Language/Create" class="btn btn-primary">Them ngon ngu</a>
+    <a href="/Language/Create" class="btn btn-primary">Thêm ngôn ngữ</a>
 </div>
 
 <div class="card p-3">
@@ -43,7 +43,7 @@
                     </td>
                     <td class="text-end">
                         <a href="/Language/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Language/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa ngon ngu nay?')">Delete</a>
+                        <a href="/Language/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa ngôn ngữ này?')">Delete</a>
                     </td>
                 </tr>
             }

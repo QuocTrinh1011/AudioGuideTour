@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -125,14 +125,14 @@ public class HomePage : ContentPage
             {
                 new Label
                 {
-                    Text = "Audio Tour Vinh Khanh",
+                    Text = "Audio Tour Vĩnh Khánh",
                     FontSize = 28,
                     FontAttributes = FontAttributes.Bold,
                     TextColor = Colors.White
                 },
                 new Label
                 {
-                    Text = "Nghe thuyet minh da ngon ngu, quet QR tai diem dung va kham pha pho am thuc tu chinh dien thoai.",
+                    Text = "Nghe thuyết minh đa ngôn ngữ, quét QR tại điểm dừng và khám phá phố ẩm thực từ chính điện thoại.",
                     TextColor = Color.FromArgb("#E9F2FB"),
                     LineBreakMode = LineBreakMode.WordWrap
                 }
@@ -170,8 +170,8 @@ public class HomePage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Cap nhat moi nhat", FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
-                    new Label { Text = "Ngon ngu hien tai", FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") },
+                    new Label { Text = "Cập nhật mới nhất", FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                    new Label { Text = "Ngôn ngữ hiện tại", FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") },
                     CreateLanguagePicker(),
                     new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)),
                     new Label { FontSize = 13, TextColor = Color.FromArgb("#5D7287") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentLocation)),
@@ -206,8 +206,8 @@ public class HomePage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var qrLayout = new VerticalStackLayout { Spacing = 10 };
-        qrLayout.Add(new Label { Text = "Quet / nhap QR", FontAttributes = FontAttributes.Bold, FontSize = 18, TextColor = Color.FromArgb("#17324D") });
-        qrLayout.Add(new Label { Text = "Mo noi dung ngay tai diem dung xe buyt.", TextColor = Color.FromArgb("#667C92"), FontSize = 13 });
+        qrLayout.Add(new Label { Text = "Quét / nhập QR", FontAttributes = FontAttributes.Bold, FontSize = 18, TextColor = Color.FromArgb("#17324D") });
+        qrLayout.Add(new Label { Text = "Mở nội dung ngay tại điểm dừng xe buýt.", TextColor = Color.FromArgb("#667C92"), FontSize = 13 });
         qrLayout.Add(new Entry { Placeholder = "BUS-KH-001", BackgroundColor = Color.FromArgb("#F8FAFD"), TextColor = Color.FromArgb("#17324D") }
             .Bind(Entry.TextProperty, nameof(MainViewModel.QrCodeInput), BindingMode.TwoWay));
 
@@ -216,7 +216,7 @@ public class HomePage : ContentPage
         quickQrRow.Add(CreateActionButton("VH", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-VH-002"));
         quickQrRow.Add(CreateActionButton("XC", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-XC-003"));
         qrLayout.Add(quickQrRow);
-        qrLayout.Add(CreateActionButton("Mo QR", OnLookupQrClicked, "#E4B43C", "#17324D"));
+        qrLayout.Add(CreateActionButton("Mở QR", OnLookupQrClicked, "#E4B43C", "#17324D"));
         qrCard.Content = qrLayout;
         quickGrid.Add(qrCard);
 
@@ -229,8 +229,8 @@ public class HomePage : ContentPage
         };
         var actionLayout = new VerticalStackLayout { Spacing = 10 };
         actionLayout.Add(new Label { Text = "Dieu khien nhanh", FontAttributes = FontAttributes.Bold, FontSize = 18, TextColor = Color.FromArgb("#17324D") });
-        actionLayout.Add(new Label { Text = "Tai du lieu va bat tracking geofence.", TextColor = Color.FromArgb("#667C92"), FontSize = 13 });
-        actionLayout.Add(CreateActionButton("Tai du lieu", OnBootstrapClicked, "#17324D", "White"));
+        actionLayout.Add(new Label { Text = "Tải dữ liệu va bật tracking geofence.", TextColor = Color.FromArgb("#667C92"), FontSize = 13 });
+        actionLayout.Add(CreateActionButton("Tải dữ liệu", OnBootstrapClicked, "#17324D", "White"));
         actionLayout.Add(CreateBoundActionButton(nameof(MainViewModel.TrackingActionText), OnToggleTrackingClicked, "#EEF3F8", "#17324D"));
         actionCard.Content = actionLayout;
         Grid.SetColumn(actionCard, 1);
@@ -260,7 +260,7 @@ public class HomePage : ContentPage
             Spacing = 2,
             Children =
             {
-                new Label { Text = "POI noi bat gan ban", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "POI noi bật gan ban", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiSubtitle))
             }
         });
@@ -319,7 +319,7 @@ public class HomePage : ContentPage
         var stopButton = CreateActionButton("Dung", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(stopButton, 1);
         poiActions.Add(stopButton);
-        var mapButton = CreateActionButton("Mo ban do", OnOpenMapClicked, "#E4B43C", "#17324D");
+        var mapButton = CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(mapButton, 2);
         poiActions.Add(mapButton);
         bodyLayout.Add(poiActions);
@@ -332,8 +332,8 @@ public class HomePage : ContentPage
             },
             ColumnSpacing = 10
         };
-        extraActions.Add(CreateActionButton("Xem chi tiet", OnOpenPoiDetailsClicked, "#F2F6FA", "#17324D"));
-        var narrationButton = CreateActionButton("Ban thuyet minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D");
+        extraActions.Add(CreateActionButton("Xem chi tiết", OnOpenPoiDetailsClicked, "#F2F6FA", "#17324D"));
+        var narrationButton = CreateActionButton("Bản thuyết minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D");
         Grid.SetColumn(narrationButton, 1);
         extraActions.Add(narrationButton);
         bodyLayout.Add(extraActions);
@@ -350,7 +350,7 @@ public class HomePage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var nearbyLayout = new VerticalStackLayout { Spacing = 12 };
-        nearbyLayout.Add(new Label { Text = "POI de chon nhanh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        nearbyLayout.Add(new Label { Text = "POI để chọn nhanh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
 
         var nearbyCollection = new CollectionView
         {
@@ -435,7 +435,7 @@ public class HomePage : ContentPage
     {
         var picker = new Picker
         {
-            Title = "Chon ngon ngu nghe",
+            Title = "Chọn ngôn ngữ nghe",
             ItemDisplayBinding = new Binding("NativeName"),
             BackgroundColor = Color.FromArgb("#F2F6FA"),
             TextColor = Color.FromArgb("#17324D")

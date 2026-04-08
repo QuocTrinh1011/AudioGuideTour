@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -132,7 +132,7 @@ public class TrackingController : Controller
     {
         var items = new List<SelectListItem>
         {
-            new("Tat ca POI", "", !selected.HasValue)
+            new("Tất cả POI", "", !selected.HasValue)
         };
 
         items.AddRange(_context.Pois
@@ -147,7 +147,7 @@ public class TrackingController : Controller
     {
         var types = new[]
         {
-            new SelectListItem("Tat ca trigger", "", string.IsNullOrWhiteSpace(selected)),
+            new SelectListItem("Tất cả trigger", "", string.IsNullOrWhiteSpace(selected)),
             new SelectListItem("enter", "enter", selected == "enter"),
             new SelectListItem("nearby", "nearby", selected == "nearby"),
             new SelectListItem("manual", "manual", selected == "manual")

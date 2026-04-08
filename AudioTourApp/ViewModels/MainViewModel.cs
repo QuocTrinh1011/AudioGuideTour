@@ -1,4 +1,4 @@
-using AudioTourApp.Models;
+﻿using AudioTourApp.Models;
 using AudioTourApp.Pages;
 using AudioTourApp.Services;
 using Microsoft.Maui.ApplicationModel;
@@ -32,11 +32,11 @@ public class MainViewModel : INotifyPropertyChanged
     private readonly Dictionary<int, DateTime> _recentAutoTriggers = new();
     private readonly Dictionary<int, PoiGeofenceState> _poiGeofenceStates = new();
 
-    private string _status = "San sang";
-    private string _currentLocation = "Chua co vi tri";
-    private string _mapHtml = "<html><body style='font-family:sans-serif;padding:20px'>Bam Bootstrap de tai du lieu ban do.</body></html>";
+    private string _status = "Sẵn sàng";
+    private string _currentLocation = "Chưa có vị trí";
+    private string _mapHtml = "<html><body style='font-family:sans-serif;padding:20px'>Bấm Bootstrap để tải dữ liệu bản đồ.</body></html>";
     private string _poiSearchText = "";
-    private string _selectedCategoryFilter = "Tat ca";
+    private string _selectedCategoryFilter = "Tất cả";
     private bool _isTracking;
     private bool _isBusy;
     private string _apiBaseUrl;
@@ -57,10 +57,10 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _isSyncingVisitor;
     private bool _isRestoringTracking;
     private bool _canUseCamera;
-    private string _locationPermissionText = "Chua kiem tra";
-    private string _backgroundPermissionText = "Chua kiem tra";
-    private string _cameraPermissionText = "Chua kiem tra";
-    private string _notificationPermissionText = "Chua kiem tra";
+    private string _locationPermissionText = "Chưa kiểm tra";
+    private string _backgroundPermissionText = "Chưa kiểm tra";
+    private string _cameraPermissionText = "Chưa kiểm tra";
+    private string _notificationPermissionText = "Chưa kiểm tra";
 
     public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService, AppPermissionService permissionService, NarrationService narrationService)
     {
@@ -72,7 +72,7 @@ public class MainViewModel : INotifyPropertyChanged
         _apiBaseUrl = Preferences.Default.Get(PreferenceApiBaseUrl, apiClient.BaseUrl);
         _userId = GetOrCreatePreference(PreferenceUserId, () => Guid.NewGuid().ToString("N"));
         _deviceId = GetOrCreatePreference(PreferenceDeviceId, () => $"{DeviceInfo.Current.Platform}-{Guid.NewGuid().ToString("N")[..8]}");
-        _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, "Khach an danh");
+        _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, "Khách ẩn danh");
         _allowAutoPlay = Preferences.Default.Get(PreferenceAllowAutoPlay, true);
         _allowBackgroundTracking = Preferences.Default.Get(PreferenceAllowBackground, true);
         var savedLanguage = Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
@@ -302,52 +302,52 @@ public class MainViewModel : INotifyPropertyChanged
     public bool HasSelectedTour => SelectedTour != null;
     public bool HasActiveTour => ActiveTour != null;
     public string SelectedLanguageDisplayText => SelectedLanguage == null
-        ? "Chua chon ngon ngu"
+        ? "Chưa chọn ngôn ngữ"
         : $"{SelectedLanguage.NativeName} ({SelectedLanguage.Code})";
-    public string TrackingStatusText => IsTracking ? "Dang bat" : "Dang tat";
-    public string TrackingActionText => IsTracking ? "Tat tracking" : "Bat tracking";
+    public string TrackingStatusText => IsTracking ? "Đang bật" : "Đang tắt";
+    public string TrackingActionText => IsTracking ? "Tắt tracking" : "Bật tracking";
     public string PlaybackStatusText => _audioQueueService.CurrentItem == null
-        ? "Chua co audio dang phat"
-        : $"Dang phat: {_audioQueueService.CurrentItem.Title}";
+        ? "Chưa có audio đang phát"
+        : $"Đang phat: {_audioQueueService.CurrentItem.Title}";
     public string QueueSummaryText => _audioQueueService.PendingItems.Count == 0
         ? "Hang doi rong"
         : $"Hang doi: {string.Join(", ", _audioQueueService.PendingItems.Select(x => x.Title))}";
 
     public string SelectedPoiSubtitle => SelectedPoi == null
-        ? "Chon 1 POI gan day hoac quet QR de xem thong tin chi tiet."
+        ? "Chọn 1 POI gần đây hoặc quét QR để xem thông tin chi tiết."
         : $"{SelectedPoi.Language} | {SelectedPoi.DistanceMeters:F0}m | Priority {SelectedPoi.Priority}";
     public string SelectedPoiNarrationText => SelectedPoi == null
-        ? "Chua co POI nao duoc chon."
+        ? "Chưa có POI nào được chọn."
         : !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript)
             ? SelectedPoi.TtsScript
             : !string.IsNullOrWhiteSpace(SelectedPoi.Description)
                 ? SelectedPoi.Description
-                : (string.IsNullOrWhiteSpace(SelectedPoi.Summary) ? "POI nay chua co noi dung thuyet minh." : SelectedPoi.Summary);
+                : (string.IsNullOrWhiteSpace(SelectedPoi.Summary) ? "POI này chưa có nội dung thuyết minh." : SelectedPoi.Summary);
     public string SelectedPoiNarrationSourceText => SelectedPoi == null
-        ? "Chua co nguon thuyet minh."
+        ? "Chưa có nguồn thuyết minh."
         : !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript)
-            ? "Nguon doc: TTS Script tu admin"
+            ? "Nguồn đọc: TTS Script từ admin"
             : !string.IsNullOrWhiteSpace(SelectedPoi.Description)
-                ? "Nguon doc: Mo ta POI"
+                ? "Nguồn đọc: Mô tả POI"
                 : !string.IsNullOrWhiteSpace(SelectedPoi.Summary)
-                    ? "Nguon doc: Tom tat POI"
-                    : "POI nay chua co script doc.";
+                    ? "Nguồn đọc: Tóm tắt POI"
+                    : "POI này chưa có script đọc.";
     public string SelectedPoiMetaText => SelectedPoi == null
-        ? "Chon 1 POI de xem thong tin kich hoat."
+        ? "Chọn 1 POI để xem thông tin kích hoạt."
         : $"{ResolveCategoryDisplayName(SelectedPoi.Category)} | Trigger {SelectedPoi.TriggerMode} | Radius {SelectedPoi.Radius}m | Nearby {SelectedPoi.ApproachRadiusMeters}m";
     public string SelectedPoiCoordinateText => SelectedPoi == null
-        ? "Chua co toa do POI."
+        ? "Chưa có tọa độ POI."
         : $"{SelectedPoi.Latitude:F6}, {SelectedPoi.Longitude:F6}";
     public string SelectedPoiVoiceText => SelectedPoi == null
-        ? "Chua co voice."
+        ? "Chưa có voice."
         : string.IsNullOrWhiteSpace(SelectedPoi.VoiceName)
-            ? $"Ngon ngu doc: {SelectedPoi.Language}"
-            : $"Voice uu tien: {SelectedPoi.VoiceName} | Ngon ngu: {SelectedPoi.Language}";
+            ? $"Ngôn ngữ đọc: {SelectedPoi.Language}"
+            : $"Voice ưu tiên: {SelectedPoi.VoiceName} | Ngôn ngữ: {SelectedPoi.Language}";
     public string SelectedPoiAudioText => SelectedPoi == null
-        ? "Chua co thong tin audio."
+        ? "Chưa có thông tin audio."
         : string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl)
-            ? $"Che do: {SelectedPoi.AudioMode}. Dang uu tien TTS."
-            : $"Che do: {SelectedPoi.AudioMode}. Co audio fallback.";
+            ? $"Chế độ: {SelectedPoi.AudioMode}. Đang ưu tiên TTS."
+            : $"Chế độ: {SelectedPoi.AudioMode}. Có audio fallback.";
     public string SelectedPoiPositionText
     {
         get
@@ -355,12 +355,12 @@ public class MainViewModel : INotifyPropertyChanged
             var source = GetPoiNavigationSource();
             if (SelectedPoi == null || source.Count == 0)
             {
-                return "Chua co vi tri POI trong danh sach.";
+                return "Chưa có vị trí POI trong danh sách.";
             }
 
             var index = source.FindIndex(x => x.Id == SelectedPoi.Id);
             return index < 0
-                ? "POI nay chua nam trong danh sach hien tai."
+                ? "POI này chưa nằm trong danh sách hiện tại."
                 : $"POI {index + 1}/{source.Count} trong danh sach hien tai.";
         }
     }
@@ -373,18 +373,18 @@ public class MainViewModel : INotifyPropertyChanged
                 ?? NearbyPois.FirstOrDefault();
 
             return nearest == null
-                ? "Chua xac dinh duoc POI gan nhat."
-                : $"Gan nhat: {nearest.Title} ({nearest.DistanceMeters:F0}m)";
+                ? "Chưa xác định được POI gần nhất."
+                : $"Gần nhất: {nearest.Title} ({nearest.DistanceMeters:F0}m)";
         }
     }
     public string VisiblePoisSummary => VisiblePois.Count == 0
-        ? "Khong co POI nao khop bo loc hien tai."
-        : $"Dang hien {VisiblePois.Count} diem thuyet minh.";
+        ? "Không có POI nào khớp bộ lọc hiện tại."
+        : $"Đang hiện {VisiblePois.Count} điểm thuyết minh.";
     public string RecentQrSummary => RecentQrLookups.Count == 0
-        ? "Chua co QR nao duoc mo trong phien nay."
-        : $"Da mo {RecentQrLookups.Count} QR gan day.";
+        ? "Chưa có QR nào được mở trong phiên này."
+        : $"Đã mở {RecentQrLookups.Count} QR gần đây.";
     public string AudioDiagnosticsSummary => AudioDiagnostics.Count == 0
-        ? "Chua co log chan doan audio."
+        ? "Chưa có log chẩn đoán audio."
         : string.Join(Environment.NewLine, AudioDiagnostics.Take(6));
     public IReadOnlyList<TourStopItem> SelectedTourStops => SelectedTour?.Stops == null
         ? Array.Empty<TourStopItem>()
@@ -411,7 +411,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             if (ActiveTour == null)
             {
-                return "Chua bat dau tour. Chon 1 tour de phat theo diem dung.";
+                return "Chưa bắt đầu tour. Chọn 1 tour để phát theo điểm dừng.";
             }
 
             var stops = ActiveTour.Stops ?? new List<TourStopItem>();
@@ -421,7 +421,7 @@ public class MainViewModel : INotifyPropertyChanged
                 : stops[_activeTourStopIndex];
 
             return currentStop?.Poi == null
-                ? $"Tour {ActiveTour.Name} chua co diem dung hop le."
+                ? $"Tour {ActiveTour.Name} chưa có điểm dừng hợp lệ."
                 : $"Tour {ActiveTour.Name}: diem {_activeTourStopIndex + 1}/{totalStops} - {currentStop.Poi.Title}";
         }
     }
@@ -490,7 +490,7 @@ public class MainViewModel : INotifyPropertyChanged
                     RefreshMap();
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisiblePoisSummary)));
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
-                    Status = $"Da tai {bootstrap.Pois.Count} POI, {bootstrap.Tours.Count} tour va {bootstrap.Languages.Count} ngon ngu. Visitor: {VisitorDisplayName}.";
+                    Status = $"Đã tải {bootstrap.Pois.Count} POI, {bootstrap.Tours.Count} tour và {bootstrap.Languages.Count} ngôn ngữ. Visitor: {VisitorDisplayName}.";
                     await RefreshPermissionStatusAsync();
                     await TryRestoreTrackingAsync(cancellationToken);
                     return;
@@ -501,11 +501,11 @@ public class MainViewModel : INotifyPropertyChanged
                 }
             }
 
-            throw lastError ?? new InvalidOperationException("Khong the ket noi toi API.");
+            throw lastError ?? new InvalidOperationException("Không thể kết nối tới API.");
         }
         catch (Exception ex)
         {
-            Status = $"Khong tai duoc du lieu bootstrap: {BuildConnectionHelpMessage(ex)}";
+            Status = $"Không tải được dữ liệu bootstrap: {BuildConnectionHelpMessage(ex)}";
         }
         finally
         {
@@ -523,20 +523,20 @@ public class MainViewModel : INotifyPropertyChanged
     {
         var snapshot = await _permissionService.RequestTrackingPermissionsAsync();
         ApplyPermissionSnapshot(snapshot);
-        Status = "Da cap nhat quyen GPS/background/notification tren app.";
+        Status = "Đã cập nhật quyền GPS/background/notification trên app.";
     }
 
     public async Task RequestCameraPermissionAsync()
     {
         var snapshot = await _permissionService.RequestCameraPermissionAsync();
         ApplyPermissionSnapshot(snapshot);
-        Status = "Da cap nhat quyen camera tren app.";
+        Status = "Đã cập nhật quyền camera trên app.";
     }
 
     public async Task OpenSystemSettingsAsync()
     {
         await _permissionService.OpenSystemSettingsAsync();
-        Status = "Da mo cai dat he thong de ban cap quyen thu cong neu can.";
+        Status = "Đã mở cài đặt hệ thống để bạn cấp quyền thủ công nếu cần.";
     }
 
     public async Task ChangeLanguageAsync()
@@ -553,7 +553,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (IsTracking)
         {
-            await StopTrackingAsync("Da dung tracking.", clearPreference: true);
+            await StopTrackingAsync("Đã dừng tracking.", clearPreference: true);
             return;
         }
 
@@ -582,7 +582,7 @@ public class MainViewModel : INotifyPropertyChanged
             var result = await _apiClient.LookupQrAsync(normalizedCode, language, cancellationToken);
             if (result?.Poi == null)
             {
-                Status = $"Khong tim thay QR: {normalizedCode}.";
+                Status = $"Không tìm thấy QR: {normalizedCode}.";
                 return;
             }
 
@@ -595,7 +595,7 @@ public class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Status = $"Khong mo duoc QR: {ex.Message}";
+            Status = $"Không mở được QR: {ex.Message}";
         }
     }
 
@@ -603,11 +603,11 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedPoi == null)
         {
-            Status = "Chua co POI de phat.";
+            Status = "Chưa có POI để phát.";
             return;
         }
 
-        PushAudioDiagnostic($"Yeu cau phat: {SelectedPoi.Title} | Lang {SelectedPoi.Language} | Mode {SelectedPoi.AudioMode} | AudioUrl {(string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl) ? "khong co" : SelectedPoi.AudioUrl)}");
+        PushAudioDiagnostic($"Yêu cầu phát: {SelectedPoi.Title} | Lang {SelectedPoi.Language} | Mode {SelectedPoi.AudioMode} | AudioUrl {(string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl) ? "không có" : SelectedPoi.AudioUrl)}");
         await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(SelectedPoi, "manual", false), cancellationToken);
     }
 
@@ -615,7 +615,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedPoi == null)
         {
-            Status = "Chua co POI de chan doan audio.";
+            Status = "Chưa có POI để chẩn đoán audio.";
             return;
         }
 
@@ -623,7 +623,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _apiClient.BaseUrl = ApiBaseUrl;
             PushAudioDiagnostic($"Chan doan POI: {SelectedPoi.Title}");
-            PushAudioDiagnostic($"Ngon ngu: {SelectedPoi.Language} | Voice: {(string.IsNullOrWhiteSpace(SelectedPoi.VoiceName) ? "mac dinh" : SelectedPoi.VoiceName)} | AudioMode: {SelectedPoi.AudioMode}");
+            PushAudioDiagnostic($"Ngôn ngữ: {SelectedPoi.Language} | Voice: {(string.IsNullOrWhiteSpace(SelectedPoi.VoiceName) ? "mac dinh" : SelectedPoi.VoiceName)} | AudioMode: {SelectedPoi.AudioMode}");
 
             if (!string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl))
             {
@@ -632,19 +632,19 @@ public class MainViewModel : INotifyPropertyChanged
             }
             else
             {
-                PushAudioDiagnostic("Audio URL: khong co file audio, app se dung TTS.");
+                PushAudioDiagnostic("Audio URL: không có file audio, app sẽ dùng TTS.");
             }
 
             var hasNarrationText = !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript) ||
                                    !string.IsNullOrWhiteSpace(SelectedPoi.Description) ||
                                    !string.IsNullOrWhiteSpace(SelectedPoi.Summary);
             PushAudioDiagnostic(hasNarrationText
-                ? "Noi dung TTS: co script/mo ta/tom tat de doc."
-                : "Noi dung TTS: khong co noi dung de doc.");
+                ? "Nội dung TTS: có script/mô tả/tóm tắt để đọc."
+                : "Nội dung TTS: không có nội dung để đọc.");
 
             var ttsDiagnostic = await _narrationService.GetDiagnosticsAsync(SelectedPoi.Language, SelectedPoi.VoiceName, cancellationToken);
             PushAudioDiagnostic(ttsDiagnostic);
-            Status = $"Da chay chan doan audio cho {SelectedPoi.Title}.";
+            Status = $"Đã chạy chẩn đoán audio cho {SelectedPoi.Title}.";
         }
         catch (Exception ex)
         {
@@ -656,7 +656,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedTour == null)
         {
-            Status = "Chon 1 tour truoc khi bat dau.";
+            Status = "Chon 1 tour truoc khi bật dau.";
             return;
         }
 
@@ -667,7 +667,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (firstPlayableStopIndex < 0)
         {
-            Status = $"Tour {SelectedTour.Name} chua co diem dung hop le.";
+            Status = $"Tour {SelectedTour.Name} chưa có điểm dừng hợp lệ.";
             return;
         }
 
@@ -681,7 +681,7 @@ public class MainViewModel : INotifyPropertyChanged
         if (stop.Poi != null)
         {
             SelectedPoi = stop.Poi;
-            Status = $"Da bat dau tour {ActiveTour.Name}.";
+            Status = $"Đã bắt đầu tour {ActiveTour.Name}.";
             await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(stop.Poi, "tour", false), cancellationToken);
             RefreshMap();
         }
@@ -691,7 +691,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (ActiveTour == null)
         {
-            Status = "Chua co tour dang chay.";
+            Status = "Chưa có tour đang chạy.";
             return;
         }
 
@@ -702,7 +702,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (stops.Count == 0)
         {
-            Status = $"Tour {ActiveTour.Name} chua co diem dung hop le.";
+            Status = $"Tour {ActiveTour.Name} chưa có điểm dừng hợp lệ.";
             return;
         }
 
@@ -741,7 +741,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _ = MainThread.InvokeOnMainThreadAsync(async () =>
             {
-                await StopTrackingAsync("Admin da tat background tracking cho visitor nay, nen app dung tracking khi chuyen sang nen.", clearPreference: true);
+                await StopTrackingAsync("Admin da tắt background tracking cho visitor nay, nen app dung tracking khi chuyen sang nen.", clearPreference: true);
             });
         }
     }
@@ -780,7 +780,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             IsTracking = false;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
-            Status = $"Khong the khoi phuc tracking tu dong: {BuildConnectionHelpMessage(ex)}";
+            Status = $"Không thể khôi phục tracking tự động: {BuildConnectionHelpMessage(ex)}";
         }
         finally
         {
@@ -796,7 +796,7 @@ public class MainViewModel : INotifyPropertyChanged
             suppressError: false);
         if (visitor != null)
         {
-            Status = $"Da dong bo visitor {visitor.DisplayName}. AutoPlay: {(visitor.AllowAutoPlay ? "bat" : "tat")}, Background: {(visitor.AllowBackgroundTracking ? "bat" : "tat")}.";
+            Status = $"Đã đồng bộ visitor {visitor.DisplayName}. AutoPlay: {(visitor.AllowAutoPlay ? "bật" : "tắt")}, Background: {(visitor.AllowBackgroundTracking ? "bật" : "tắt")}.";
         }
     }
 
@@ -812,16 +812,16 @@ public class MainViewModel : INotifyPropertyChanged
             var text = await Clipboard.Default.GetTextAsync();
             if (string.IsNullOrWhiteSpace(text))
             {
-                Status = "Clipboard hien khong co ma QR de dan.";
+                Status = "Clipboard hiện không có mã QR để dán.";
                 return;
             }
 
             QrCodeInput = text.Trim();
-            Status = $"Da dan QR: {QrCodeInput}.";
+            Status = $"Đã dán QR: {QrCodeInput}.";
         }
         catch (Exception ex)
         {
-            Status = $"Khong doc duoc clipboard: {ex.Message}";
+            Status = $"Không đọc được clipboard: {ex.Message}";
         }
     }
 
@@ -829,7 +829,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (item == null)
         {
-            Status = "Chua co QR lich su de mo lai.";
+            Status = "Chưa có QR lịch sử để mở lại.";
             return;
         }
 
@@ -841,11 +841,11 @@ public class MainViewModel : INotifyPropertyChanged
         if (poi != null)
         {
             SelectedPoi = poi;
-            Status = $"Da mo lai QR {item.Code} cho {poi.Title}.";
+            Status = $"Đã mở lại QR {item.Code} cho {poi.Title}.";
         }
         else
         {
-            Status = $"Da chon lai QR {item.Code}. Bam Mo QR de tai noi dung moi nhat.";
+            Status = $"Đã chọn lại QR {item.Code}. Bấm Mở QR để tải nội dung mới nhất.";
         }
     }
 
@@ -853,14 +853,14 @@ public class MainViewModel : INotifyPropertyChanged
     {
         ApiBaseUrl = DefaultApiUrl;
         _apiClient.BaseUrl = DefaultApiUrl;
-        Status = "Da reset API URL ve dia chi emulator mac dinh.";
+        Status = "Đã reset API URL về địa chỉ emulator mặc định.";
     }
 
     public async Task OpenSelectedMapAsync()
     {
         if (SelectedPoi == null)
         {
-            Status = "Chua co POI de mo ban do.";
+            Status = "Chưa có POI để mở bản đồ.";
             return;
         }
 
@@ -872,7 +872,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrWhiteSpace(mapUrl))
         {
-            Status = "POI nay chua co link ban do.";
+            Status = "POI này chưa có link bản đồ.";
             return;
         }
 
@@ -883,7 +883,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedPoi == null)
         {
-            Status = "Chua co POI de xem chi tiet.";
+            Status = "Chưa có POI để xem chi tiết.";
             return;
         }
 
@@ -900,7 +900,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedPoi == null)
         {
-            Status = "Chua co POI de xem ban thuyet minh.";
+            Status = "Chưa có POI để xem bản thuyết minh.";
             return;
         }
 
@@ -921,12 +921,12 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (poi == null)
         {
-            Status = $"Khong tim thay POI co ID {poiId} tren ban do.";
+            Status = $"Không tìm thấy POI có ID {poiId} trên bản đồ.";
             return;
         }
 
         SelectedPoi = poi;
-        Status = $"Da chon {poi.Title} tu ban do.";
+        Status = $"Đã chọn {poi.Title} từ bản đồ.";
     }
 
     public void SelectNearestPoi()
@@ -937,18 +937,18 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (nearest == null)
         {
-            Status = "Chua co POI gan nhat de chon.";
+            Status = "Chưa có POI gần nhất để chọn.";
             return;
         }
 
         SelectedPoi = nearest;
-        Status = $"Da chon POI gan nhat: {nearest.Title}.";
+        Status = $"Đã chọn POI gần nhất: {nearest.Title}.";
     }
 
     public void ResetPoiFilters()
     {
         PoiSearchText = string.Empty;
-        SelectedCategoryFilter = "Tat ca";
+        SelectedCategoryFilter = "Tất cả";
         ApplyPoiFilters();
         SelectNearestPoi();
     }
@@ -958,7 +958,7 @@ public class MainViewModel : INotifyPropertyChanged
         var source = GetPoiNavigationSource();
         if (source.Count == 0)
         {
-            Status = "Khong co POI nao de chuyen tiep.";
+            Status = "Không có POI nào để chuyển tiếp.";
             return;
         }
 
@@ -971,7 +971,7 @@ public class MainViewModel : INotifyPropertyChanged
         var currentIndex = source.FindIndex(x => x.Id == SelectedPoi.Id);
         var nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % source.Count;
         SelectedPoi = source[nextIndex];
-        Status = $"Da chuyen sang POI tiep theo: {SelectedPoi?.Title}.";
+        Status = $"Đã chuyển sang POI tiếp theo: {SelectedPoi?.Title}.";
     }
 
     public void SelectPreviousPoi()
@@ -979,7 +979,7 @@ public class MainViewModel : INotifyPropertyChanged
         var source = GetPoiNavigationSource();
         if (source.Count == 0)
         {
-            Status = "Khong co POI nao de quay lai.";
+            Status = "Không có POI nào để quay lại.";
             return;
         }
 
@@ -992,7 +992,7 @@ public class MainViewModel : INotifyPropertyChanged
         var currentIndex = source.FindIndex(x => x.Id == SelectedPoi.Id);
         var previousIndex = currentIndex <= 0 ? source.Count - 1 : currentIndex - 1;
         SelectedPoi = source[previousIndex];
-        Status = $"Da quay ve POI truoc: {SelectedPoi?.Title}.";
+        Status = $"Đã quay về POI trước: {SelectedPoi?.Title}.";
     }
 
     private async void OnLocationChanged(object? sender, Location location)
@@ -1059,7 +1059,7 @@ public class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Status = $"Loi ket noi API: {ex.Message}";
+            Status = $"Lỗi kết nối API: {ex.Message}";
         }
     }
 
@@ -1099,10 +1099,10 @@ public class MainViewModel : INotifyPropertyChanged
         var selectedId = SelectedPoi?.Id;
         var visiblePoiIds = VisiblePois.Select(x => x.Id).ToHashSet();
         var poisToRender = _allPois.Count > 0 ? _allPois.ToList() : VisiblePois.ToList();
-        var selectedTitle = SelectedPoi?.Title ?? "Chua chon POI";
+        var selectedTitle = SelectedPoi?.Title ?? "Chưa chọn POI";
         var nearestTitle = _allPois.Where(x => x.Id == nearestId).Select(x => x.Title).FirstOrDefault()
             ?? NearbyPois.FirstOrDefault(x => x.Id == nearestId)?.Title
-            ?? "Chua xac dinh";
+            ?? "Chưa xác định";
         var activeTourStops = (ActiveTour?.Stops ?? new List<TourStopItem>())
             .Where(x => x.Poi != null)
             .OrderBy(x => x.SortOrder)
@@ -1298,18 +1298,18 @@ public class MainViewModel : INotifyPropertyChanged
                 <span id="tour-count"></span>
               </div>
               <div class="map-legend">
-                <div class="map-legend-item"><span class="map-dot" style="background:#2563eb;"></span> Vi tri cua ban</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#17324d;"></span> Tat ca POI</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#dc2626;"></span> POI gan nhat</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#f59e0b;"></span> POI dang chon</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#2563eb;"></span> Vị trí của bạn</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#17324d;"></span> Tất cả POI</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#dc2626;"></span> POI gần nhất</div>
+                <div class="map-legend-item"><span class="map-dot" style="background:#f59e0b;"></span> POI đang chọn</div>
                 <div class="map-legend-item"><span class="map-dot" style="background:#0f766e;"></span> Tuyen tour</div>
               </div>
               <script>
                 const center = [{{FormatInvariant(centerLat)}}, {{FormatInvariant(centerLng)}}];
                 const selectedTitle = {{SerializeForJavaScript(selectedTitle)}};
                 const nearestTitle = {{SerializeForJavaScript(nearestTitle)}};
-                const visibleSummary = {{SerializeForJavaScript($"Dang hien {VisiblePois.Count}/{poisToRender.Count} POI tren ban do.")}};
-                const trackingSummary = {{SerializeForJavaScript(_latestLocation == null ? "Chua co vi tri GPS hien tai." : $"Vi tri cap nhat moi nhat: {_latestLocation.Latitude:F6}, {_latestLocation.Longitude:F6}")}};
+                const visibleSummary = {{SerializeForJavaScript($"Đang hiện {VisiblePois.Count}/{poisToRender.Count} POI trên bản đồ.")}};
+                const trackingSummary = {{SerializeForJavaScript(_latestLocation == null ? "Chưa có vị trí GPS hiện tại." : $"Vị trí cập nhật mới nhất: {_latestLocation.Latitude:F6}, {_latestLocation.Longitude:F6}")}};
                 const pois = {{poisJson}};
                 const userLocation = {{userLocationJson}};
                 const activeTour = {{activeTourJson}};
@@ -1332,16 +1332,16 @@ public class MainViewModel : INotifyPropertyChanged
                   .replace(/"/g, '&quot;')
                   .replace(/'/g, '&#39;');
 
-                document.getElementById('selected-label').textContent = `POI dang chon: ${selectedTitle}`;
-                document.getElementById('nearest-label').textContent = `POI gan nhat: ${nearestTitle}`;
+                document.getElementById('selected-label').textContent = `POI đang chọn: ${selectedTitle}`;
+                document.getElementById('nearest-label').textContent = `POI gần nhất: ${nearestTitle}`;
                 document.getElementById('count-label').textContent = visibleSummary;
                 document.getElementById('status-label').textContent = trackingSummary;
 
                 if (activeTour && activeTour.Stops && activeTour.Stops.length > 0) {
                   document.getElementById('tour-panel').style.display = 'block';
-                  document.getElementById('tour-name').textContent = activeTour.Name || 'Tour dang hoat dong';
+                  document.getElementById('tour-name').textContent = activeTour.Name || 'Tour đang hoạt động';
                   document.getElementById('tour-status').textContent = activeTour.Status || '';
-                  document.getElementById('tour-count').textContent = `${activeTour.Stops.length} diem dung tren ban do`;
+                  document.getElementById('tour-count').textContent = `${activeTour.Stops.length} điểm dừng trên bản đồ`;
                 }
 
                 if (userLocation) {
@@ -1363,7 +1363,7 @@ public class MainViewModel : INotifyPropertyChanged
 
                   L.marker(userLatLng, { icon: userIcon })
                     .addTo(map)
-                    .bindPopup('<div class="poi-popup"><h4>Vi tri cua ban</h4><p>App dang theo doi GPS de kich hoat POI va geofence.</p></div>');
+                    .bindPopup('<div class="poi-popup"><h4>Vị trí của bạn</h4><p>App đang theo dõi GPS để kích hoạt POI và geofence.</p></div>');
 
                   bounds.push(userLatLng);
                 }
@@ -1404,12 +1404,12 @@ public class MainViewModel : INotifyPropertyChanged
 
                   const distanceText = poi.DistanceMeters > 0
                     ? `${Math.round(poi.DistanceMeters)}m`
-                    : 'Dang tinh';
+                    : 'Đang tính';
 
                   marker.bindPopup(
                     `<div class="poi-popup">
                       <h4>${escapeHtml(poi.Title)}</h4>
-                      <p>${escapeHtml(poi.Summary || 'Khong co mo ta ngan.')}</p>
+                      <p>${escapeHtml(poi.Summary || 'Không có mô tả ngắn.')}</p>
                       <div class="meta">
                         <span class="tag">${escapeHtml(poi.Category || 'POI')}</span>
                         <span class="tag">Trigger ${escapeHtml(poi.TriggerMode || 'both')}</span>
@@ -1450,7 +1450,7 @@ public class MainViewModel : INotifyPropertyChanged
 
                     L.marker([stop.Latitude, stop.Longitude], { icon })
                       .addTo(map)
-                      .bindPopup(`<div class="poi-popup"><h4>Stop ${index + 1}: ${escapeHtml(stop.Title)}</h4><p>${stop.IsCurrent ? 'Diem dang phat trong tour.' : 'Diem dung nam trong tuyen tour hien tai.'}</p></div>`)
+                      .bindPopup(`<div class="poi-popup"><h4>Stop ${index + 1}: ${escapeHtml(stop.Title)}</h4><p>${stop.IsCurrent ? 'Điểm đang phát trong tour.' : 'Điểm dừng nằm trong tuyến tour hiện tại.'}</p></div>`)
                       .on('click', () => {
                         window.location.href = `audiotour://poi/${stop.PoiId}`;
                       });
@@ -1532,7 +1532,7 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void ResetCategoryFilterOptions()
     {
-        var options = new List<string> { "Tat ca" };
+        var options = new List<string> { "Tất cả" };
         options.AddRange(Categories
             .Select(x => x.Name)
             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -1542,7 +1542,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (!CategoryFilterOptions.Contains(SelectedCategoryFilter))
         {
-            SelectedCategoryFilter = "Tat ca";
+            SelectedCategoryFilter = "Tất cả";
         }
     }
 
@@ -1551,7 +1551,7 @@ public class MainViewModel : INotifyPropertyChanged
         IEnumerable<PoiItem> filtered = _allPois;
 
         if (!string.IsNullOrWhiteSpace(SelectedCategoryFilter) &&
-            !SelectedCategoryFilter.Equals("Tat ca", StringComparison.OrdinalIgnoreCase))
+            !SelectedCategoryFilter.Equals("Tất cả", StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(x => ResolveCategoryDisplayName(x.Category).Equals(SelectedCategoryFilter, StringComparison.OrdinalIgnoreCase));
         }
@@ -1605,7 +1605,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (!AllowAutoPlay)
         {
-            Status = $"Visitor nay dang bi tat auto-play tu admin, bo qua {poi.Title}.";
+            Status = $"Visitor này đang bị tắt auto-play từ admin, bỏ qua {poi.Title}.";
             return false;
         }
 
@@ -1645,7 +1645,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (!shouldPlay && mode != "manual")
         {
-            Status = $"Bo qua {poi.Title} vi chua co chuyen trang thai moi cho trigger mode {poi.TriggerMode}.";
+            Status = $"Bỏ qua {poi.Title} vì chưa có chuyển trạng thái mới cho trigger mode {poi.TriggerMode}.";
         }
 
         return shouldPlay;
@@ -1694,7 +1694,7 @@ public class MainViewModel : INotifyPropertyChanged
             {
                 Id = _userId,
                 DeviceId = _deviceId,
-                DisplayName = string.IsNullOrWhiteSpace(VisitorDisplayName) ? "Khach an danh" : VisitorDisplayName.Trim(),
+                DisplayName = string.IsNullOrWhiteSpace(VisitorDisplayName) ? "Khách ẩn danh" : VisitorDisplayName.Trim(),
                 Language = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language,
                 AllowAutoPlay = AllowAutoPlay,
                 AllowBackgroundTracking = AllowBackgroundTracking
@@ -1708,7 +1708,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             if (!suppressError)
             {
-                Status = $"Khong dong bo duoc visitor voi API: {BuildConnectionHelpMessage(ex)}";
+                Status = $"Không đồng bộ được visitor với API: {BuildConnectionHelpMessage(ex)}";
             }
 
             return null;
@@ -1726,7 +1726,7 @@ public class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        VisitorDisplayName = string.IsNullOrWhiteSpace(visitor.DisplayName) ? "Khach an danh" : visitor.DisplayName;
+        VisitorDisplayName = string.IsNullOrWhiteSpace(visitor.DisplayName) ? "Khách ẩn danh" : visitor.DisplayName;
         AllowAutoPlay = visitor.AllowAutoPlay;
         AllowBackgroundTracking = visitor.AllowBackgroundTracking;
 
@@ -1769,11 +1769,11 @@ public class MainViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TrackingActionText)));
         Status = isRestore
             ? AllowBackgroundTracking
-                ? "Da khoi phuc tracking GPS tu dong. Geofence va auto narration tiep tuc san sang."
-                : "Da khoi phuc tracking GPS o foreground theo trang thai truoc do."
+                ? "Đã khôi phục tracking GPS tự động. Geofence và auto narration tiếp tục sẵn sàng."
+                : "Đã khôi phục tracking GPS ở foreground theo trạng thái trước đó."
             : AllowBackgroundTracking
-                ? "Dang tracking GPS. Da xin quyen location va san sang geofence/auto narration."
-                : "Dang tracking GPS o foreground. Admin hien dang tat background tracking cho visitor nay.";
+                ? "Đang tracking GPS. Đã xin quyền location và sẵn sàng geofence/auto narration."
+                : "Đang tracking GPS ở foreground. Admin hiện đang tắt background tracking cho visitor này.";
     }
 
     private async Task StopTrackingAsync(string statusMessage, bool clearPreference)
@@ -1873,7 +1873,7 @@ public class MainViewModel : INotifyPropertyChanged
             ex is HttpRequestException ||
             ex is TaskCanceledException)
         {
-            return "Khong ket noi duoc toi API. Hay mo AudioGuideAPI truoc. Neu dang chay tren emulator, URL dung la http://10.0.2.2:5297; neu chay tren may that thi dung IP LAN cua may tinh.";
+            return "Không kết nối được tới API. Hãy mở AudioGuideAPI trước. Nếu đang chạy trên emulator, URL đúng là http://10.0.2.2:5297; nếu chạy trên máy thật thì dùng IP LAN của máy tính.";
         }
 
         return message;
@@ -1945,7 +1945,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (!value.HasValue || value.Value <= 0)
         {
-            return "khong ro kich thuoc";
+            return "không rõ kích thước";
         }
 
         return $"{value.Value / 1024d:F1} KB";
@@ -1965,26 +1965,26 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void ApplyPermissionSnapshot(AppPermissionSnapshot snapshot)
     {
-        LocationPermissionText = $"GPS khi dang dung app: {FormatPermission(snapshot.LocationWhenInUse)}";
+        LocationPermissionText = $"GPS khi đang dùng app: {FormatPermission(snapshot.LocationWhenInUse)}";
         BackgroundPermissionText = snapshot.LocationAlways.HasValue
             ? $"GPS nen: {FormatPermission(snapshot.LocationAlways.Value)}"
-            : "GPS nen: thiet bi khong ho tro doc trang thai.";
+            : "GPS nền: thiết bị không hỗ trợ đọc trạng thái.";
         CameraPermissionText = snapshot.Camera.HasValue
             ? $"Camera/QR: {FormatPermission(snapshot.Camera.Value)}"
-            : "Camera/QR: chua ho tro tren nen nay.";
+            : "Camera/QR: chưa hỗ trợ trên nền này.";
         CanUseCamera = snapshot.Camera == PermissionStatus.Granted;
         NotificationPermissionText = snapshot.Notifications.HasValue
             ? $"Thong bao tracking: {FormatPermission(snapshot.Notifications.Value)}"
-            : "Thong bao tracking: khong can hoac khong ho tro.";
+            : "Thông báo tracking: không cần hoặc không hỗ trợ.";
     }
 
     private static string FormatPermission(PermissionStatus status) => status switch
     {
-        PermissionStatus.Granted => "Da cap",
+        PermissionStatus.Granted => "Đã cấp",
         PermissionStatus.Denied => "Bi tu choi",
         PermissionStatus.Restricted => "Bi gioi han",
-        PermissionStatus.Disabled => "Bi tat",
-        PermissionStatus.Unknown => "Chua xac dinh",
+        PermissionStatus.Disabled => "Bị tắt",
+        PermissionStatus.Unknown => "Chưa xác định",
         _ => status.ToString()
     };
 

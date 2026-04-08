@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace AudioGuideAdmin.Models;
 
@@ -6,10 +6,10 @@ public class LanguageOption
 {
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "Ma ngon ngu khong duoc de trong")]
+    [Required(ErrorMessage = "Mã ngôn ngữ không được để trống")]
     public string Code { get; set; } = "";
 
-    [Required(ErrorMessage = "Ten ngon ngu khong duoc de trong")]
+    [Required(ErrorMessage = "Tên ngôn ngữ không được để trống")]
     public string Name { get; set; } = "";
 
     public string NativeName { get; set; } = "";

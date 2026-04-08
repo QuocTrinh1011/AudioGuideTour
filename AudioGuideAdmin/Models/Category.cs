@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace AudioGuideAdmin.Models;
 
@@ -6,10 +6,10 @@ public class Category
 {
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "Ma danh muc khong duoc de trong")]
+    [Required(ErrorMessage = "Mã danh mục không được để trống")]
     public string Slug { get; set; } = "";
 
-    [Required(ErrorMessage = "Ten danh muc khong duoc de trong")]
+    [Required(ErrorMessage = "Tên danh mục không được để trống")]
     public string Name { get; set; } = "";
 
     public string Description { get; set; } = "";

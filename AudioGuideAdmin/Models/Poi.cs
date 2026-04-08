@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Http;
 
@@ -8,7 +8,7 @@ public class Poi
 {
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "Ten khong duoc de trong")]
+    [Required(ErrorMessage = "Tên không được để trống")]
     public string Name { get; set; } = "";
 
     public string Category { get; set; } = "food-street";

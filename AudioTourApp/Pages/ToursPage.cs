@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -68,7 +68,7 @@ public class ToursPage : ContentPage
                 Children =
                 {
                     new Label { Text = "Tour am thuc", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Chon tour, bat dau lo trinh va chuyen den diem dung ke tiep khi can.", TextColor = Color.FromArgb("#FFF7E1") }
+                    new Label { Text = "Chon tour, bật dau lo trinh va chuyen den diem dung ke tiep khi can.", TextColor = Color.FromArgb("#FFF7E1") }
                 }
             }
         });
@@ -83,7 +83,7 @@ public class ToursPage : ContentPage
             ColumnSpacing = 10
         };
         statusActions.Add(CreateActionButton("Bat dau tour", OnStartTourClicked, "#17324D", "White"));
-        var nextStopButton = CreateActionButton("Diem ke tiep", OnNextTourStopClicked, "#E4B43C", "#17324D");
+        var nextStopButton = CreateActionButton("Điểm kế tiếp", OnNextTourStopClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(nextStopButton, 1);
         statusActions.Add(nextStopButton);
         statusLayout.Add(statusActions);
@@ -179,7 +179,7 @@ public class ToursPage : ContentPage
 
         var poiCard = CreateCard();
         var poiLayout = new VerticalStackLayout { Spacing = 12 };
-        poiLayout.Add(new Label { Text = "POI dang duoc gan voi tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        poiLayout.Add(new Label { Text = "POI đang được gắn với tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         poiLayout.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 18, TextColor = Color.FromArgb("#17324D") }.Bind(Label.TextProperty, "SelectedPoi.Title"));
         poiLayout.Add(new Label { TextColor = Color.FromArgb("#5D7287") }.Bind(Label.TextProperty, "SelectedPoi.Summary"));
         var poiActions = new Grid
@@ -192,7 +192,7 @@ public class ToursPage : ContentPage
         Grid.SetColumn(stopButton, 1);
         poiActions.Add(stopButton);
         poiLayout.Add(poiActions);
-        poiLayout.Add(CreateActionButton("Xem chi tiet POI", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D"));
+        poiLayout.Add(CreateActionButton("Xem chi tiết POI", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D"));
         poiCard.Content = poiLayout;
         root.Add(poiCard);
 

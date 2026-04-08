@@ -1,11 +1,11 @@
-@model IEnumerable<AudioGuideAdmin.Models.Category>
+﻿@model IEnumerable<AudioGuideAdmin.Models.Category>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h2 class="mb-1">Quan ly danh muc</h2>
-        <p class="text-muted mb-0">Danh muc duoc dung de nhom cac POI trong he thong audio tour.</p>
+        <h2 class="mb-1">Quản lý danh mục</h2>
+        <p class="text-muted mb-0">Danh mục duoc dung de nhom cac POI trong he thong audio tour.</p>
     </div>
-    <a href="/Category/Create" class="btn btn-primary">Them danh muc</a>
+    <a href="/Category/Create" class="btn btn-primary">Thêm danh mục</a>
 </div>
 
 <div class="card p-3">
@@ -14,9 +14,9 @@
             <thead>
                 <tr>
                     <th>Thu tu</th>
-                    <th>Danh muc</th>
+                    <th>Danh mục</th>
                     <th>Ma</th>
-                    <th>Mo ta</th>
+                    <th>Mô tả</th>
                     <th>Trang thai</th>
                     <th></th>
                 </tr>
@@ -46,7 +46,7 @@
                     </td>
                     <td class="text-end">
                         <a href="/Category/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Category/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa danh muc nay?')">Delete</a>
+                        <a href="/Category/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa danh mục này?')">Delete</a>
                     </td>
                 </tr>
             }

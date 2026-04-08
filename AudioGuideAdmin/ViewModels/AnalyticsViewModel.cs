@@ -1,4 +1,4 @@
-namespace AudioGuideAdmin.ViewModels;
+﻿namespace AudioGuideAdmin.ViewModels;
 
 public class AnalyticsViewModel
 {

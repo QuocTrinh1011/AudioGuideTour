@@ -1,4 +1,4 @@
-namespace AudioGuideAdmin.Models;
+﻿namespace AudioGuideAdmin.Models;
 
 public class GeofenceTrigger
 {

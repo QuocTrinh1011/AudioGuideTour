@@ -1,4 +1,4 @@
-using AudioTourApp.Models;
+﻿using AudioTourApp.Models;
 using System.Collections.Concurrent;
 
 namespace AudioTourApp.Services;
@@ -45,19 +45,19 @@ public class AudioQueueService
         if (_recentPlay.TryGetValue(poi.Id, out var lastPlay) &&
             (DateTime.UtcNow - lastPlay).TotalSeconds < Math.Max(poi.CooldownSeconds, 1))
         {
-            StatusChanged?.Invoke(this, $"Bo qua {poi.Title} do dang cooldown.");
+            StatusChanged?.Invoke(this, $"Bỏ qua {poi.Title} do đang cooldown.");
             return;
         }
 
         if (_currentRequest?.Poi.Id == poi.Id || _queue.Any(x => x.Poi.Id == poi.Id))
         {
-            StatusChanged?.Invoke(this, $"Hang doi da co hoac dang phat {poi.Title}.");
+            StatusChanged?.Invoke(this, $"Hàng đợi đã có hoặc đang phát {poi.Title}.");
             return;
         }
 
         _queue.Enqueue(request);
         RaiseQueueChanged();
-        StatusChanged?.Invoke(this, $"Da them {poi.Title} vao hang doi.");
+        StatusChanged?.Invoke(this, $"Đã thêm {poi.Title} vào hàng đợi.");
         await ProcessQueueAsync(cancellationToken);
     }
 
@@ -69,7 +69,7 @@ public class AudioQueueService
         _ = _audioFallbackPlayer.StopAsync();
         _currentRequest = null;
         RaiseQueueChanged();
-        StatusChanged?.Invoke(this, "Da dung phat audio va xoa hang doi.");
+        StatusChanged?.Invoke(this, "Đã dừng phát audio và xóa hàng đợi.");
         return Task.CompletedTask;
     }
 
@@ -91,7 +91,7 @@ public class AudioQueueService
                 _playbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _currentRequest = request;
                 RaiseQueueChanged();
-                StatusChanged?.Invoke(this, $"Dang phat {poi.Title}...");
+                StatusChanged?.Invoke(this, $"Đang phat {poi.Title}...");
 
                 var played = false;
                 var wasCompleted = false;
@@ -109,7 +109,7 @@ public class AudioQueueService
                 {
                     _currentRequest = null;
                     RaiseQueueChanged();
-                    StatusChanged?.Invoke(this, $"Khong lay duoc audio focus de phat {poi.Title}.");
+                    StatusChanged?.Invoke(this, $"Không lấy được audio focus để phát {poi.Title}.");
                     continue;
                 }
 
@@ -123,12 +123,12 @@ public class AudioQueueService
                         playbackMode = "audio";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"Dang phat audio uu tien cho {poi.Title}.");
+                            StatusChanged?.Invoke(this, $"Đang phát audio ưu tiên cho {poi.Title}.");
                         }
                         else if (!string.IsNullOrWhiteSpace(result.Message))
                         {
                             failureReasons.Add($"Audio: {result.Message}");
-                            StatusChanged?.Invoke(this, $"Audio cua {poi.Title} gap loi. {(audioOnly ? "Khong co fallback TTS cho POI nay." : "Dang thu TTS du phong...")}");
+                            StatusChanged?.Invoke(this, $"Audio cua {poi.Title} gap loi. {(audioOnly ? "Không có fallback TTS cho POI này." : "Đang thử TTS dự phòng...")}");
                         }
                     }
 
@@ -142,7 +142,7 @@ public class AudioQueueService
                         playbackMode = "tts";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"Dang doc {ttsSourceLabel} cho {poi.Title} bang {poi.Language}.");
+                            StatusChanged?.Invoke(this, $"Đang doc {ttsSourceLabel} cho {poi.Title} bang {poi.Language}.");
                         }
                         else if (!string.IsNullOrWhiteSpace(result.Message))
                         {
@@ -158,7 +158,7 @@ public class AudioQueueService
                         playbackMode = "audio";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"TTS khong dung duoc, dang phat audio du phong cho {poi.Title}.");
+                            StatusChanged?.Invoke(this, $"TTS không dùng được, đang phát audio dự phòng cho {poi.Title}.");
                         }
                         else if (!string.IsNullOrWhiteSpace(result.Message))
                         {
@@ -185,9 +185,9 @@ public class AudioQueueService
                     : string.Join(" | ", failureReasons.Distinct());
                 StatusChanged?.Invoke(this, played
                     ? wasCompleted
-                        ? $"Da xong {poi.Title}."
-                        : $"Da dung giua chung {poi.Title}."
-                    : $"Khong the phat {poi.Title}. {lastFailure}".Trim());
+                        ? $"Đã xong {poi.Title}."
+                        : $"Đã dừng giữa chừng {poi.Title}."
+                    : $"Không the phat {poi.Title}. {lastFailure}".Trim());
             }
         }
         finally
@@ -213,13 +213,13 @@ public class AudioQueueService
 
         if (!string.IsNullOrWhiteSpace(poi.Description))
         {
-            sourceLabel = "mo ta du phong";
+            sourceLabel = "mô tả dự phòng";
             return poi.Description;
         }
 
         if (!string.IsNullOrWhiteSpace(poi.Summary))
         {
-            sourceLabel = "tom tat du phong";
+            sourceLabel = "tóm tắt dự phòng";
             return poi.Summary;
         }
 
@@ -270,7 +270,7 @@ public class AudioQueueService
         }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke(this, $"Khong luu duoc lich su nghe cho {request.Poi.Title}: {ex.Message}");
+            StatusChanged?.Invoke(this, $"Không lưu được lịch sử nghe cho {request.Poi.Title}: {ex.Message}");
         }
     }
 }

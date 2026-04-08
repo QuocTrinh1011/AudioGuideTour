@@ -1,8 +1,8 @@
-@model AudioGuideAdmin.Models.VisitorProfile
+﻿@model AudioGuideAdmin.Models.VisitorProfile
 
 <div class="mb-3">
     <h2 class="mb-1">Sua visitor mobile</h2>
-    <p class="text-muted mb-0">Cap nhat thong tin va tuy chon van hanh cho nguoi dung app.</p>
+    <p class="text-muted mb-0">Cập nhật thông tin và tùy chọn vận hành cho người dùng app.</p>
 </div>
 
 <div class="card p-4">
@@ -20,7 +20,7 @@
                 <input asp-for="DisplayName" class="form-control" />
             </div>
             <div class="col-md-6">
-                <label class="form-label">Ngon ngu</label>
+                <label class="form-label">Ngôn ngữ</label>
                 <input asp-for="Language" class="form-control" />
             </div>
             <div class="col-12">
@@ -38,8 +38,8 @@
         </div>
 
         <div class="mt-4 d-flex gap-2">
-            <button class="btn btn-primary" type="submit">Luu visitor</button>
-            <a href="/Visitor" class="btn btn-outline-secondary">Quay lai</a>
+            <button class="btn btn-primary" type="submit">Lưu visitor</button>
+            <a href="/Visitor" class="btn btn-outline-secondary">Quay lại</a>
         </div>
     </form>
 </div>

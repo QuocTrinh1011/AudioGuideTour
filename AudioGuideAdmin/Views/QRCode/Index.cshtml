@@ -1,22 +1,22 @@
-@model IEnumerable<AudioGuideAdmin.Models.QRCode>
+﻿@model IEnumerable<AudioGuideAdmin.Models.QRCode>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h2 class="mb-1">Quan ly QR</h2>
-        <p class="text-muted mb-0">QR duoc mobile app dung de mo noi dung ngay ma khong can GPS bat geofence.</p>
+        <h2 class="mb-1">Quản lý QR</h2>
+        <p class="text-muted mb-0">QR được mobile app dùng để mở nội dung ngay mà không cần GPS bật geofence.</p>
     </div>
     <div class="d-flex gap-2">
         <form method="post" action="/QRCode/CreateBusStopSet">
             @Html.AntiForgeryToken()
-            <button class="btn btn-outline-primary" type="submit">Tao bo QR xe buyt</button>
+            <button class="btn btn-outline-primary" type="submit">Tạo bộ QR xe buýt</button>
         </form>
-        <a href="/QRCode/Create" class="btn btn-primary">Them QR</a>
+        <a href="/QRCode/Create" class="btn btn-primary">Thêm QR</a>
     </div>
 </div>
 
 <div class="card p-3 mb-3">
     <div class="fw-semibold mb-1">Bo QR de xuat cho mobile</div>
-    <div class="text-muted small">Web se co gang tao 3 QR cho cac diem dung xe buyt Khanh Hoi, Vinh Hoi, Xuan Chieu/Xom Chieu neu trong he thong da co POI that tuong ung.</div>
+    <div class="text-muted small">Web sẽ cố gắng tạo 3 QR cho các điểm dừng xe buýt Khánh Hội, Vĩnh Hội, Xuân Chiếu/Xóm Chiếu nếu trong hệ thống đã có POI thật tương ứng.</div>
     <div class="mt-2 d-flex flex-wrap gap-2">
         <span class="badge badge-soft">BUS-KH-001</span>
         <span class="badge badge-soft">BUS-VH-002</span>
@@ -44,7 +44,7 @@
                     <td class="text-muted">@item.Note</td>
                     <td class="text-end">
                         <a href="/QRCode/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/QRCode/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa QR nay?')">Delete</a>
+                        <a href="/QRCode/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Delete</a>
                     </td>
                 </tr>
             }

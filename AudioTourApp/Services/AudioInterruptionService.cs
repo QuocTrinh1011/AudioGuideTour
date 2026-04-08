@@ -68,7 +68,7 @@ public partial class AudioInterruptionService
         {
             if (focusChange is AudioFocus.Loss or AudioFocus.LossTransient or AudioFocus.LossTransientCanDuck)
             {
-                _onInterrupted.Invoke("Audio dang bi gian doan boi he thong hoac ung dung khac.");
+                _onInterrupted.Invoke("Audio đang bị gián đoạn bởi hệ thống hoặc ứng dụng khác.");
             }
         }
     }

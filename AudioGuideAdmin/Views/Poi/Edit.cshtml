@@ -1,18 +1,18 @@
-@model AudioGuideAdmin.Models.Poi
+﻿@model AudioGuideAdmin.Models.Poi
 @using AudioGuideAdmin.ViewModels
 @{
     var translationLinks = ViewBag.TranslationLinks as List<TranslationLanguageLinkViewModel> ?? new();
 }
 
-<h2 class="mb-3">Cap nhat POI</h2>
+<h2 class="mb-3">Cập nhật POI</h2>
 
 @await Html.PartialAsync("_PoiForm", Model)
 
 <div class="card p-4 mt-4" id="translation-manager">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h4 class="mb-1">Ban thuyet minh theo ngon ngu</h4>
-            <p class="text-muted mb-0">Tai day ban chi chon ngon ngu va mo dung man hinh tao hoac sua ban dich cua POI nay.</p>
+            <h4 class="mb-1">Bản thuyết minh theo ngôn ngữ</h4>
+            <p class="text-muted mb-0">Tại đây bạn chỉ chọn ngôn ngữ và mở đúng màn hình tạo hoặc sửa bản dịch của POI này.</p>
         </div>
         <a href="/Translation" class="btn btn-outline-secondary">Mo danh sach translation</a>
     </div>
@@ -20,7 +20,7 @@
         <table class="table align-middle mb-0">
             <thead>
                 <tr>
-                    <th>Ngon ngu</th>
+                    <th>Ngôn ngữ</th>
                     <th>Ma</th>
                     <th>Trang thai</th>
                     <th class="text-end">Tac vu</th>
@@ -34,12 +34,12 @@
                     <td>@link.Code</td>
                     <td>
                         <span class="badge @(link.Exists ? "text-bg-success" : "text-bg-secondary")">
-                            @(link.Exists ? "Da co ban dich" : "Chua co ban dich")
+                            @(link.Exists ? "Đã có bản dịch" : "Chưa có bản dịch")
                         </span>
                     </td>
                     <td class="text-end">
                         <a href="@link.Url" class="btn @(link.Exists ? "btn-outline-dark" : "btn-primary") btn-sm">
-                            @(link.Exists ? "Sua ban dich" : "Tao ban dich")
+                            @(link.Exists ? "Sửa bản dịch" : "Tạo bản dịch")
                         </a>
                     </td>
                 </tr>

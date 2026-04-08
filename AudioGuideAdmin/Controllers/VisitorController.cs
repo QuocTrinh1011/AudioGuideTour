@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -75,7 +75,7 @@ public class VisitorController : Controller
         existing.LastSeenAt = existing.LastSeenAt == default ? DateTime.UtcNow : existing.LastSeenAt;
 
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da cap nhat visitor cho mobile app.";
+        TempData["Success"] = "Đã cấp nhat visitor cho mobile app.";
         return RedirectToAction(nameof(Index));
     }
 }

@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -11,7 +11,7 @@ public class NarrationPage : ContentPage
     public NarrationPage(MainViewModel viewModel)
     {
         BindingContext = _viewModel = viewModel;
-        Title = "Ban thuyet minh";
+        Title = "Bản thuyết minh";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
     }
@@ -72,7 +72,7 @@ public class NarrationPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Ban thuyet minh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Bản thuyết minh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
                     new Label { TextColor = Color.FromArgb("#E4EEF7") }.Bind(Label.TextProperty, "SelectedPoi.Title")
                 }
             }
@@ -84,7 +84,7 @@ public class NarrationPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Label { Text = "Ngon ngu dang xem", FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") },
+                new Label { Text = "Ngôn ngữ đang xem", FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") },
                 CreateLanguagePicker(),
                 new Label { FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }.Bind(Label.TextProperty, "SelectedPoi.Title"),
                 new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiPositionText)),
@@ -189,7 +189,7 @@ public class NarrationPage : ContentPage
     {
         var picker = new Picker
         {
-            Title = "Doi ngon ngu ban thuyet minh",
+            Title = "Đổi ngôn ngữ bản thuyết minh",
             ItemDisplayBinding = new Binding("NativeName"),
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")

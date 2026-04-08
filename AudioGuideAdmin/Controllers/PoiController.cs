@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
@@ -69,12 +69,12 @@ public class PoiController : Controller
         await _context.SaveChangesAsync();
 
         TempData["Success"] = updated > 0
-            ? $"Da gan anh goi y cho {updated} POI."
-            : "Khong co POI nao duoc gan anh goi y.";
+            ? $"Đã gắn ảnh gợi ý cho {updated} POI."
+            : "Không có POI nào được gắn ảnh gợi ý.";
 
         if (missing > 0)
         {
-            TempData["Error"] = $"{missing} POI chua khop tu khoa de gan anh tu dong. Ban co the gan anh thu cong.";
+            TempData["Error"] = $"{missing} POI chưa khớp từ khóa để gắn ảnh tự động. Bạn có thể gắn ảnh thủ công.";
         }
 
         return RedirectToAction(nameof(Index));
@@ -106,12 +106,12 @@ public class PoiController : Controller
             poi.UpdatedAt = DateTime.UtcNow;
             _context.Pois.Add(poi);
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da tao POI thanh cong.";
+            TempData["Success"] = "Đã tạo POI thành công.";
             return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, $"Khong luu duoc POI. {ex.GetBaseException().Message}");
+            ModelState.AddModelError(string.Empty, $"Không luu duoc POI. {ex.GetBaseException().Message}");
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
             ViewBag.Languages = BuildLanguageOptions(poi.DefaultLanguage);
             return View(poi);
@@ -141,7 +141,7 @@ public class PoiController : Controller
         {
             _context.Pois.Remove(poi);
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da xoa POI.";
+            TempData["Success"] = "Đã xóa POI.";
         }
 
         return RedirectToAction(nameof(Index));
@@ -177,14 +177,14 @@ public class PoiController : Controller
         var suggestion = PoiImageSuggestionHelper.Suggest(poi);
         if (string.IsNullOrWhiteSpace(suggestion))
         {
-            TempData["Error"] = "Chua tim thay anh goi y phu hop cho POI nay. Ban hay gan anh thu cong.";
+            TempData["Error"] = "Chưa tìm thấy ảnh gợi ý phù hợp cho POI này. Bạn hãy gắn ảnh thủ công.";
             return RedirectToAction(nameof(Edit), new { id });
         }
 
         poi.ImageUrl = suggestion;
         poi.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da gan anh goi y cho POI.";
+        TempData["Success"] = "Đã gắn ảnh gợi ý cho POI.";
         return RedirectToAction(nameof(Edit), new { id });
     }
 
@@ -241,12 +241,12 @@ public class PoiController : Controller
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da cap nhat POI thanh cong.";
+            TempData["Success"] = "Đã cấp nhat POI thanh cong.";
             return RedirectToAction(nameof(Edit), new { id = existing.Id });
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, $"Khong cap nhat duoc POI. {ex.GetBaseException().Message}");
+            ModelState.AddModelError(string.Empty, $"Không cap nhat duoc POI. {ex.GetBaseException().Message}");
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
             ViewBag.Languages = BuildLanguageOptions(poi.DefaultLanguage);
             ViewBag.TranslationLinks = BuildTranslationLinks(poi.Id);

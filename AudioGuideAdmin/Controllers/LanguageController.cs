@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,7 +36,7 @@ public class LanguageController : Controller
 
         if (_context.LanguageOptions.Any(x => x.Code == model.Code))
         {
-            ModelState.AddModelError(nameof(model.Code), "Ma ngon ngu da ton tai.");
+            ModelState.AddModelError(nameof(model.Code), "Mã ngôn ngữ đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
@@ -46,7 +46,7 @@ public class LanguageController : Controller
 
         _context.LanguageOptions.Add(model);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da them ngon ngu moi.";
+        TempData["Success"] = "Đã thêm ngôn ngữ mới.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -64,7 +64,7 @@ public class LanguageController : Controller
 
         if (_context.LanguageOptions.Any(x => x.Id != model.Id && x.Code == model.Code))
         {
-            ModelState.AddModelError(nameof(model.Code), "Ma ngon ngu da ton tai.");
+            ModelState.AddModelError(nameof(model.Code), "Mã ngôn ngữ đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
@@ -86,7 +86,7 @@ public class LanguageController : Controller
         existing.IsActive = model.IsActive;
 
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da cap nhat ngon ngu.";
+        TempData["Success"] = "Đã cập nhật ngôn ngữ.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -103,13 +103,13 @@ public class LanguageController : Controller
 
         if (usedByTranslation || usedByPoi)
         {
-            TempData["Error"] = "Khong the xoa ngon ngu dang duoc su dung trong POI hoac translation.";
+            TempData["Error"] = "Không thể xóa ngôn ngữ đang được sử dụng trong POI hoặc translation.";
             return RedirectToAction(nameof(Index));
         }
 
         _context.LanguageOptions.Remove(item);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da xoa ngon ngu.";
+        TempData["Success"] = "Đã xóa ngôn ngữ.";
         return RedirectToAction(nameof(Index));
     }
 

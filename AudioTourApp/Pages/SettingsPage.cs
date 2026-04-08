@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -82,20 +82,20 @@ public class SettingsPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Cai dat va dong bo", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Quan ly ket noi API, ngon ngu va visitor duoc admin theo doi.", TextColor = Color.FromArgb("#E6EDF3") }
+                    new Label { Text = "Cài đặt và đồng bộ", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Quản lý kết nối API, ngôn ngữ và visitor được admin theo dõi.", TextColor = Color.FromArgb("#E6EDF3") }
                 }
             }
         });
 
         var systemCard = CreateCard();
         var systemLayout = new VerticalStackLayout { Spacing = 14 };
-        systemLayout.Add(new Label { Text = "Ket noi he thong", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        systemLayout.Add(new Label { Text = "Kết nối hệ thống", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         systemLayout.Add(new Entry { Placeholder = "http://10.0.2.2:5297", BackgroundColor = Color.FromArgb("#F9FBFD"), TextColor = Color.FromArgb("#17324D") }
             .Bind(Entry.TextProperty, nameof(MainViewModel.ApiBaseUrl), BindingMode.TwoWay));
         var picker = new Picker
         {
-            Title = "Chon ngon ngu",
+            Title = "Chọn ngôn ngữ",
             ItemDisplayBinding = new Binding(nameof(AudioTourApp.Models.LanguageItem.NativeName)),
             BackgroundColor = Color.FromArgb("#F9FBFD"),
             TextColor = Color.FromArgb("#17324D")
@@ -109,19 +109,19 @@ public class SettingsPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        syncRow.Add(CreateActionButton("Tai du lieu", OnBootstrapClicked, "#17324D", "White"));
-        var syncButton = CreateActionButton("Dong bo visitor", OnSyncVisitorClicked, "#E4B43C", "#17324D");
+        syncRow.Add(CreateActionButton("Tải dữ liệu", OnBootstrapClicked, "#17324D", "White"));
+        var syncButton = CreateActionButton("Đồng bộ visitor", OnSyncVisitorClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(syncButton, 1);
         syncRow.Add(syncButton);
         systemLayout.Add(syncRow);
-        systemLayout.Add(CreateActionButton("Reset API ve mac dinh emulator", OnResetApiClicked, "#EEF3F8", "#17324D"));
+        systemLayout.Add(CreateActionButton("Reset API về mặc định emulator", OnResetApiClicked, "#EEF3F8", "#17324D"));
         systemCard.Content = systemLayout;
         root.Add(systemCard);
 
         var visitorCard = CreateCard();
         var visitorLayout = new VerticalStackLayout { Spacing = 14 };
         visitorLayout.Add(new Label { Text = "Visitor mobile", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        visitorLayout.Add(new Entry { Placeholder = "Ten visitor hien thi trong admin", BackgroundColor = Color.FromArgb("#F9FBFD"), TextColor = Color.FromArgb("#17324D") }
+        visitorLayout.Add(new Entry { Placeholder = "Tên visitor hiển thị trong admin", BackgroundColor = Color.FromArgb("#F9FBFD"), TextColor = Color.FromArgb("#17324D") }
             .Bind(Entry.TextProperty, nameof(MainViewModel.VisitorDisplayName), BindingMode.TwoWay));
 
         var optionRow = new Grid
@@ -129,8 +129,8 @@ public class SettingsPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 12
         };
-        optionRow.Add(CreateSwitchCard("Auto-play", "Cho phep tu dong doc", nameof(MainViewModel.AllowAutoPlay)));
-        var bgCard = CreateSwitchCard("Background", "Cho phep tracking nen", nameof(MainViewModel.AllowBackgroundTracking));
+        optionRow.Add(CreateSwitchCard("Auto-play", "Cho phép tự động đọc", nameof(MainViewModel.AllowAutoPlay)));
+        var bgCard = CreateSwitchCard("Background", "Cho phép tracking nền", nameof(MainViewModel.AllowBackgroundTracking));
         Grid.SetColumn(bgCard, 1);
         optionRow.Add(bgCard);
         visitorLayout.Add(optionRow);
@@ -140,7 +140,7 @@ public class SettingsPage : ContentPage
 
         var permissionsCard = CreateCard();
         var permissionsLayout = new VerticalStackLayout { Spacing = 12 };
-        permissionsLayout.Add(new Label { Text = "Quyen truy cap", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        permissionsLayout.Add(new Label { Text = "Quyền truy cập", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.LocationPermissionText)));
         permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.BackgroundPermissionText)));
         permissionsLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CameraPermissionText)));
@@ -151,8 +151,8 @@ public class SettingsPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        permissionRow.Add(CreateActionButton("Xin quyen tracking", OnRequestTrackingPermissionsClicked, "#17324D", "White"));
-        var cameraButton = CreateActionButton("Xin quyen camera", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
+        permissionRow.Add(CreateActionButton("Xin quyền tracking", OnRequestTrackingPermissionsClicked, "#17324D", "White"));
+        var cameraButton = CreateActionButton("Xin quyền camera", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(cameraButton, 1);
         permissionRow.Add(cameraButton);
         permissionsLayout.Add(permissionRow);
@@ -162,8 +162,8 @@ public class SettingsPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        permissionRow2.Add(CreateActionButton("Kiem tra lai", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D"));
-        var settingsButton = CreateActionButton("Mo cai dat he thong", OnOpenSystemSettingsClicked, "#F3F7FB", "#17324D");
+        permissionRow2.Add(CreateActionButton("Kiểm tra lại", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D"));
+        var settingsButton = CreateActionButton("Mở cài đặt hệ thống", OnOpenSystemSettingsClicked, "#F3F7FB", "#17324D");
         Grid.SetColumn(settingsButton, 1);
         permissionRow2.Add(settingsButton);
         permissionsLayout.Add(permissionRow2);

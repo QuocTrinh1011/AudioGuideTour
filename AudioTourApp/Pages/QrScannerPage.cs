@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using AudioTourApp.ViewModels;
 using BarcodeScanning;
 using Microsoft.Maui.Controls;
@@ -49,11 +49,11 @@ public class QrScannerPage : ContentPage
 
         if (!_viewModel.CanUseCamera)
         {
-            _statusLabel.Text = "App chua co quyen camera. Hay cap quyen roi quay lai man hinh nay.";
+            _statusLabel.Text = "App chưa có quyền camera. Hãy cấp quyền rồi quay lại màn hình này.";
             return;
         }
 
-        _statusLabel.Text = "Dang mo camera...";
+        _statusLabel.Text = "Đang mở camera...";
         _cameraView.CameraEnabled = true;
     }
 
@@ -133,8 +133,8 @@ public class QrScannerPage : ContentPage
             ColumnSpacing = 10
         };
 
-        actions.Add(CreateButton("Bat/Tat den", OnToggleTorchClicked, "#E4B43C", "#17324D"));
-        var refreshButton = CreateButton("Kiem tra quyen", OnRefreshPermissionClicked, "#EEF3F8", "#17324D");
+        actions.Add(CreateButton("Bật/Tắt đèn", OnToggleTorchClicked, "#E4B43C", "#17324D"));
+        var refreshButton = CreateButton("Kiểm tra quyền", OnRefreshPermissionClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(refreshButton, 1);
         actions.Add(refreshButton);
         var closeButton = CreateButton("Dong", OnCloseClicked, "#17324D", "White");
@@ -161,7 +161,7 @@ public class QrScannerPage : ContentPage
 
         _isHandlingScan = true;
         _cameraView.CameraEnabled = false;
-        _statusLabel.Text = $"Da quet: {code}. Dang mo noi dung...";
+        _statusLabel.Text = $"Đã quét: {code}. Đang mở nội dung...";
 
         await MainThread.InvokeOnMainThreadAsync(async () =>
         {
@@ -172,7 +172,7 @@ public class QrScannerPage : ContentPage
             }
             catch (Exception ex)
             {
-                _statusLabel.Text = $"Khong mo duoc QR: {ex.Message}";
+                _statusLabel.Text = $"Không mở được QR: {ex.Message}";
                 _cameraView.CameraEnabled = true;
                 _isHandlingScan = false;
             }
@@ -208,7 +208,7 @@ public class QrScannerPage : ContentPage
     private void OnToggleTorchClicked(object? sender, EventArgs e)
     {
         _cameraView.TorchOn = !_cameraView.TorchOn;
-        _statusLabel.Text = _cameraView.TorchOn ? "Da bat den flash." : "Da tat den flash.";
+        _statusLabel.Text = _cameraView.TorchOn ? "Đã bật đèn flash." : "Đã tắt đèn flash.";
     }
 
     private async void OnRefreshPermissionClicked(object? sender, EventArgs e)
@@ -218,7 +218,7 @@ public class QrScannerPage : ContentPage
 
         if (_viewModel.CanUseCamera)
         {
-            _statusLabel.Text = "Da co quyen camera. Dang mo camera...";
+            _statusLabel.Text = "Đã có quyền camera. Đang mở camera...";
             _cameraView.CameraEnabled = true;
         }
     }

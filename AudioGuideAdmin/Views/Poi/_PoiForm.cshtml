@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.Models.Poi
+﻿@model AudioGuideAdmin.Models.Poi
 
 <form method="post" enctype="multipart/form-data" class="card p-4">
     @Html.AntiForgeryToken()
@@ -7,32 +7,32 @@
     <div asp-validation-summary="All" class="alert alert-danger"></div>
     <div class="row g-3">
         <div class="col-md-6">
-            <label class="form-label">Ten POI</label>
+            <label class="form-label">Tên POI</label>
             <input asp-for="Name" class="form-control" />
             <span asp-validation-for="Name" class="text-danger small"></span>
         </div>
         <div class="col-md-3">
-            <label class="form-label">Danh muc</label>
+            <label class="form-label">Danh mục</label>
             <select asp-for="Category" asp-items="ViewBag.Categories" class="form-select"></select>
             <span asp-validation-for="Category" class="text-danger small"></span>
         </div>
         <div class="col-md-3">
-            <label class="form-label">Ngon ngu mac dinh</label>
+            <label class="form-label">Ngôn ngữ mặc định</label>
             <select asp-for="DefaultLanguage" asp-items="ViewBag.Languages" class="form-select"></select>
             <span asp-validation-for="DefaultLanguage" class="text-danger small"></span>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Tom tat</label>
+            <label class="form-label">Tóm tắt</label>
             <input asp-for="Summary" class="form-control" />
             <span asp-validation-for="Summary" class="text-danger small"></span>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Dia chi</label>
+            <label class="form-label">Địa chỉ</label>
             <input asp-for="Address" class="form-control" />
             <span asp-validation-for="Address" class="text-danger small"></span>
         </div>
         <div class="col-12">
-            <label class="form-label">Mo ta</label>
+            <label class="form-label">Mô tả</label>
             <textarea asp-for="Description" class="form-control" rows="4"></textarea>
             <span asp-validation-for="Description" class="text-danger small"></span>
         </div>
@@ -81,18 +81,18 @@
             </select>
         </div>
         <div class="col-md-3">
-            <label class="form-label">Che do thuyet minh</label>
+            <label class="form-label">Chế độ thuyết minh</label>
             <input class="form-control" value="TTS only" disabled />
         </div>
         <div class="col-md-8">
-            <label class="form-label">Upload anh POI</label>
+            <label class="form-label">Upload ảnh POI</label>
             <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" />
             <span asp-validation-for="ImageFile" class="text-danger small"></span>
-            <div class="form-text">Chi can chon file roi bam Luu. Admin se luu vao thu muc dung chung, API tra ve /images/... va mobile app se nhan anh moi ngay sau khi tai du lieu.</div>
+            <div class="form-text">Chỉ cần chọn file rồi bấm Lưu. Admin sẽ lưu vào thư mục dùng chung, API trả về /images/... và mobile app sẽ nhận ảnh mới ngay sau khi tải dữ liệu.</div>
         </div>
         <div class="col-md-4 d-flex align-items-end">
             <div class="d-grid gap-2 w-100">
-                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thu vien anh</a>
+                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thư viện ảnh</a>
                 @if (Model.Id > 0)
                 {
                     <button class="btn btn-outline-primary"
@@ -100,7 +100,7 @@
                             formaction="/Poi/ApplySuggestedImage/@Model.Id"
                             formmethod="post"
                             formnovalidate>
-                        Gan anh goi y
+                        Gắn ảnh gợi ý
                     </button>
                 }
             </div>
@@ -118,7 +118,7 @@
         <div class="col-md-3 d-flex align-items-end">
             <div class="form-check form-switch">
                 <input asp-for="IsActive" class="form-check-input" />
-                <label asp-for="IsActive" class="form-check-label">Dang hoat dong</label>
+                <label asp-for="IsActive" class="form-check-label">Đang hoạt động</label>
             </div>
         </div>
         <div class="col-12">
@@ -126,8 +126,8 @@
             <textarea asp-for="TtsScript" class="form-control" rows="4"></textarea>
             <span asp-validation-for="TtsScript" class="text-danger small"></span>
             <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">Noi dung nay se duoc app mobile doc bang Text-to-Speech neu translation khong co script rieng.</small>
-                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-poi-tts">Nghe thu TTS</button>
+                <small class="text-muted">Nội dung này sẽ được app mobile đọc bằng Text-to-Speech nếu translation không có script riêng.</small>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="preview-poi-tts">Nghe thử TTS</button>
             </div>
         </div>
         <div class="col-12">
@@ -135,7 +135,7 @@
             <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
             <span asp-validation-for="AudioUrl" class="text-danger small"></span>
             <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">Neu TTS gap loi, he thong co the dung file audio du phong nay.</small>
+                <small class="text-muted">Nếu TTS gặp lỗi, hệ thống có thể dùng file audio dự phòng này.</small>
                 <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mo thu vien audio</a>
             </div>
         </div>
@@ -147,7 +147,7 @@
                         <div class="text-muted small">Web admin, API va mobile app se dung chung mot file anh.</div>
                     </div>
                     <div class="text-end">
-                        <div class="text-muted small">Duong dan hien tai</div>
+                        <div class="text-muted small">Đường dẫn hiện tại</div>
                         <code id="poi-image-path" class="small">@Model.ImageUrl</code>
                     </div>
                 </div>
@@ -156,7 +156,7 @@
                      alt="Preview anh POI"
                      style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "none" : "block");" />
                 <div id="poi-image-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "block" : "none");">
-                    Chua co anh. Hay upload file anh o tren, hoac bam nut goi y neu muon dung anh mau.
+                    Chưa có ảnh. Hãy upload file ảnh ở trên, hoặc bấm nút gợi ý nếu muốn dùng ảnh mẫu.
                 </div>
             </div>
         </div>
@@ -164,8 +164,8 @@
             <div id="map" style="height:380px;border-radius:18px;"></div>
         </div>
         <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary">Luu</button>
-            <a href="/Poi" class="btn btn-outline-secondary">Quay lai</a>
+            <button class="btn btn-primary">Lưu</button>
+            <a href="/Poi" class="btn btn-outline-secondary">Quay lại</a>
         </div>
     </div>
 </form>
@@ -200,7 +200,7 @@
             imagePreview.src = URL.createObjectURL(selectedFile);
             imagePreview.style.display = 'block';
             imageEmpty.style.display = 'none';
-            imagePath.textContent = `Se tao tu dong sau khi luu: ${selectedFile.name}`;
+            imagePath.textContent = `Sẽ tạo tự động sau khi lưu: ${selectedFile.name}`;
             return;
         }
 
@@ -209,7 +209,7 @@
             imagePreview.style.display = 'none';
             imagePreview.removeAttribute('src');
             imageEmpty.style.display = 'block';
-            imagePath.textContent = 'Chua co';
+            imagePath.textContent = 'Chưa có';
             return;
         }
 
@@ -263,7 +263,7 @@
 
     async function previewSpeak(text, language) {
         if (!window.speechSynthesis) {
-            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            alert('Trình duyệt này không hỗ trợ nghe thử TTS.');
             return;
         }
 
@@ -274,7 +274,7 @@
         if (voice) {
             utterance.voice = voice;
         } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
-            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            alert('Máy/trình duyệt hiện chưa có voice Tiếng Việt. Hãy cài thêm voice vi-VN để nghe đúng giọng Việt.');
             return;
         }
 
@@ -286,7 +286,7 @@
         const textarea = document.querySelector('[name="TtsScript"]');
         const text = textarea?.value?.trim();
         if (!text) {
-            alert('Chua co TTS script de nghe thu.');
+            alert('Chưa có TTS script để nghe thử.');
             return;
         }
 

@@ -1,25 +1,25 @@
-@model IEnumerable<AudioGuideAdmin.Models.Poi>
+﻿@model IEnumerable<AudioGuideAdmin.Models.Poi>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Quan ly POI</h2>
+    <h2 class="mb-0">Quản lý POI</h2>
     <div class="d-flex gap-2">
         <form method="post" action="/Poi/ApplySuggestedImages">
             @Html.AntiForgeryToken()
-            <button class="btn btn-outline-primary" type="submit">Gan anh goi y</button>
+            <button class="btn btn-outline-primary" type="submit">Gắn ảnh gợi ý</button>
         </form>
-        <a href="/Poi/Create" class="btn btn-primary">Them POI</a>
+        <a href="/Poi/Create" class="btn btn-primary">Thêm POI</a>
     </div>
 </div>
 
 <form method="get" class="card p-3 mb-3">
     <div class="row g-2">
         <div class="col-md-8">
-            <input type="text" name="search" class="form-control" placeholder="Tim theo ten, danh muc, dia chi..." value="@Context.Request.Query["search"]" />
+            <input type="text" name="search" class="form-control" placeholder="Tìm theo tên, danh mục, địa chỉ..." value="@Context.Request.Query["search"]" />
         </div>
         <div class="col-md-2">
             <select name="activeOnly" class="form-select">
-                <option value="">Tat ca</option>
-                <option value="true" selected="@(Context.Request.Query["activeOnly"] == "true" ? "selected" : null)">Dang hoat dong</option>
+                <option value="">Tất cả</option>
+                <option value="true" selected="@(Context.Request.Query["activeOnly"] == "true" ? "selected" : null)">Đang hoạt động</option>
             </select>
         </div>
         <div class="col-md-2">
@@ -35,7 +35,7 @@
                 <tr>
                     <th>Anh</th>
                     <th>POI</th>
-                    <th>Danh muc</th>
+                    <th>Danh mục</th>
                     <th>Radius</th>
                     <th>Priority</th>
                     <th>Trigger</th>
@@ -54,7 +54,7 @@
                         }
                         else
                         {
-                            <div class="text-muted small">Chua co anh</div>
+                            <div class="text-muted small">Chưa có anh</div>
                         }
                     </td>
                     <td>
@@ -78,7 +78,7 @@
                     <td class="text-end">
                         <a href="/Poi/Details/@item.Id" class="btn btn-sm btn-outline-dark">Detail</a>
                         <a href="/Poi/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Poi/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa POI nay?')">Delete</a>
+                        <a href="/Poi/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa POI này?')">Delete</a>
                     </td>
                 </tr>
             }

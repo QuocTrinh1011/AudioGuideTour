@@ -1,4 +1,4 @@
-namespace AudioGuideAPI.Helpers;
+﻿namespace AudioGuideAPI.Helpers;
 
 public static class SharedStoragePathHelper
 {

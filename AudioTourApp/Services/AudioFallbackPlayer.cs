@@ -1,4 +1,4 @@
-#if ANDROID
+﻿#if ANDROID
 using Android.Media;
 #endif
 using Microsoft.Maui.Storage;
@@ -26,7 +26,7 @@ public class AudioFallbackPlayer
     {
         if (string.IsNullOrWhiteSpace(audioUrl))
         {
-            LastErrorMessage = "Khong co audio fallback URL.";
+            LastErrorMessage = "Không có audio fallback URL.";
             return AudioFallbackPlaybackResult.Failed(LastErrorMessage);
         }
 
@@ -61,7 +61,7 @@ public class AudioFallbackPlayer
 
             using var ctr = cancellationToken.Register(() =>
             {
-                LastErrorMessage = "Da dung audio fallback.";
+                LastErrorMessage = "Đã dừng audio fallback.";
                 _preparedCompletion?.TrySetCanceled(cancellationToken);
                 _playbackCompletion?.TrySetCanceled(cancellationToken);
                 SafeReleasePlayer();
@@ -72,7 +72,7 @@ public class AudioFallbackPlayer
             {
                 if (string.IsNullOrWhiteSpace(LastErrorMessage))
                 {
-                    LastErrorMessage = "Khong chuan bi duoc audio fallback.";
+                    LastErrorMessage = "Không chuẩn bị được audio fallback.";
                 }
 
                 return AudioFallbackPlaybackResult.Failed(LastErrorMessage);
@@ -88,7 +88,7 @@ public class AudioFallbackPlayer
         {
             if (string.IsNullOrWhiteSpace(LastErrorMessage))
             {
-                LastErrorMessage = "Da dung audio fallback.";
+                LastErrorMessage = "Đã dừng audio fallback.";
             }
 
             return AudioFallbackPlaybackResult.Interrupted(LastErrorMessage);
@@ -105,7 +105,7 @@ public class AudioFallbackPlayer
             CleanupCachedAudio();
         }
 #else
-        LastErrorMessage = "Nen tang hien tai chua ho tro audio fallback native.";
+        LastErrorMessage = "Nền tảng hiện tại chưa hỗ trợ audio fallback native.";
         return AudioFallbackPlaybackResult.Failed(LastErrorMessage);
 #endif
     }
@@ -115,7 +115,7 @@ public class AudioFallbackPlayer
 #if ANDROID
         if (string.IsNullOrWhiteSpace(LastErrorMessage))
         {
-            LastErrorMessage = "Da dung audio fallback.";
+            LastErrorMessage = "Đã dừng audio fallback.";
         }
 
         _playbackCompletion?.TrySetCanceled();
@@ -236,7 +236,7 @@ public class AudioFallbackPlayer
 
 public readonly record struct AudioFallbackPlaybackResult(bool Played, bool WasCompleted, string Message)
 {
-    public static AudioFallbackPlaybackResult Success(string message = "Da phat xong audio fallback.")
+    public static AudioFallbackPlaybackResult Success(string message = "Đã phát xong audio fallback.")
         => new(true, true, message);
 
     public static AudioFallbackPlaybackResult Interrupted(string message)

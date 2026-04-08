@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,7 +36,7 @@ public class CategoryController : Controller
 
         if (_context.Categories.Any(x => x.Slug == model.Slug))
         {
-            ModelState.AddModelError(nameof(model.Slug), "Ma danh muc da ton tai.");
+            ModelState.AddModelError(nameof(model.Slug), "Mã danh mục đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
@@ -46,7 +46,7 @@ public class CategoryController : Controller
 
         _context.Categories.Add(model);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da tao danh muc moi.";
+        TempData["Success"] = "Đã tạo danh mục mới.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -64,7 +64,7 @@ public class CategoryController : Controller
 
         if (_context.Categories.Any(x => x.Id != model.Id && x.Slug == model.Slug))
         {
-            ModelState.AddModelError(nameof(model.Slug), "Ma danh muc da ton tai.");
+            ModelState.AddModelError(nameof(model.Slug), "Mã danh mục đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
@@ -86,7 +86,7 @@ public class CategoryController : Controller
         existing.IsActive = model.IsActive;
 
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da cap nhat danh muc.";
+        TempData["Success"] = "Đã cấp nhat danh muc.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -101,13 +101,13 @@ public class CategoryController : Controller
         var poiCount = _context.Pois.Count(x => x.Category == category.Slug);
         if (poiCount > 0)
         {
-            TempData["Error"] = $"Khong the xoa danh muc nay vi dang co {poiCount} POI su dung.";
+            TempData["Error"] = $"Không thể xóa danh mục này vì đang có {poiCount} POI sử dụng.";
             return RedirectToAction(nameof(Index));
         }
 
         _context.Categories.Remove(category);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Da xoa danh muc.";
+        TempData["Success"] = "Đã xóa danh mục.";
         return RedirectToAction(nameof(Index));
     }
 

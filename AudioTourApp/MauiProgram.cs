@@ -1,4 +1,4 @@
-using AudioTourApp.Pages;
+﻿using AudioTourApp.Pages;
 using AudioTourApp.Services;
 using AudioTourApp.ViewModels;
 using BarcodeScanning;

@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -96,13 +96,13 @@ public class PoiDetailPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Label { Text = "Thong tin diem thuyet minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Thông tin điểm thuyết minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiPositionText)),
                 new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.NearestPoiSummaryText)),
                 new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, "SelectedPoi.Description"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Address", stringFormat: "Dia chi: {0}"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Language", stringFormat: "Ngon ngu: {0}"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Category", stringFormat: "Danh muc: {0}"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Address", stringFormat: "Địa chỉ: {0}"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Language", stringFormat: "Ngôn ngữ: {0}"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Category", stringFormat: "Danh mục: {0}"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.TriggerMode", stringFormat: "Kich hoat: {0}"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Radius", stringFormat: "Ban kinh geofence: {0}m"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.ApproachRadiusMeters", stringFormat: "Ban kinh nearby: {0}m"),
@@ -117,7 +117,7 @@ public class PoiDetailPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Label { Text = "Ban thuyet minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Bản thuyết minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Border
                 {
                     BackgroundColor = Color.FromArgb("#EEF5FB"),
@@ -168,7 +168,7 @@ public class PoiDetailPage : ContentPage
         var stopButton = CreateActionButton("Dung", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(stopButton, 1);
         actions.Add(stopButton);
-        var mapButton = CreateActionButton("Mo ban do", OnOpenMapClicked, "#E4B43C", "#17324D");
+        var mapButton = CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(mapButton, 2);
         actions.Add(mapButton);
         root.Add(actions);
@@ -190,7 +190,7 @@ public class PoiDetailPage : ContentPage
         Grid.SetColumn(nextButton, 2);
         navigationActions.Add(nextButton);
         root.Add(navigationActions);
-        root.Add(CreateActionButton("Mo ban thuyet minh day du", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
+        root.Add(CreateActionButton("Mở bản thuyết minh đầy đủ", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
 
         return new ScrollView { Content = root };
     }

@@ -1,4 +1,4 @@
-@using System.Text.Json
+﻿@using System.Text.Json
 @model AudioGuideAdmin.ViewModels.AnalyticsViewModel
 
 @{
@@ -60,14 +60,14 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-1">Analytics</h2>
-        <p class="text-muted mb-0">Tong hop du lieu nghe, heat map vi tri va tuyen di chuyen an danh trong @Model.TrackingWindowLabel.</p>
+        <p class="text-muted mb-0">Tổng hợp dữ liệu nghe, heat map vị trí và tuyến di chuyển ẩn danh trong @Model.TrackingWindowLabel.</p>
     </div>
     <a href="/Tracking" class="btn btn-outline-dark">Xem log chi tiet</a>
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking @Model.TrackingWindowLabel</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor an danh</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor ẩn danh</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Triggers</div><div class="fs-3 fw-bold">@Model.TotalTrigger</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Heat clusters</div><div class="fs-3 fw-bold">@Model.HeatmapClusterCount</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Route sessions</div><div class="fs-3 fw-bold">@Model.RouteSessionCount</div></div></div>
@@ -79,15 +79,15 @@
         <div class="card p-4 h-100">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
-                    <h4 class="mb-1">Heat map vi tri</h4>
-                    <div class="analytics-map-caption">Tong hop cac diem GPS da duoc an danh va gom cum de hien mat do di chuyen.</div>
+                    <h4 class="mb-1">Heat map vị trí</h4>
+                    <div class="analytics-map-caption">Tổng hợp các điểm GPS đã được ẩn danh và gom cụm để hiện mật độ di chuyển.</div>
                 </div>
                 <span class="badge text-bg-light">@Model.HeatmapClusterCount cum</span>
             </div>
             <div id="heatmap-map" class="analytics-map"></div>
             <div class="analytics-note mt-3">
                 <div class="fw-semibold mb-1">Dap ung yeu cau</div>
-                <div class="analytics-map-caption">Heat map hien thi mat do vi tri nguoi dung tren nen ban do that, co them marker Top POI de doi chieu diem nghe nhieu.</div>
+                <div class="analytics-map-caption">Heat map hiển thị mật độ vị trí người dùng trên nền bản đồ thật, có thêm marker Top POI để đối chiếu điểm nghe nhiều.</div>
             </div>
         </div>
     </div>
@@ -95,8 +95,8 @@
         <div class="card p-4 h-100">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
-                    <h4 class="mb-1">Tuyen di chuyen an danh</h4>
-                    <div class="analytics-map-caption">Moi duong la mot phien di chuyen gan day cua mot visitor, khong hien raw user id.</div>
+                    <h4 class="mb-1">Tuyến di chuyển ẩn danh</h4>
+                    <div class="analytics-map-caption">Mỗi đường là một phiên di chuyển gần đây của một visitor, không hiện raw user id.</div>
                 </div>
                 <span class="badge text-bg-light">@Model.RouteSessionCount phien</span>
             </div>
@@ -119,7 +119,7 @@
                 else
                 {
                     <div class="col-12">
-                        <div class="analytics-note">Chua co du lieu route du de ve tuyen di chuyen.</div>
+                        <div class="analytics-note">Chưa có dữ liệu route đủ để vẽ tuyến di chuyển.</div>
                     </div>
                 }
             </div>
@@ -130,7 +130,7 @@
 <div class="row g-4 mb-4">
     <div class="col-xl-5">
         <div class="card p-4 h-100">
-            <h4 class="mb-3">Luot nghe 7 ngay gan nhat</h4>
+            <h4 class="mb-3">Lượt nghe 7 ngày gần nhất</h4>
             <div class="d-flex flex-column gap-3">
                 @if (Model.DailyListens.Any())
                 {
@@ -150,7 +150,7 @@
                 }
                 else
                 {
-                    <div class="analytics-note">Chua co visit history trong 7 ngay gan nhat.</div>
+                    <div class="analytics-note">Chưa có visit history trong 7 ngày gần nhất.</div>
                 }
             </div>
             <hr />
@@ -174,7 +174,7 @@
         <div class="card p-4 h-100">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
-                    <h4 class="mb-1">Top dia diem duoc nghe nhieu nhat</h4>
+                    <h4 class="mb-1">Top địa điểm được nghe nhiều nhất</h4>
                     <div class="analytics-map-caption">Kem thoi gian nghe trung binh va marker hien tren heat map.</div>
                 </div>
                 <span class="badge text-bg-light">@Model.TopPois.Count POI</span>
@@ -208,7 +208,7 @@
                     }
                     else
                     {
-                        <tr><td colspan="4" class="text-muted">Chua co POI nao duoc nghe trong 7 ngay gan nhat.</td></tr>
+                        <tr><td colspan="4" class="text-muted">Chưa có POI nào được nghe trong 7 ngày gần nhất.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -220,7 +220,7 @@
 <div class="row g-4">
     <div class="col-lg-6">
         <div class="card p-4 h-100">
-            <h4 class="mb-3">Geofence trigger gan day</h4>
+            <h4 class="mb-3">Geofence trigger gần đây</h4>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead><tr><th>Visitor</th><th>POI</th><th>Trigger</th><th>Distance</th></tr></thead>
@@ -242,7 +242,7 @@
                     }
                     else
                     {
-                        <tr><td colspan="4" class="text-muted">Chua co trigger gan day.</td></tr>
+                        <tr><td colspan="4" class="text-muted">Chưa có trigger gần đây.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -251,7 +251,7 @@
     </div>
     <div class="col-lg-6">
         <div class="card p-4 h-100">
-            <h4 class="mb-3">Visit history gan day</h4>
+            <h4 class="mb-3">Visit history gần đây</h4>
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead><tr><th>Visitor</th><th>POI</th><th>Duration</th><th>Mode</th></tr></thead>
@@ -273,7 +273,7 @@
                     }
                     else
                     {
-                        <tr><td colspan="4" class="text-muted">Chua co visit history gan day.</td></tr>
+                        <tr><td colspan="4" class="text-muted">Chưa có visit history gần đây.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -393,7 +393,7 @@
                     fillColor: '#ffffff',
                     fillOpacity: 1,
                     weight: 3
-                }).addTo(map).bindPopup(`${route.VisitorAlias} · bat dau`);
+                }).addTo(map).bindPopup(`${route.VisitorAlias} · bật dau`);
 
                 L.circleMarker([end.Latitude, end.Longitude], {
                     radius: 7,

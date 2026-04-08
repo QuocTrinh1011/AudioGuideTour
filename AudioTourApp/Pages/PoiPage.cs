@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -94,26 +94,26 @@ public class PoiPage : ContentPage
                 Children =
                 {
                     new Label { Text = "Thu vien POI", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Duyet tat ca diem thuyet minh, xem nhanh noi dung va mo ban thuyet minh day du.", TextColor = Color.FromArgb("#E4EEF7") }
+                    new Label { Text = "Duyệt tất cả điểm thuyết minh, xem nhanh nội dung và mở bản thuyết minh đầy đủ.", TextColor = Color.FromArgb("#E4EEF7") }
                 }
             }
         });
 
         var filterCard = CreateCard();
         var filterLayout = new VerticalStackLayout { Spacing = 12 };
-        filterLayout.Add(new Label { Text = "Tim kiem va loc", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        filterLayout.Add(new Label { Text = "Tìm kiếm và lọc", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         filterLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }
             .Bind(Label.TextProperty, nameof(MainViewModel.SelectedLanguageDisplayText)));
         filterLayout.Add(CreateLanguagePicker());
         filterLayout.Add(new Entry
         {
-            Placeholder = "Tim theo ten, mo ta, dia chi...",
+            Placeholder = "Tìm theo tên, mô tả, địa chỉ...",
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")
         }.Bind(Entry.TextProperty, nameof(MainViewModel.PoiSearchText), BindingMode.TwoWay));
         var categoryPicker = new Picker
         {
-            Title = "Loc theo danh muc",
+            Title = "Lọc theo danh mục",
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")
         };
@@ -129,8 +129,8 @@ public class PoiPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        filterActions.Add(CreateActionButton("POI gan nhat", OnNearestPoiClicked, "#EEF3F8", "#17324D"));
-        var resetButton = CreateActionButton("Xoa bo loc", OnResetFiltersClicked, "#F5F8FB", "#17324D");
+        filterActions.Add(CreateActionButton("POI gần nhất", OnNearestPoiClicked, "#EEF3F8", "#17324D"));
+        var resetButton = CreateActionButton("Xóa bộ lọc", OnResetFiltersClicked, "#F5F8FB", "#17324D");
         Grid.SetColumn(resetButton, 1);
         filterActions.Add(resetButton);
         filterLayout.Add(filterActions);
@@ -141,7 +141,7 @@ public class PoiPage : ContentPage
 
         var selectedCard = CreateCard();
         var selectedLayout = new VerticalStackLayout { Spacing = 12 };
-        selectedLayout.Add(new Label { Text = "POI dang chon", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        selectedLayout.Add(new Label { Text = "POI đang chọn", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         selectedLayout.Add(new Image { HeightRequest = 220, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
             .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
         selectedLayout.Add(new Label { FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
@@ -165,7 +165,7 @@ public class PoiPage : ContentPage
             ColumnSpacing = 10
         };
         selectedActions.Add(CreateActionButton("Nghe ngay", OnPlaySelectedClicked, "#17324D", "White"));
-        var narrationButton = CreateActionButton("Ban thuyet minh", OnOpenNarrationClicked, "#E4B43C", "#17324D");
+        var narrationButton = CreateActionButton("Bản thuyết minh", OnOpenNarrationClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(narrationButton, 1);
         selectedActions.Add(narrationButton);
         selectedLayout.Add(selectedActions);
@@ -209,7 +209,7 @@ public class PoiPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        secondActions.Add(CreateActionButton("Mo ban do", OnOpenMapClicked, "#EEF3F8", "#17324D"));
+        secondActions.Add(CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#EEF3F8", "#17324D"));
         var detailButton = CreateActionButton("Chi tiet", OnOpenPoiDetailsClicked, "#F3F7FB", "#17324D");
         Grid.SetColumn(detailButton, 1);
         secondActions.Add(detailButton);
@@ -219,7 +219,7 @@ public class PoiPage : ContentPage
 
         var listCard = CreateCard();
         var listLayout = new VerticalStackLayout { Spacing = 12 };
-        listLayout.Add(new Label { Text = "Tat ca diem thuyet minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        listLayout.Add(new Label { Text = "Tất cả điểm thuyết minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         var collection = new CollectionView { SelectionMode = SelectionMode.Single };
         collection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.VisiblePois));
         collection.SetBinding(SelectableItemsView.SelectedItemProperty, nameof(MainViewModel.SelectedPoi), BindingMode.TwoWay);
@@ -253,11 +253,11 @@ public class PoiPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, "Summary"));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, "DistanceMeters", stringFormat: "Khoang cach: {0:F0}m"));
+                .Bind(Label.TextProperty, "DistanceMeters", stringFormat: "Khoảng cách: {0:F0}m"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
-                .Bind(Label.TextProperty, "Language", stringFormat: "Ngon ngu: {0}"));
+                .Bind(Label.TextProperty, "Language", stringFormat: "Ngôn ngữ: {0}"));
             details.Add(new Label { TextColor = Color.FromArgb("#8A9BAA"), FontSize = 12 }
-                .Bind(Label.TextProperty, "Category", stringFormat: "Danh muc: {0}"));
+                .Bind(Label.TextProperty, "Category", stringFormat: "Danh mục: {0}"));
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;
@@ -295,7 +295,7 @@ public class PoiPage : ContentPage
     {
         var picker = new Picker
         {
-            Title = "Chon ngon ngu noi dung",
+            Title = "Chọn ngôn ngữ noi dung",
             ItemDisplayBinding = new Binding("NativeName"),
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")

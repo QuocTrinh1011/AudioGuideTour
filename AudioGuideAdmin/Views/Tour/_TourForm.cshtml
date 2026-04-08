@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.ViewModels.TourFormViewModel
+﻿@model AudioGuideAdmin.ViewModels.TourFormViewModel
 
 <form method="post" enctype="multipart/form-data" class="card p-4">
     @Html.AntiForgeryToken()
@@ -28,13 +28,13 @@
         </div>
         <div class="col-md-4 d-flex align-items-end">
             <div class="d-grid gap-2 w-100">
-                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thu vien anh</a>
+                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thư viện ảnh</a>
             </div>
         </div>
         <div class="col-md-4 d-flex align-items-end">
             <div class="form-check form-switch">
                 <input asp-for="Tour.IsActive" class="form-check-input" />
-                <label asp-for="Tour.IsActive" class="form-check-label">Dang hoat dong</label>
+                <label asp-for="Tour.IsActive" class="form-check-label">Đang hoạt động</label>
             </div>
         </div>
         <div class="col-12">
@@ -45,7 +45,7 @@
                         <div class="text-muted small">Cover nay se hien o admin va mobile app.</div>
                     </div>
                     <div class="text-end">
-                        <div class="text-muted small">Duong dan hien tai</div>
+                        <div class="text-muted small">Đường dẫn hiện tại</div>
                         <code id="tour-cover-path" class="small">@Model.Tour.CoverImageUrl</code>
                     </div>
                 </div>
@@ -54,7 +54,7 @@
                      alt="Preview cover tour"
                      style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.Tour.CoverImageUrl) ? "none" : "block");" />
                 <div id="tour-cover-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.Tour.CoverImageUrl) ? "block" : "none");">
-                    Chua co cover. Hay upload file cover o tren.
+                    Chưa có cover. Hãy upload file cover ở trên.
                 </div>
             </div>
         </div>
@@ -72,8 +72,8 @@
             </div>
         </div>
         <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary">Luu</button>
-            <a href="/Tour" class="btn btn-outline-secondary">Quay lai</a>
+            <button class="btn btn-primary">Lưu</button>
+            <a href="/Tour" class="btn btn-outline-secondary">Quay lại</a>
         </div>
     </div>
 </form>
@@ -91,7 +91,7 @@
             coverPreview.src = URL.createObjectURL(selectedFile);
             coverPreview.style.display = 'block';
             coverEmpty.style.display = 'none';
-            coverPath.textContent = `Se tao tu dong sau khi luu: ${selectedFile.name}`;
+            coverPath.textContent = `Sẽ tạo tự động sau khi lưu: ${selectedFile.name}`;
             return;
         }
 
@@ -100,7 +100,7 @@
             coverPreview.style.display = 'none';
             coverPreview.removeAttribute('src');
             coverEmpty.style.display = 'block';
-            coverPath.textContent = 'Chua co';
+            coverPath.textContent = 'Chưa có';
             return;
         }
 

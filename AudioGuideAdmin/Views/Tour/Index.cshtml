@@ -1,8 +1,8 @@
-@model IEnumerable<AudioGuideAdmin.Models.Tour>
+﻿@model IEnumerable<AudioGuideAdmin.Models.Tour>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Quan ly tour</h2>
-    <a href="/Tour/Create" class="btn btn-primary">Them tour</a>
+    <h2 class="mb-0">Quản lý tour</h2>
+    <a href="/Tour/Create" class="btn btn-primary">Thêm tour</a>
 </div>
 
 <div class="card p-3">
@@ -23,7 +23,7 @@
                     <td>@(item.IsActive ? "Active" : "Inactive")</td>
                     <td class="text-end">
                         <a href="/Tour/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Tour/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xoa tour nay?')">Delete</a>
+                        <a href="/Tour/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa tour này?')">Delete</a>
                     </td>
                 </tr>
             }

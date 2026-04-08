@@ -1,4 +1,4 @@
-using AudioTourApp.ViewModels;
+﻿using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -83,8 +83,8 @@ public class MapPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Ban do va Geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Theo doi vi tri, highlight POI gan nhat va mo nhanh noi dung can nghe.", TextColor = Color.FromArgb("#E4EEF7") }
+                    new Label { Text = "Bản đồ và Geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Theo dõi vị trí, highlight POI gần nhất và mở nhanh nội dung cần nghe.", TextColor = Color.FromArgb("#E4EEF7") }
                 }
             }
         });
@@ -111,7 +111,7 @@ public class MapPage : ContentPage
             Spacing = 2,
             Children =
             {
-                new Label { Text = "Ban do hien tai", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Bản đồ hiện tại", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentLocation)),
                 new Label { FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedLanguageDisplayText))
             }
@@ -140,7 +140,7 @@ public class MapPage : ContentPage
             ColumnSpacing = 10
         };
         statusStrip.Add(CreateInfoChip("Tracking", nameof(MainViewModel.TrackingStatusText), "#EEF5FB", "#17324D"));
-        var nearestChip = CreateInfoChip("POI gan nhat", nameof(MainViewModel.NearestPoiSummaryText), "#FFF7E2", "#8B5E00");
+        var nearestChip = CreateInfoChip("POI gần nhất", nameof(MainViewModel.NearestPoiSummaryText), "#FFF7E2", "#8B5E00");
         Grid.SetColumn(nearestChip, 1);
         statusStrip.Add(nearestChip);
 
@@ -151,7 +151,7 @@ public class MapPage : ContentPage
         };
         mapLegend.Add(CreateLegendPill("Ban", "#0D6EFD"));
         mapLegend.Add(CreateLegendPill("Gan nhat", "#D9480F"));
-        mapLegend.Add(CreateLegendPill("Dang chon", "#F0B429"));
+        mapLegend.Add(CreateLegendPill("Đang chọn", "#F0B429"));
         mapLegend.Add(new Label
         {
             TextColor = Color.FromArgb("#667C92"),
@@ -180,14 +180,14 @@ public class MapPage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var selectedLayout = new VerticalStackLayout { Spacing = 12 };
-        selectedLayout.Add(new Label { Text = "POI dang duoc chon tren ban do", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        selectedLayout.Add(new Label { Text = "POI đang được chọn trên bản đồ", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         selectedLayout.Add(new Image { HeightRequest = 200, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
             .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
         selectedLayout.Add(new Label { FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
             .Bind(Label.TextProperty, "SelectedPoi.Title"));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiMetaText)));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiCoordinateText)));
-        selectedLayout.Add(new Label { Text = "Ban thuyet minh", FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        selectedLayout.Add(new Label { Text = "Bản thuyết minh", FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         selectedLayout.Add(new Label
         {
             TextColor = Color.FromArgb("#31485F"),
@@ -206,7 +206,7 @@ public class MapPage : ContentPage
             ColumnSpacing = 10
         };
         selectedActions.Add(CreateActionButton("Nghe ngay", OnPlaySelectedClicked, "#17324D", "White"));
-        var selectedMapButton = CreateActionButton("Mo ban do", OnOpenMapClicked, "#EEF3F8", "#17324D");
+        var selectedMapButton = CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(selectedMapButton, 1);
         selectedActions.Add(selectedMapButton);
         var selectedDetailButton = CreateActionButton("Chi tiet", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D");
@@ -222,8 +222,8 @@ public class MapPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        bottomSelectedActions.Add(CreateActionButton("Mo ban thuyet minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
-        var nearestButton = CreateActionButton("POI gan nhat", OnNearestPoiClicked, "#F3F7FB", "#17324D");
+        bottomSelectedActions.Add(CreateActionButton("Mở bản thuyết minh", OnOpenNarrationClicked, "#EEF5FB", "#17324D"));
+        var nearestButton = CreateActionButton("POI gần nhất", OnNearestPoiClicked, "#F3F7FB", "#17324D");
         Grid.SetColumn(nearestButton, 1);
         bottomSelectedActions.Add(nearestButton);
         selectedLayout.Add(bottomSelectedActions);
@@ -248,17 +248,17 @@ public class MapPage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var poisLayout = new VerticalStackLayout { Spacing = 12 };
-        poisLayout.Add(new Label { Text = "Tat ca diem thuyet minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        poisLayout.Add(new Label { Text = "Tất cả điểm thuyết minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         poisLayout.Add(new Entry
         {
-            Placeholder = "Tim theo ten, tom tat, dia chi...",
+            Placeholder = "Tìm theo tên, tóm tắt, địa chỉ...",
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")
         }.Bind(Entry.TextProperty, nameof(MainViewModel.PoiSearchText), BindingMode.TwoWay));
 
         var categoryPicker = new Picker
         {
-            Title = "Loc theo danh muc",
+            Title = "Lọc theo danh mục",
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")
         };
@@ -298,11 +298,11 @@ public class MapPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Summary)));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.DistanceMeters), stringFormat: "Khoang cach: {0:F0}m"));
+                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.DistanceMeters), stringFormat: "Khoảng cách: {0:F0}m"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.TriggerMode), stringFormat: "Kich hoat: {0}"));
             details.Add(new Label { TextColor = Color.FromArgb("#8A9BAA"), FontSize = 12 }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Category), stringFormat: "Danh muc: {0}"));
+                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Category), stringFormat: "Danh mục: {0}"));
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;
@@ -320,11 +320,11 @@ public class MapPage : ContentPage
             ColumnSpacing = 10
         };
         actions.Add(CreateActionButton("Nghe POI da chon", OnPlaySelectedClicked, "#17324D", "White"));
-        var openMapButton = CreateActionButton("Mo ban do ngoai", OnOpenMapClicked, "#EEF3F8", "#17324D");
+        var openMapButton = CreateActionButton("Mở bản đồ ngoai", OnOpenMapClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(openMapButton, 1);
         actions.Add(openMapButton);
         poisLayout.Add(actions);
-        poisLayout.Add(CreateActionButton("Xem chi tiet POI", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D"));
+        poisLayout.Add(CreateActionButton("Xem chi tiết POI", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D"));
         poisCard.Content = poisLayout;
         root.Add(poisCard);
 
@@ -375,7 +375,7 @@ public class MapPage : ContentPage
     {
         var picker = new Picker
         {
-            Title = "Ngon ngu",
+            Title = "Ngôn ngữ",
             ItemDisplayBinding = new Binding("NativeName"),
             WidthRequest = 170,
             BackgroundColor = Color.FromArgb("#F8FAFD"),

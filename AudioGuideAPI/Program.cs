@@ -1,4 +1,4 @@
-using AudioGuideAPI.Helpers;
+﻿using AudioGuideAPI.Helpers;
 using AudioGuideAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;

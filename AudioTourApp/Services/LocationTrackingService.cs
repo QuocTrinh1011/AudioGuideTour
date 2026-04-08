@@ -1,4 +1,4 @@
-using Microsoft.Maui.ApplicationModel;
+﻿using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices.Sensors;
 
 namespace AudioTourApp.Services;
@@ -47,10 +47,10 @@ public class LocationTrackingService
         if (_isRunning)
         {
             _ = _trackingForegroundBridge.UpdateAsync(
-                "Audio Tour dang tracking",
+                "Audio Tour đang tracking",
                 isForeground
-                    ? "Dang theo doi vi tri o che do tien canh."
-                    : "Dang giu tracking o che do nen.");
+                    ? "Đang theo doi vi tri o che do tien canh."
+                    : "Đang giu tracking o che do nen.");
         }
     }
 
@@ -72,8 +72,8 @@ public class LocationTrackingService
         _adaptiveInterval = interval;
         _lastLocation = null;
         await _trackingForegroundBridge.StartAsync(
-            "Audio Tour dang tracking",
-            "GPS, geofence va tour dang san sang.");
+            "Audio Tour đang tracking",
+            "GPS, geofence và tour đang sẵn sàng.");
 
         _ = Task.Run(async () =>
         {

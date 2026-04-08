@@ -1,4 +1,4 @@
-@model AudioGuideAdmin.Models.Poi
+﻿@model AudioGuideAdmin.Models.Poi
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
@@ -30,7 +30,7 @@
                 <h4 class="mb-0">TTS mac dinh</h4>
                 <button type="button" class="btn btn-sm btn-outline-dark" id="preview-detail-tts">Nghe thu</button>
             </div>
-            <div class="text-muted small mb-2">Script nay duoc dung khi translation khong co script rieng.</div>
+            <div class="text-muted small mb-2">Script này được dùng khi translation không có script riêng.</div>
             <div class="border rounded-3 p-3 bg-light-subtle">@Model.TtsScript</div>
         </div>
         <div class="card p-4">
@@ -65,11 +65,11 @@
             }
             else
             {
-                <div class="text-muted">POI nay chua co anh.</div>
+                <div class="text-muted">POI này chưa có ảnh.</div>
             }
         </div>
         <div class="card p-4">
-            <h4 class="mb-3">Tour dang su dung POI</h4>
+            <h4 class="mb-3">Tour đang sử dụng POI</h4>
             <ul class="list-group list-group-flush">
                 @foreach (var stop in Model.TourStops.OrderBy(x => x.SortOrder))
                 {
@@ -115,7 +115,7 @@
 
     async function previewSpeak(text, language) {
         if (!window.speechSynthesis) {
-            alert('Trinh duyet nay khong ho tro nghe thu TTS.');
+            alert('Trình duyệt này không hỗ trợ nghe thử TTS.');
             return;
         }
 
@@ -126,7 +126,7 @@
         if (voice) {
             utterance.voice = voice;
         } else if ((utterance.lang || '').toLowerCase().startsWith('vi')) {
-            alert('May/trinh duyet hien chua co voice Tieng Viet. Hay cai them voice vi-VN de nghe dung giong Viet.');
+            alert('Máy/trình duyệt hiện chưa có voice Tiếng Việt. Hãy cài thêm voice vi-VN để nghe đúng giọng Việt.');
             return;
         }
 
@@ -137,7 +137,7 @@
     document.getElementById('preview-detail-tts')?.addEventListener('click', async () => {
         const text = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TtsScript ?? ""));
         if (!text || !text.trim()) {
-            alert('POI nay chua co TTS script mac dinh.');
+            alert('POI này chưa có TTS script mặc định.');
             return;
         }
 
@@ -148,7 +148,7 @@
         button.addEventListener('click', async () => {
             const text = button.dataset.script || '';
             if (!text.trim()) {
-                alert('Translation nay chua co TTS script.');
+                alert('Translation này chưa có TTS script.');
                 return;
             }
 

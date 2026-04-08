@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -50,12 +50,12 @@ public class TranslationController : Controller
     {
         if (model.PoiId <= 0)
         {
-            ModelState.AddModelError(nameof(model.PoiId), "Vui long chon POI truoc khi tao ban dich.");
+            ModelState.AddModelError(nameof(model.PoiId), "Vui lòng chọn POI trước khi tạo bản dịch.");
         }
 
         if (string.IsNullOrWhiteSpace(model.Language))
         {
-            ModelState.AddModelError(nameof(model.Language), "Vui long chon ngon ngu.");
+            ModelState.AddModelError(nameof(model.Language), "Vui lòng chọn ngôn ngữ.");
         }
 
         var exists = await _context.PoiTranslations
@@ -63,12 +63,12 @@ public class TranslationController : Controller
 
         if (exists)
         {
-            ModelState.AddModelError("", "Ngon ngu nay da ton tai cho POI nay.");
+            ModelState.AddModelError("", "Ngôn ngữ này đã tồn tại cho POI này.");
         }
 
         if (!_context.LanguageOptions.Any(x => x.Code == model.Language && x.IsActive))
         {
-            ModelState.AddModelError(nameof(model.Language), "Chi duoc chon ngon ngu trong danh sach dang hoat dong.");
+            ModelState.AddModelError(nameof(model.Language), "Chỉ được chọn ngôn ngữ trong danh sách đang hoạt động.");
         }
 
         if (!ModelState.IsValid)
@@ -83,7 +83,7 @@ public class TranslationController : Controller
             model.UpdatedAt = DateTime.UtcNow;
             _context.PoiTranslations.Add(model);
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da them ban dich thanh cong.";
+            TempData["Success"] = "Đã thêm bản dịch thành công.";
             if (contextLocked)
             {
                 return RedirectToAction(nameof(EditForPoi), new { poiId = model.PoiId, language = model.Language });
@@ -93,7 +93,7 @@ public class TranslationController : Controller
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, $"Khong them duoc ban dich. {ex.GetBaseException().Message}");
+            ModelState.AddModelError(string.Empty, $"Không thêm được bản dịch. {ex.GetBaseException().Message}");
             PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
@@ -152,7 +152,7 @@ public class TranslationController : Controller
     {
         if (!_context.LanguageOptions.Any(x => x.Code == model.Language && x.IsActive))
         {
-            ModelState.AddModelError(nameof(model.Language), "Chi duoc chon ngon ngu trong danh sach dang hoat dong.");
+            ModelState.AddModelError(nameof(model.Language), "Chỉ được chọn ngôn ngữ trong danh sách đang hoạt động.");
         }
 
         if (!ModelState.IsValid)
@@ -181,7 +181,7 @@ public class TranslationController : Controller
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da cap nhat ban dich thanh cong.";
+            TempData["Success"] = "Đã cấp nhat ban dich thanh cong.";
             if (contextLocked)
             {
                 return RedirectToAction(nameof(EditForPoi), new { poiId = existing.PoiId, language = existing.Language });
@@ -191,7 +191,7 @@ public class TranslationController : Controller
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, $"Khong cap nhat duoc ban dich. {ex.GetBaseException().Message}");
+            ModelState.AddModelError(string.Empty, $"Không cập nhật được bản dịch. {ex.GetBaseException().Message}");
             PrepareTranslationForm(model.PoiId, model.Language, contextLocked);
             return View(model);
         }
@@ -204,7 +204,7 @@ public class TranslationController : Controller
         {
             _context.PoiTranslations.Remove(item);
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Da xoa ban dich.";
+            TempData["Success"] = "Đã xóa bản dịch.";
         }
 
         return RedirectToAction(nameof(Index));
