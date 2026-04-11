@@ -57,6 +57,7 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _isSyncingVisitor;
     private bool _isRestoringTracking;
     private bool _canUseCamera;
+    private int _mapRefreshVersion;
     private string _locationPermissionText = "Chưa kiểm tra";
     private string _backgroundPermissionText = "Chưa kiểm tra";
     private string _cameraPermissionText = "Chưa kiểm tra";
@@ -188,6 +189,31 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _mapHtml;
         set => SetField(ref _mapHtml, value);
+    }
+
+    public int MapRefreshVersion
+    {
+        get => _mapRefreshVersion;
+        private set => SetField(ref _mapRefreshVersion, value);
+    }
+
+    public Location? LatestLocation => _latestLocation;
+
+    public IEnumerable<PoiItem> MapPois => _allPois.Count > 0 ? _allPois : VisiblePois;
+
+    public PoiItem? CurrentNearestPoi => VisiblePois.FirstOrDefault(x => x.IsNearest)
+        ?? _allPois.Where(x => x.DistanceMeters > 0).OrderBy(x => x.DistanceMeters).FirstOrDefault()
+        ?? NearbyPois.FirstOrDefault();
+
+    public string MapPoisSummary
+    {
+        get
+        {
+            var count = _allPois.Count > 0 ? _allPois.Count : VisiblePois.Count;
+            return count == 0
+                ? "Chưa có POI để hiển thị trên Google Maps."
+                : $"Google Maps đang hiển thị {count} POI.";
+        }
     }
 
     public bool IsTracking
@@ -577,7 +603,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _apiClient.BaseUrl = ApiBaseUrl;
             var language = SelectedLanguage?.Code ?? "vi-VN";
-            var normalizedCode = code.Trim();
+            var normalizedCode = NormalizeQrCode(code);
             QrCodeInput = normalizedCode;
             var result = await _apiClient.LookupQrAsync(normalizedCode, language, cancellationToken);
             if (result?.Poi == null)
@@ -1022,10 +1048,10 @@ public class MainViewModel : INotifyPropertyChanged
             NormalizePoiCategories(nearby);
             ReplaceCollection(NearbyPois, nearby);
             ApplyNearbyRuntimeState(nearby);
-            SelectedPoi ??= NearbyPois.FirstOrDefault();
-            if (NearbyPois.FirstOrDefault(x => x.IsNearest) is { } nearest)
+            var nearest = NearbyPois.FirstOrDefault(x => x.IsNearest);
+            if (SelectedPoi == null)
             {
-                SelectedPoi = nearest;
+                SelectedPoi = nearest ?? NearbyPois.FirstOrDefault();
             }
 
             var geofence = await _apiClient.CheckGeofenceAsync(request);
@@ -1066,7 +1092,7 @@ public class MainViewModel : INotifyPropertyChanged
     private void RefreshNearbyFromBootstrap()
     {
         ReplaceCollection(NearbyPois, _allPois.OrderByDescending(x => x.Priority).ThenBy(x => x.Title).Take(8).ToList());
-        SelectedPoi ??= NearbyPois.FirstOrDefault();
+        SelectedPoi ??= NearbyPois.FirstOrDefault(x => x.IsNearest) ?? NearbyPois.FirstOrDefault();
         ApplyPoiFilters();
     }
 
@@ -1092,388 +1118,8 @@ public class MainViewModel : INotifyPropertyChanged
 
     private void RefreshMap()
     {
-        var centerLat = _latestLocation?.Latitude ?? (_allPois.FirstOrDefault()?.Latitude ?? 10.7618);
-        var centerLng = _latestLocation?.Longitude ?? (_allPois.FirstOrDefault()?.Longitude ?? 106.6613);
-        var nearestId = _allPois.Where(x => x.DistanceMeters > 0).OrderBy(x => x.DistanceMeters).FirstOrDefault()?.Id
-            ?? NearbyPois.FirstOrDefault(x => x.IsNearest)?.Id;
-        var selectedId = SelectedPoi?.Id;
-        var visiblePoiIds = VisiblePois.Select(x => x.Id).ToHashSet();
-        var poisToRender = _allPois.Count > 0 ? _allPois.ToList() : VisiblePois.ToList();
-        var selectedTitle = SelectedPoi?.Title ?? "Chưa chọn POI";
-        var nearestTitle = _allPois.Where(x => x.Id == nearestId).Select(x => x.Title).FirstOrDefault()
-            ?? NearbyPois.FirstOrDefault(x => x.Id == nearestId)?.Title
-            ?? "Chưa xác định";
-        var activeTourStops = (ActiveTour?.Stops ?? new List<TourStopItem>())
-            .Where(x => x.Poi != null)
-            .OrderBy(x => x.SortOrder)
-            .Select((stop, index) => new
-            {
-                stop.PoiId,
-                stop.SortOrder,
-                Title = stop.Poi!.Title,
-                Latitude = stop.Poi.Latitude,
-                Longitude = stop.Poi.Longitude,
-                IsCurrent = index == _activeTourStopIndex
-            })
-            .ToList();
-
-        var poisJson = JsonSerializer.Serialize(poisToRender.Select(poi => new
-        {
-            poi.Id,
-            poi.Title,
-            poi.Summary,
-            poi.Category,
-            poi.TriggerMode,
-            poi.Radius,
-            poi.ApproachRadiusMeters,
-            poi.DistanceMeters,
-            poi.Latitude,
-            poi.Longitude,
-            IsSelected = selectedId.HasValue && poi.Id == selectedId.Value,
-            IsNearest = nearestId.HasValue && poi.Id == nearestId.Value,
-            IsVisible = visiblePoiIds.Count == 0 || visiblePoiIds.Contains(poi.Id)
-        }));
-        var activeTourJson = JsonSerializer.Serialize(new
-        {
-            Name = ActiveTour?.Name ?? string.Empty,
-            Status = ActiveTourStatus,
-            Stops = activeTourStops
-        });
-        var userLocationJson = _latestLocation == null
-            ? "null"
-            : JsonSerializer.Serialize(new
-            {
-                Latitude = _latestLocation.Latitude,
-                Longitude = _latestLocation.Longitude,
-                Accuracy = Math.Max(_latestLocation.Accuracy ?? 0, 8d)
-            });
-
-        MapHtml = $$"""
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-              <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-              <style>
-                html, body { height: 100%; margin: 0; }
-                body {
-                  position: relative;
-                  background:
-                    radial-gradient(circle at top left, rgba(228, 180, 60, 0.16), transparent 34%),
-                    linear-gradient(180deg, #eef4fa 0%, #e6edf5 100%);
-                  font-family: "Segoe UI", sans-serif;
-                }
-                #map { height: 100%; width: 100%; }
-                .leaflet-control-attribution { font-size: 10px; }
-                .map-panel,
-                .map-legend,
-                .map-tour-panel {
-                  position: absolute;
-                  z-index: 999;
-                  border-radius: 18px;
-                  box-shadow: 0 14px 34px rgba(15, 31, 49, 0.16);
-                  backdrop-filter: blur(10px);
-                }
-                .map-panel {
-                  top: 12px;
-                  left: 12px;
-                  padding: 14px 16px;
-                  max-width: 260px;
-                  background: rgba(12, 28, 42, 0.88);
-                  color: #fff;
-                }
-                .map-panel strong,
-                .map-tour-panel strong {
-                  display: block;
-                  font-size: 14px;
-                  margin-bottom: 6px;
-                }
-                .map-panel span,
-                .map-tour-panel span {
-                  display: block;
-                  font-size: 12px;
-                  line-height: 1.45;
-                  opacity: 0.92;
-                }
-                .map-tour-panel {
-                  top: 12px;
-                  right: 12px;
-                  padding: 12px 14px;
-                  max-width: 220px;
-                  background: rgba(255, 255, 255, 0.92);
-                  color: #17324d;
-                }
-                .map-legend {
-                  left: 12px;
-                  right: 12px;
-                  bottom: 12px;
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 8px;
-                  padding: 10px 12px;
-                  background: rgba(255, 255, 255, 0.92);
-                  color: #17324d;
-                  align-items: center;
-                }
-                .map-legend-item {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  font-size: 11px;
-                  padding: 4px 8px;
-                  border-radius: 999px;
-                  background: #f5f8fb;
-                }
-                .map-dot {
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 50%;
-                  display: inline-block;
-                }
-                .map-user-icon {
-                  width: 18px;
-                  height: 18px;
-                  border-radius: 50%;
-                  border: 3px solid #ffffff;
-                  background: #2563eb;
-                  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.18);
-                }
-                .tour-stop-icon {
-                  width: 28px;
-                  height: 28px;
-                  border-radius: 50%;
-                  background: #0f766e;
-                  color: white;
-                  font-size: 12px;
-                  font-weight: 700;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  border: 2px solid rgba(255,255,255,0.92);
-                  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.24);
-                }
-                .tour-stop-icon.is-current {
-                  background: #e4b43c;
-                  color: #17324d;
-                }
-                .poi-popup {
-                  min-width: 190px;
-                  color: #17324d;
-                }
-                .poi-popup h4 {
-                  margin: 0 0 6px;
-                  font-size: 15px;
-                }
-                .poi-popup p {
-                  margin: 0 0 8px;
-                  font-size: 12px;
-                  line-height: 1.45;
-                  color: #506579;
-                }
-                .poi-popup .meta {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 6px;
-                }
-                .poi-popup .tag {
-                  font-size: 11px;
-                  padding: 3px 8px;
-                  border-radius: 999px;
-                  background: #eef4fa;
-                  color: #17324d;
-                }
-              </style>
-            </head>
-            <body>
-              <div id="map"></div>
-              <div class="map-panel">
-                <strong id="selected-label"></strong>
-                <span id="nearest-label"></span>
-                <span id="count-label"></span>
-                <span id="status-label"></span>
-              </div>
-              <div class="map-tour-panel" id="tour-panel" style="display:none;">
-                <strong id="tour-name"></strong>
-                <span id="tour-status"></span>
-                <span id="tour-count"></span>
-              </div>
-              <div class="map-legend">
-                <div class="map-legend-item"><span class="map-dot" style="background:#2563eb;"></span> Vị trí của bạn</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#17324d;"></span> Tất cả POI</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#dc2626;"></span> POI gần nhất</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#f59e0b;"></span> POI đang chọn</div>
-                <div class="map-legend-item"><span class="map-dot" style="background:#0f766e;"></span> Tuyen tour</div>
-              </div>
-              <script>
-                const center = [{{FormatInvariant(centerLat)}}, {{FormatInvariant(centerLng)}}];
-                const selectedTitle = {{SerializeForJavaScript(selectedTitle)}};
-                const nearestTitle = {{SerializeForJavaScript(nearestTitle)}};
-                const visibleSummary = {{SerializeForJavaScript($"Đang hiện {VisiblePois.Count}/{poisToRender.Count} POI trên bản đồ.")}};
-                const trackingSummary = {{SerializeForJavaScript(_latestLocation == null ? "Chưa có vị trí GPS hiện tại." : $"Vị trí cập nhật mới nhất: {_latestLocation.Latitude:F6}, {_latestLocation.Longitude:F6}")}};
-                const pois = {{poisJson}};
-                const userLocation = {{userLocationJson}};
-                const activeTour = {{activeTourJson}};
-
-                const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView(center, 16);
-                L.control.zoom({ position: 'bottomright' }).addTo(map);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                  maxZoom: 20
-                }).addTo(map);
-
-                const bounds = [];
-                let selectedMarker = null;
-
-                const escapeHtml = (value) => (value ?? '')
-                  .toString()
-                  .replace(/&/g, '&amp;')
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;')
-                  .replace(/'/g, '&#39;');
-
-                document.getElementById('selected-label').textContent = `POI đang chọn: ${selectedTitle}`;
-                document.getElementById('nearest-label').textContent = `POI gần nhất: ${nearestTitle}`;
-                document.getElementById('count-label').textContent = visibleSummary;
-                document.getElementById('status-label').textContent = trackingSummary;
-
-                if (activeTour && activeTour.Stops && activeTour.Stops.length > 0) {
-                  document.getElementById('tour-panel').style.display = 'block';
-                  document.getElementById('tour-name').textContent = activeTour.Name || 'Tour đang hoạt động';
-                  document.getElementById('tour-status').textContent = activeTour.Status || '';
-                  document.getElementById('tour-count').textContent = `${activeTour.Stops.length} điểm dừng trên bản đồ`;
-                }
-
-                if (userLocation) {
-                  const userLatLng = [userLocation.Latitude, userLocation.Longitude];
-                  L.circle(userLatLng, {
-                    radius: Math.max(userLocation.Accuracy || 8, 8),
-                    color: '#60a5fa',
-                    weight: 1,
-                    fillColor: '#93c5fd',
-                    fillOpacity: 0.18
-                  }).addTo(map);
-
-                  const userIcon = L.divIcon({
-                    className: '',
-                    html: '<div class="map-user-icon"></div>',
-                    iconSize: [18, 18],
-                    iconAnchor: [9, 9]
-                  });
-
-                  L.marker(userLatLng, { icon: userIcon })
-                    .addTo(map)
-                    .bindPopup('<div class="poi-popup"><h4>Vị trí của bạn</h4><p>App đang theo dõi GPS để kích hoạt POI và geofence.</p></div>');
-
-                  bounds.push(userLatLng);
-                }
-
-                pois.forEach((poi) => {
-                  const latLng = [poi.Latitude, poi.Longitude];
-                  const markerColor = poi.IsSelected ? '#f59e0b' : (poi.IsNearest ? '#dc2626' : '#17324d');
-                  const markerRadius = poi.IsSelected ? 12 : (poi.IsNearest ? 10 : 8);
-                  const fillOpacity = poi.IsVisible ? 0.9 : 0.4;
-                  const marker = L.circleMarker(latLng, {
-                    radius: markerRadius,
-                    color: markerColor,
-                    fillColor: markerColor,
-                    fillOpacity: fillOpacity,
-                    weight: poi.IsSelected ? 3 : (poi.IsNearest ? 2.4 : 1.6)
-                  }).addTo(map);
-
-                  if (poi.IsSelected) {
-                    L.circle(latLng, {
-                      radius: Math.max(poi.Radius || 0, 28),
-                      color: '#f59e0b',
-                      weight: 2,
-                      fillColor: '#fbbf24',
-                      fillOpacity: 0.08
-                    }).addTo(map);
-                  }
-
-                  if (poi.IsNearest) {
-                    L.circle(latLng, {
-                      radius: Math.max(poi.ApproachRadiusMeters || 0, poi.Radius || 0, 48),
-                      color: '#dc2626',
-                      weight: 1.8,
-                      dashArray: '6 6',
-                      fillColor: '#fca5a5',
-                      fillOpacity: 0.04
-                    }).addTo(map);
-                  }
-
-                  const distanceText = poi.DistanceMeters > 0
-                    ? `${Math.round(poi.DistanceMeters)}m`
-                    : 'Đang tính';
-
-                  marker.bindPopup(
-                    `<div class="poi-popup">
-                      <h4>${escapeHtml(poi.Title)}</h4>
-                      <p>${escapeHtml(poi.Summary || 'Không có mô tả ngắn.')}</p>
-                      <div class="meta">
-                        <span class="tag">${escapeHtml(poi.Category || 'POI')}</span>
-                        <span class="tag">Trigger ${escapeHtml(poi.TriggerMode || 'both')}</span>
-                        <span class="tag">Khoang cach ${distanceText}</span>
-                      </div>
-                    </div>`
-                  );
-
-                  marker.on('click', () => {
-                    window.location.href = `audiotour://poi/${poi.Id}`;
-                  });
-
-                  if (poi.IsSelected) {
-                    selectedMarker = marker;
-                  }
-
-                  bounds.push(latLng);
-                });
-
-                if (activeTour && activeTour.Stops && activeTour.Stops.length > 0) {
-                  const routePoints = activeTour.Stops.map((stop) => [stop.Latitude, stop.Longitude]);
-                  if (routePoints.length > 1) {
-                    L.polyline(routePoints, {
-                      color: '#0f766e',
-                      weight: 4,
-                      opacity: 0.88,
-                      dashArray: '10 8'
-                    }).addTo(map);
-                  }
-
-                  activeTour.Stops.forEach((stop, index) => {
-                    const icon = L.divIcon({
-                      className: '',
-                      html: `<div class="tour-stop-icon${stop.IsCurrent ? ' is-current' : ''}">${index + 1}</div>`,
-                      iconSize: [28, 28],
-                      iconAnchor: [14, 14]
-                    });
-
-                    L.marker([stop.Latitude, stop.Longitude], { icon })
-                      .addTo(map)
-                      .bindPopup(`<div class="poi-popup"><h4>Stop ${index + 1}: ${escapeHtml(stop.Title)}</h4><p>${stop.IsCurrent ? 'Điểm đang phát trong tour.' : 'Điểm dừng nằm trong tuyến tour hiện tại.'}</p></div>`)
-                      .on('click', () => {
-                        window.location.href = `audiotour://poi/${stop.PoiId}`;
-                      });
-
-                    bounds.push([stop.Latitude, stop.Longitude]);
-                  });
-                }
-
-                if (bounds.length > 1) {
-                  map.fitBounds(bounds, { padding: [36, 36], maxZoom: 17 });
-                } else {
-                  map.setView(center, 16);
-                }
-
-                if (selectedMarker) {
-                  window.setTimeout(() => selectedMarker.openPopup(), 180);
-                }
-
-                window.setTimeout(() => map.invalidateSize(), 220);
-              </script>
-            </body>
-            </html>
-            """;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MapPoisSummary)));
+        MapRefreshVersion++;
     }
 
     private static string SerializeForJavaScript<T>(T value) => JsonSerializer.Serialize(value);
@@ -1877,6 +1523,54 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         return message;
+    }
+
+    private static string NormalizeQrCode(string raw)
+    {
+        var value = raw?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+        {
+            var fromQuery = TryReadQueryValue(absolute, "code");
+            if (!string.IsNullOrWhiteSpace(fromQuery))
+            {
+                return fromQuery.Trim().ToUpperInvariant();
+            }
+
+            var lastSegment = absolute.Segments
+                .LastOrDefault()?
+                .Trim('/')
+                .Trim();
+            if (!string.IsNullOrWhiteSpace(lastSegment))
+            {
+                return lastSegment.ToUpperInvariant();
+            }
+        }
+
+        return value.ToUpperInvariant();
+    }
+
+    private static string? TryReadQueryValue(Uri uri, string key)
+    {
+        if (string.IsNullOrWhiteSpace(uri.Query))
+        {
+            return null;
+        }
+
+        foreach (var segment in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = segment.Split('=', 2);
+            if (pair.Length == 2 && string.Equals(pair[0], key, StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(pair[1]);
+            }
+        }
+
+        return null;
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IEnumerable<T> items)

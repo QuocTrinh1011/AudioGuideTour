@@ -1,9 +1,15 @@
-﻿@model IEnumerable<AudioGuideAdmin.Models.QRCode>
+@model IEnumerable<AudioGuideAdmin.Models.QRCode>
+@{
+    var publicQrBaseUrl = (ViewBag.PublicQrBaseUrl as string ?? string.Empty).TrimEnd('/');
+    var isLocalHost = Uri.TryCreate(publicQrBaseUrl, UriKind.Absolute, out var publicQrUri)
+        && (string.Equals(publicQrUri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(publicQrUri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase));
+}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h2 class="mb-1">Quản lý QR</h2>
-        <p class="text-muted mb-0">QR được mobile app dùng để mở nội dung ngay mà không cần GPS bật geofence.</p>
+        <p class="text-muted mb-0">QR được tạo để khách quét bằng app hoặc camera điện thoại thông thường và mở nội dung ngay.</p>
     </div>
     <div class="d-flex gap-2">
         <form method="post" action="/QRCode/CreateBusStopSet">
@@ -15,12 +21,20 @@
 </div>
 
 <div class="card p-3 mb-3">
-    <div class="fw-semibold mb-1">Bo QR de xuat cho mobile</div>
+    <div class="fw-semibold mb-1">Bộ QR đề xuất cho mobile</div>
     <div class="text-muted small">Web sẽ cố gắng tạo 3 QR cho các điểm dừng xe buýt Khánh Hội, Vĩnh Hội, Xuân Chiếu/Xóm Chiếu nếu trong hệ thống đã có POI thật tương ứng.</div>
     <div class="mt-2 d-flex flex-wrap gap-2">
         <span class="badge badge-soft">BUS-KH-001</span>
         <span class="badge badge-soft">BUS-VH-002</span>
         <span class="badge badge-soft">BUS-XC-003</span>
+    </div>
+    <div class="small mt-3">
+        <div class="fw-semibold">Public base URL đang dùng cho QR</div>
+        <code>@publicQrBaseUrl</code>
+        @if (isLocalHost)
+        {
+            <div class="text-danger mt-2">Base URL đang là localhost. Muốn khách quét bằng điện thoại bên ngoài thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
+        }
     </div>
 </div>
 
@@ -29,20 +43,37 @@
         <table class="table align-middle">
             <thead>
                 <tr>
-                    <th>Ma QR</th>
+                    <th>QR chuẩn</th>
+                    <th>Mã QR</th>
                     <th>POI</th>
-                    <th>Ghi chu</th>
+                    <th>Ghi chú</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
             @foreach (var item in Model)
             {
+                var publicUrl = $"{publicQrBaseUrl}/QRCode/Open/{Uri.EscapeDataString(item.Code)}";
                 <tr>
+                    <td style="width:148px;">
+                        <div class="border rounded-4 bg-white p-2 d-inline-flex align-items-center justify-content-center" style="width:128px;height:128px;">
+                            <img src="/QRCode/RenderPng/@item.Id"
+                                 alt="QR @item.Code"
+                                 width="112"
+                                 height="112"
+                                 style="max-width:112px;max-height:112px;" />
+                        </div>
+                    </td>
                     <td><code>@item.Code</code></td>
                     <td class="fw-semibold">@item.Poi?.Name</td>
-                    <td class="text-muted">@item.Note</td>
+                    <td class="text-muted">
+                        <div>@item.Note</div>
+                        <div class="small mt-2">Link quét: <code>@publicUrl</code></div>
+                    </td>
                     <td class="text-end">
+                        <a href="/QRCode/DownloadPng/@item.Id" class="btn btn-sm btn-outline-primary">Tải PNG</a>
+                        <a href="/QRCode/DownloadSvg/@item.Id" class="btn btn-sm btn-outline-dark">Tải SVG</a>
+                        <a href="/QRCode/Open/@item.Code" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Mở link</a>
                         <a href="/QRCode/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
                         <a href="/QRCode/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Delete</a>
                     </td>

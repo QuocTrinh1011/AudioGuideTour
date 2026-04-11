@@ -1,20 +1,37 @@
-﻿using AudioTourApp.ViewModels;
+using AudioTourApp.Models;
+using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Devices.Sensors;
+using Microsoft.Maui.Maps;
+using Map = Microsoft.Maui.Controls.Maps.Map;
 
 namespace AudioTourApp.Pages;
 
 public class MapPage : ContentPage
 {
     private readonly MainViewModel _viewModel;
-    private WebView? _mapWebView;
+    private readonly Map _nativeMap;
+    private bool _hasInitializedRegion;
+    private int? _lastFocusedPoiId;
+    private bool _isRefreshingMap;
 
     public MapPage(MainViewModel viewModel)
     {
         BindingContext = _viewModel = viewModel;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
         Title = "Map";
         BackgroundColor = Color.FromArgb("#F3F6FA");
+        _nativeMap = CreateNativeMap();
         Content = BuildContent();
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        RefreshNativeMap(forceRegion: !_hasInitializedRegion);
     }
 
     private async void OnToggleTrackingClicked(object? sender, EventArgs e)
@@ -57,6 +74,14 @@ public class MapPage : ContentPage
         _viewModel.SelectNearestPoi();
     }
 
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.MapRefreshVersion))
+        {
+            MainThread.BeginInvokeOnMainThread(() => RefreshNativeMap());
+        }
+    }
+
     private View BuildContent()
     {
         var root = new VerticalStackLayout
@@ -83,8 +108,8 @@ public class MapPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Bản đồ và Geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Theo dõi vị trí, highlight POI gần nhất và mở nhanh nội dung cần nghe.", TextColor = Color.FromArgb("#E4EEF7") }
+                    new Label { Text = "Google Maps và Geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Hiển thị vị trí của bạn, tất cả POI, điểm gần nhất và chạm marker để xem chi tiết nhanh.", TextColor = Color.FromArgb("#E4EEF7") }
                 }
             }
         });
@@ -111,9 +136,9 @@ public class MapPage : ContentPage
             Spacing = 2,
             Children =
             {
-                new Label { Text = "Bản đồ hiện tại", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Google Maps hiện tại", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentLocation)),
-                new Label { FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedLanguageDisplayText))
+                new Label { FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") }.Bind(Label.TextProperty, nameof(MainViewModel.MapPoisSummary))
             }
         });
         var headerActions = new VerticalStackLayout
@@ -149,26 +174,15 @@ public class MapPage : ContentPage
             Spacing = 10,
             Padding = new Thickness(16, 0, 16, 14)
         };
-        mapLegend.Add(CreateLegendPill("Ban", "#0D6EFD"));
-        mapLegend.Add(CreateLegendPill("Gan nhat", "#D9480F"));
+        mapLegend.Add(CreateLegendPill("Bạn", "#0D6EFD"));
+        mapLegend.Add(CreateLegendPill("Tất cả POI", "#17324D"));
+        mapLegend.Add(CreateLegendPill("Gần nhất", "#D9480F"));
         mapLegend.Add(CreateLegendPill("Đang chọn", "#F0B429"));
-        mapLegend.Add(new Label
-        {
-            TextColor = Color.FromArgb("#667C92"),
-            FontSize = 12,
-            VerticalTextAlignment = TextAlignment.Center
-        }.Bind(Label.TextProperty, nameof(MainViewModel.VisiblePoisSummary)));
-
-        var webView = new WebView { HeightRequest = 420 };
-        webView.Source = new HtmlWebViewSource();
-        webView.SetBinding(WebView.SourceProperty, new Binding(nameof(MainViewModel.MapHtml), converter: new HtmlToSourceConverter()));
-        webView.Navigating += OnMapNavigating;
-        _mapWebView = webView;
 
         mapCard.Content = new VerticalStackLayout
         {
             Spacing = 0,
-            Children = { mapHeader, statusStrip, mapLegend, webView }
+            Children = { mapHeader, statusStrip, mapLegend, _nativeMap }
         };
         root.Add(mapCard);
 
@@ -209,7 +223,7 @@ public class MapPage : ContentPage
         var selectedMapButton = CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(selectedMapButton, 1);
         selectedActions.Add(selectedMapButton);
-        var selectedDetailButton = CreateActionButton("Chi tiet", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D");
+        var selectedDetailButton = CreateActionButton("Chi tiết", OnOpenPoiDetailsClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(selectedDetailButton, 2);
         selectedActions.Add(selectedDetailButton);
         selectedLayout.Add(selectedActions);
@@ -227,7 +241,7 @@ public class MapPage : ContentPage
         Grid.SetColumn(nearestButton, 1);
         bottomSelectedActions.Add(nearestButton);
         selectedLayout.Add(bottomSelectedActions);
-        selectedLayout.Add(CreateActionButton("Chan doan audio", OnDiagnoseAudioClicked, "#EEF5FB", "#17324D"));
+        selectedLayout.Add(CreateActionButton("Chẩn đoán audio", OnDiagnoseAudioClicked, "#EEF5FB", "#17324D"));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B"), FontAttributes = FontAttributes.Bold }
             .Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
@@ -291,18 +305,18 @@ public class MapPage : ContentPage
                 ColumnSpacing = 12
             };
             grid.Add(new Image { HeightRequest = 90, WidthRequest = 100, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(AudioTourApp.Models.PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+                .Bind(Image.SourceProperty, nameof(PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
             var details = new VerticalStackLayout { Spacing = 4 };
             details.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Title)));
+                .Bind(Label.TextProperty, nameof(PoiItem.Title)));
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Summary)));
+                .Bind(Label.TextProperty, nameof(PoiItem.Summary)));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.DistanceMeters), stringFormat: "Khoảng cách: {0:F0}m"));
+                .Bind(Label.TextProperty, nameof(PoiItem.DistanceMeters), stringFormat: "Khoảng cách: {0:F0}m"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.TriggerMode), stringFormat: "Kich hoat: {0}"));
+                .Bind(Label.TextProperty, nameof(PoiItem.TriggerMode), stringFormat: "Kích hoạt: {0}"));
             details.Add(new Label { TextColor = Color.FromArgb("#8A9BAA"), FontSize = 12 }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.Category), stringFormat: "Danh mục: {0}"));
+                .Bind(Label.TextProperty, nameof(PoiItem.Category), stringFormat: "Danh mục: {0}"));
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;
@@ -319,8 +333,8 @@ public class MapPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        actions.Add(CreateActionButton("Nghe POI da chon", OnPlaySelectedClicked, "#17324D", "White"));
-        var openMapButton = CreateActionButton("Mở bản đồ ngoai", OnOpenMapClicked, "#EEF3F8", "#17324D");
+        actions.Add(CreateActionButton("Nghe POI đã chọn", OnPlaySelectedClicked, "#17324D", "White"));
+        var openMapButton = CreateActionButton("Mở Google Maps ngoài", OnOpenMapClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(openMapButton, 1);
         actions.Add(openMapButton);
         poisLayout.Add(actions);
@@ -331,18 +345,218 @@ public class MapPage : ContentPage
         return new ScrollView { Content = root };
     }
 
-    private void OnMapNavigating(object? sender, WebNavigatingEventArgs e)
+    private Map CreateNativeMap()
     {
-        if (string.IsNullOrWhiteSpace(e.Url) || !e.Url.StartsWith("audiotour://poi/", StringComparison.OrdinalIgnoreCase))
+        var map = new Map
+        {
+            HeightRequest = 420,
+            IsShowingUser = true,
+            IsScrollEnabled = true,
+            IsZoomEnabled = true,
+            IsTrafficEnabled = false,
+            MapType = MapType.Street
+        };
+        return map;
+    }
+
+    private void RefreshNativeMap(bool forceRegion = false)
+    {
+        if (_isRefreshingMap)
         {
             return;
         }
 
-        e.Cancel = true;
-        if (int.TryParse(e.Url["audiotour://poi/".Length..], out var poiId))
+        try
         {
-            _viewModel.SelectPoiById(poiId);
+            _isRefreshingMap = true;
+
+            var pois = _viewModel.MapPois
+                .Where(poi => poi.Latitude != 0 && poi.Longitude != 0)
+                .OrderByDescending(poi => poi.IsNearest)
+                .ThenByDescending(poi => poi.Priority)
+                .ThenBy(poi => poi.Title)
+                .ToList();
+
+            _nativeMap.Pins.Clear();
+            _nativeMap.MapElements.Clear();
+            _nativeMap.IsShowingUser = _viewModel.LatestLocation != null;
+
+            var selectedPoi = _viewModel.SelectedPoi;
+            var nearestPoi = _viewModel.CurrentNearestPoi;
+
+            foreach (var poi in pois)
+            {
+                var pin = new PoiMapPin
+                {
+                    PoiId = poi.Id,
+                    Label = poi.Title,
+                    Address = BuildPinAddress(poi),
+                    Location = new Location(poi.Latitude, poi.Longitude),
+                    Type = poi.Id == selectedPoi?.Id
+                        ? PinType.Place
+                        : poi.Id == nearestPoi?.Id
+                            ? PinType.SearchResult
+                            : PinType.SavedPin
+                };
+                pin.MarkerClicked += OnPoiMarkerClicked;
+                pin.InfoWindowClicked += OnPoiInfoWindowClicked;
+                _nativeMap.Pins.Add(pin);
+            }
+
+            AddHighlightElements(selectedPoi, nearestPoi);
+
+            var shouldFocusSelected = selectedPoi?.Id != _lastFocusedPoiId;
+            if (selectedPoi != null)
+            {
+                _lastFocusedPoiId = selectedPoi.Id;
+            }
+
+            if (selectedPoi != null && (forceRegion || shouldFocusSelected))
+            {
+                var selectedRadius = Math.Max(selectedPoi.ApproachRadiusMeters, selectedPoi.Radius);
+                MoveToPoi(selectedPoi, Math.Max(selectedRadius, 140));
+                _hasInitializedRegion = true;
+                return;
+            }
+
+            if (!_hasInitializedRegion || forceRegion)
+            {
+                MoveToFitAll(pois, _viewModel.LatestLocation);
+                _hasInitializedRegion = true;
+            }
         }
+        finally
+        {
+            _isRefreshingMap = false;
+        }
+    }
+
+    private void AddHighlightElements(PoiItem? selectedPoi, PoiItem? nearestPoi)
+    {
+        if (selectedPoi != null && selectedPoi.Latitude != 0 && selectedPoi.Longitude != 0)
+        {
+            _nativeMap.MapElements.Add(new Circle
+            {
+                Center = new Location(selectedPoi.Latitude, selectedPoi.Longitude),
+                Radius = Distance.FromMeters(Math.Max(selectedPoi.Radius, 40)),
+                StrokeColor = Color.FromArgb("#F0B429"),
+                StrokeWidth = 4,
+                FillColor = Color.FromArgb("#22F0B429")
+            });
+        }
+
+        var shouldShowNearestHighlight = selectedPoi == null;
+
+        if (shouldShowNearestHighlight &&
+            nearestPoi != null &&
+            nearestPoi.Id != selectedPoi?.Id &&
+            nearestPoi.Latitude != 0 &&
+            nearestPoi.Longitude != 0)
+        {
+            _nativeMap.MapElements.Add(new Circle
+            {
+                Center = new Location(nearestPoi.Latitude, nearestPoi.Longitude),
+                Radius = Distance.FromMeters(Math.Max(Math.Max(nearestPoi.ApproachRadiusMeters, nearestPoi.Radius), 55)),
+                StrokeColor = Color.FromArgb("#D9480F"),
+                StrokeWidth = 3,
+                FillColor = Color.FromArgb("#18D9480F")
+            });
+        }
+
+        var activeStops = (_viewModel.ActiveTour?.Stops ?? new List<TourStopItem>())
+            .Where(stop => stop.Poi != null && stop.Poi.Latitude != 0 && stop.Poi.Longitude != 0)
+            .OrderBy(stop => stop.SortOrder)
+            .ToList();
+
+        if (activeStops.Count > 1)
+        {
+            var route = new Microsoft.Maui.Controls.Maps.Polyline
+            {
+                StrokeColor = Color.FromArgb("#0F766E"),
+                StrokeWidth = 6
+            };
+
+            foreach (var stop in activeStops)
+            {
+                route.Geopath.Add(new Location(stop.Poi!.Latitude, stop.Poi.Longitude));
+            }
+
+            _nativeMap.MapElements.Add(route);
+        }
+    }
+
+    private void MoveToPoi(PoiItem poi, double radiusMeters)
+    {
+        _nativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
+            new Location(poi.Latitude, poi.Longitude),
+            Distance.FromMeters(radiusMeters)));
+    }
+
+    private void MoveToFitAll(IReadOnlyCollection<PoiItem> pois, Location? userLocation)
+    {
+        var locations = new List<Location>();
+        locations.AddRange(pois.Select(poi => new Location(poi.Latitude, poi.Longitude)));
+        if (userLocation != null)
+        {
+            locations.Add(new Location(userLocation.Latitude, userLocation.Longitude));
+        }
+
+        if (locations.Count == 0)
+        {
+            _nativeMap.MoveToRegion(new MapSpan(new Location(10.7618, 106.7041), 0.02, 0.02));
+            return;
+        }
+
+        var minLat = locations.Min(location => location.Latitude);
+        var maxLat = locations.Max(location => location.Latitude);
+        var minLng = locations.Min(location => location.Longitude);
+        var maxLng = locations.Max(location => location.Longitude);
+
+        var center = new Location((minLat + maxLat) / 2d, (minLng + maxLng) / 2d);
+        var latitudeDegrees = Math.Max(0.01, (maxLat - minLat) * 1.6);
+        var longitudeDegrees = Math.Max(0.01, (maxLng - minLng) * 1.6);
+
+        _nativeMap.MoveToRegion(new MapSpan(center, latitudeDegrees, longitudeDegrees));
+    }
+
+    private void OnPoiMarkerClicked(object? sender, PinClickedEventArgs e)
+    {
+        if (sender is PoiMapPin pin)
+        {
+            _viewModel.SelectPoiById(pin.PoiId);
+        }
+    }
+
+    private async void OnPoiInfoWindowClicked(object? sender, PinClickedEventArgs e)
+    {
+        if (sender is not PoiMapPin pin)
+        {
+            return;
+        }
+
+        _viewModel.SelectPoiById(pin.PoiId);
+        await _viewModel.OpenSelectedPoiDetailsAsync();
+    }
+
+    private static string BuildPinAddress(PoiItem poi)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(poi.Category))
+        {
+            parts.Add(poi.Category);
+        }
+
+        if (poi.DistanceMeters > 0)
+        {
+            parts.Add($"{poi.DistanceMeters:F0}m");
+        }
+
+        if (!string.IsNullOrWhiteSpace(poi.Summary))
+        {
+            parts.Add(poi.Summary);
+        }
+
+        return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
     private static Button CreateActionButton(string text, EventHandler handler, string backgroundColor, string textColor)
@@ -350,7 +564,7 @@ public class MapPage : ContentPage
         var button = new Button
         {
             Text = text,
-            BackgroundColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Color.FromArgb(backgroundColor) : Color.FromArgb(backgroundColor),
+            BackgroundColor = Color.FromArgb(backgroundColor),
             TextColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Colors.White : Color.FromArgb(textColor),
             CornerRadius = 18
         };
@@ -362,7 +576,7 @@ public class MapPage : ContentPage
     {
         var button = new Button
         {
-            BackgroundColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Color.FromArgb(backgroundColor) : Color.FromArgb(backgroundColor),
+            BackgroundColor = Color.FromArgb(backgroundColor),
             TextColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Colors.White : Color.FromArgb(textColor),
             CornerRadius = 18
         };
@@ -454,11 +668,7 @@ public class MapPage : ContentPage
     }
 }
 
-internal sealed class HtmlToSourceConverter : IValueConverter
+internal sealed class PoiMapPin : Pin
 {
-    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => new HtmlWebViewSource { Html = value?.ToString() ?? string.Empty };
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
-        => string.Empty;
+    public int PoiId { get; init; }
 }

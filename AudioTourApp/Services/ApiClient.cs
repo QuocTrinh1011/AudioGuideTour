@@ -138,7 +138,7 @@ public class ApiClient
 
     private PoiItem NormalizePoi(PoiItem poi)
     {
-        poi.ImageUrl = NormalizeAssetUrl(poi.ImageUrl);
+        poi.ImageUrl = BuildPoiImageUrl(poi);
         poi.MapUrl = string.IsNullOrWhiteSpace(poi.MapUrl) && poi.Latitude != 0 && poi.Longitude != 0
             ? $"https://www.google.com/maps/search/?api=1&query={poi.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)},{poi.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             : NormalizeUrl(poi.MapUrl);
@@ -148,7 +148,7 @@ public class ApiClient
 
     private TourItem NormalizeTour(TourItem tour)
     {
-        tour.CoverImageUrl = NormalizeAssetUrl(tour.CoverImageUrl);
+        tour.CoverImageUrl = BuildTourCoverUrl(tour);
         tour.Stops ??= new List<TourStopItem>();
 
         foreach (var stop in tour.Stops)
@@ -259,6 +259,36 @@ public class ApiClient
         File.Move(tempPath, destinationPath);
         File.WriteAllText(versionPath, requestedVersion);
         return destinationPath;
+    }
+
+    private string BuildPoiImageUrl(PoiItem poi)
+    {
+        if (string.IsNullOrWhiteSpace(poi.ImageUrl))
+        {
+            return string.Empty;
+        }
+
+        if (poi.Id <= 0)
+        {
+            return NormalizeAssetUrl(poi.ImageUrl);
+        }
+
+        return NormalizeAssetUrl($"{BaseUrl.TrimEnd('/')}/api/poi/{poi.Id}/image");
+    }
+
+    private string BuildTourCoverUrl(TourItem tour)
+    {
+        if (string.IsNullOrWhiteSpace(tour.CoverImageUrl))
+        {
+            return string.Empty;
+        }
+
+        if (tour.Id <= 0)
+        {
+            return NormalizeAssetUrl(tour.CoverImageUrl);
+        }
+
+        return NormalizeAssetUrl($"{BaseUrl.TrimEnd('/')}/api/tour/{tour.Id}/cover");
     }
 
     private string NormalizeAssetUrl(string? value)

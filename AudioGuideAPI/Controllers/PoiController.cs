@@ -1,7 +1,9 @@
 using AudioGuideAPI.Data;
 using AudioGuideAPI.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using AudioGuideAPI.Helpers;
 
 namespace AudioGuideAPI.Controllers;
 
@@ -10,10 +12,13 @@ namespace AudioGuideAPI.Controllers;
 public class PoiController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ImageStorageOptions _imageStorageOptions;
+    private readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-    public PoiController(AppDbContext context)
+    public PoiController(AppDbContext context, ImageStorageOptions imageStorageOptions)
     {
         _context = context;
+        _imageStorageOptions = imageStorageOptions;
     }
 
     [HttpGet]
@@ -51,6 +56,23 @@ public class PoiController : ControllerBase
         }
 
         return Ok(poi);
+    }
+
+    [HttpGet("{id}/image")]
+    public async Task<IActionResult> GetImage(int id)
+    {
+        var poi = await _context.Pois
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.Name, x.ImageUrl })
+            .FirstOrDefaultAsync();
+
+        if (poi == null || string.IsNullOrWhiteSpace(poi.ImageUrl))
+        {
+            return NotFound();
+        }
+
+        return BuildImageResult(poi.ImageUrl);
     }
 
     [HttpPost]
@@ -114,5 +136,34 @@ public class PoiController : ControllerBase
         _context.Pois.Remove(poi);
         await _context.SaveChangesAsync();
         return Ok();
+    }
+
+    private IActionResult BuildImageResult(string imageUrl)
+    {
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             absolute.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Redirect(absolute.ToString());
+        }
+
+        var fileName = Path.GetFileName(imageUrl.Trim());
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return NotFound();
+        }
+
+        var physicalPath = Path.Combine(_imageStorageOptions.RootPath, fileName);
+        if (!System.IO.File.Exists(physicalPath))
+        {
+            return NotFound();
+        }
+
+        if (!_contentTypeProvider.TryGetContentType(fileName, out var contentType))
+        {
+            contentType = "application/octet-stream";
+        }
+
+        return PhysicalFile(physicalPath, contentType, enableRangeProcessing: true);
     }
 }

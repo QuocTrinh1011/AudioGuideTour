@@ -82,6 +82,40 @@ public sealed class NarrationService : IAsyncDisposable
 #endif
     }
 
+    public async Task<bool> ShouldPreferTtsFirstAsync(string language, string? voiceName = null, CancellationToken cancellationToken = default)
+    {
+#if ANDROID
+        if (!RequiresStrictVoice(language))
+        {
+            return false;
+        }
+
+        var init = await EnsureInitializedAsync(cancellationToken);
+        if (!init.Ready || _textToSpeech == null)
+        {
+            return false;
+        }
+
+        var locale = ResolveLocale(language);
+        if (locale == null)
+        {
+            return false;
+        }
+
+        var availability = _textToSpeech.IsLanguageAvailable(locale);
+        if (availability is Android.Speech.Tts.LanguageAvailableResult.MissingData or Android.Speech.Tts.LanguageAvailableResult.NotSupported)
+        {
+            return false;
+        }
+
+        var preferredVoice = ResolveVoice(language, voiceName);
+        return preferredVoice != null || string.Equals(locale.Language, NormalizeLanguage(language).Split('-')[0], StringComparison.OrdinalIgnoreCase);
+#else
+        await Task.CompletedTask;
+        return false;
+#endif
+    }
+
     public Task StopAsync()
     {
 #if ANDROID
@@ -260,6 +294,8 @@ public sealed class NarrationService : IAsyncDisposable
             return NarrationResult.Failed("Thiết bị không khởi tạo được engine TTS.");
         }
 
+        var normalizedLanguage = NormalizeLanguage(language);
+        var languageRoot = normalizedLanguage.Split('-')[0];
         var preferredVoice = ResolveVoice(language, voiceName);
         if (preferredVoice != null && Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop)
         {
@@ -282,6 +318,15 @@ public sealed class NarrationService : IAsyncDisposable
             return NarrationResult.Failed(!string.IsNullOrWhiteSpace(voiceName)
                 ? $"Thiết bị chưa hỗ trợ voice '{voiceName}' hoặc ngôn ngữ {language}."
                 : $"Thiết bị chưa hỗ trợ voice {language}.");
+        }
+
+        if (RequiresStrictVoice(language))
+        {
+            var activeLanguage = _textToSpeech.Voice?.Locale?.Language;
+            if (!string.Equals(activeLanguage, languageRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return NarrationResult.Failed("Thiết bị chưa có voice tiếng Việt chuẩn. Hãy dùng audio thu sẵn hoặc cài voice vi-VN.");
+            }
         }
 
         return NarrationResult.Success();
@@ -343,6 +388,12 @@ public sealed class NarrationService : IAsyncDisposable
         }
 
         return language.Replace('_', '-');
+    }
+
+    private static bool RequiresStrictVoice(string language)
+    {
+        var normalized = NormalizeLanguage(language);
+        return normalized.StartsWith("vi", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class InitListener : Java.Lang.Object, AndroidTextToSpeech.IOnInitListener

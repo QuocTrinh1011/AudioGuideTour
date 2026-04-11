@@ -1,6 +1,8 @@
 using AudioGuideAPI.Data;
+using AudioGuideAPI.Helpers;
 using AudioGuideAPI.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
 namespace AudioGuideAPI.Controllers;
@@ -10,10 +12,13 @@ namespace AudioGuideAPI.Controllers;
 public class TourController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ImageStorageOptions _imageStorageOptions;
+    private readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-    public TourController(AppDbContext context)
+    public TourController(AppDbContext context, ImageStorageOptions imageStorageOptions)
     {
         _context = context;
+        _imageStorageOptions = imageStorageOptions;
     }
 
     [HttpGet]
@@ -48,6 +53,23 @@ public class TourController : ControllerBase
         }
 
         return Ok(tour);
+    }
+
+    [HttpGet("{id}/cover")]
+    public async Task<IActionResult> GetCover(int id)
+    {
+        var tour = await _context.Tours
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.Name, x.CoverImageUrl })
+            .FirstOrDefaultAsync();
+
+        if (tour == null || string.IsNullOrWhiteSpace(tour.CoverImageUrl))
+        {
+            return NotFound();
+        }
+
+        return BuildImageResult(tour.CoverImageUrl);
     }
 
     [HttpPost]
@@ -104,5 +126,34 @@ public class TourController : ControllerBase
         _context.Tours.Remove(tour);
         await _context.SaveChangesAsync();
         return Ok();
+    }
+
+    private IActionResult BuildImageResult(string imageUrl)
+    {
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var absolute) &&
+            (absolute.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             absolute.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Redirect(absolute.ToString());
+        }
+
+        var fileName = Path.GetFileName(imageUrl.Trim());
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return NotFound();
+        }
+
+        var physicalPath = Path.Combine(_imageStorageOptions.RootPath, fileName);
+        if (!System.IO.File.Exists(physicalPath))
+        {
+            return NotFound();
+        }
+
+        if (!_contentTypeProvider.TryGetContentType(fileName, out var contentType))
+        {
+            contentType = "application/octet-stream";
+        }
+
+        return PhysicalFile(physicalPath, contentType, enableRangeProcessing: true);
     }
 }

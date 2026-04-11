@@ -65,8 +65,43 @@
     <a href="/Tracking" class="btn btn-outline-dark">Xem log chi tiet</a>
 </div>
 
+<div class="card p-3 mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Khoảng thời gian</label>
+            <select class="form-select" name="days">
+                <option value="1" selected="@(Model.SelectedWindowDays == 1 ? "selected" : null)">24 giờ</option>
+                <option value="3" selected="@(Model.SelectedWindowDays == 3 ? "selected" : null)">3 ngày</option>
+                <option value="7" selected="@(Model.SelectedWindowDays == 7 ? "selected" : null)">7 ngày</option>
+                <option value="14" selected="@(Model.SelectedWindowDays == 14 ? "selected" : null)">14 ngày</option>
+                <option value="30" selected="@(Model.SelectedWindowDays == 30 ? "selected" : null)">30 ngày</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Sai số GPS tối đa</label>
+            <select class="form-select" name="maxAccuracy">
+                <option value="30" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 30) < 0.1 ? "selected" : null)">30 m</option>
+                <option value="60" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 60) < 0.1 ? "selected" : null)">60 m</option>
+                <option value="120" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 120) < 0.1 ? "selected" : null)">120 m</option>
+                <option value="200" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 200) < 0.1 ? "selected" : null)">200 m</option>
+                <option value="300" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 300) < 0.1 ? "selected" : null)">300 m</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <div class="analytics-note">
+                <div class="fw-semibold">Bộ lọc đang dùng</div>
+                <div class="analytics-map-caption">@Model.TrackingWindowLabel · chỉ giữ các điểm có sai số ≤ @Model.SelectedMaxAccuracyMeters m</div>
+                <div class="analytics-map-caption">Đã loại @Model.FilteredOutTrackingPoint / @Model.RawTrackingPoint điểm GPS nhiễu.</div>
+            </div>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary">Lọc dữ liệu</button>
+        </div>
+    </form>
+</div>
+
 <div class="row g-3 mb-4">
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking @Model.TrackingWindowLabel</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking @Model.TrackingWindowLabel</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div><div class="small text-muted">raw: @Model.RawTrackingPoint</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor ẩn danh</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Triggers</div><div class="fs-3 fw-bold">@Model.TotalTrigger</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Heat clusters</div><div class="fs-3 fw-bold">@Model.HeatmapClusterCount</div></div></div>
@@ -86,7 +121,7 @@
             </div>
             <div id="heatmap-map" class="analytics-map"></div>
             <div class="analytics-note mt-3">
-                <div class="fw-semibold mb-1">Dap ung yeu cau</div>
+                <div class="fw-semibold mb-1">Đáp ứng yêu cầu</div>
                 <div class="analytics-map-caption">Heat map hiển thị mật độ vị trí người dùng trên nền bản đồ thật, có thêm marker Top POI để đối chiếu điểm nghe nhiều.</div>
             </div>
         </div>
@@ -111,7 +146,7 @@
                                 <div class="fw-semibold">
                                     <span class="route-swatch" style="background:@route.Color;"></span>@route.VisitorAlias
                                 </div>
-                                <div class="text-muted small">@route.PointCount diem | @route.StartedAt.ToLocalTime().ToString("dd/MM HH:mm") - @route.EndedAt.ToLocalTime().ToString("HH:mm")</div>
+                                <div class="text-muted small">@route.PointCount điểm | @route.StartedAt.ToLocalTime().ToString("dd/MM HH:mm") - @route.EndedAt.ToLocalTime().ToString("HH:mm")</div>
                             </div>
                         </div>
                     }

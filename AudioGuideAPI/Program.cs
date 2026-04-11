@@ -33,6 +33,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         sqlOptions => sqlOptions.EnableRetryOnFailure());
 });
 builder.Services.AddSingleton(new AudioStorageOptions(sharedAudioRoot));
+builder.Services.AddSingleton(new ImageStorageOptions(sharedImageRoot));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>

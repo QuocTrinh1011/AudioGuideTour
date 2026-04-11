@@ -1,18 +1,24 @@
-﻿using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
+using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using QRCoder;
+using System.Net;
+using System.Text;
 
 namespace AudioGuideAdmin.Controllers;
 
 public class QRCodeController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public QRCodeController(AppDbContext context)
+    public QRCodeController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     public async Task<IActionResult> Index()
@@ -22,12 +28,14 @@ public class QRCodeController : Controller
             .OrderBy(x => x.Code)
             .ToListAsync();
 
+        ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
         return View(items);
     }
 
     public IActionResult Create()
     {
         PreparePoiOptions();
+        ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
         return View(new QRCode());
     }
 
@@ -44,12 +52,13 @@ public class QRCodeController : Controller
 
         if (_context.QRCodes.Any(x => x.Code == model.Code))
         {
-            ModelState.AddModelError(nameof(model.Code), "Ma QR da ton tai.");
+            ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
         {
             PreparePoiOptions(model.PoiId);
+            ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
             return View(model);
         }
 
@@ -68,6 +77,7 @@ public class QRCodeController : Controller
         }
 
         PreparePoiOptions(item.PoiId);
+        ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
         return View(item);
     }
 
@@ -84,12 +94,13 @@ public class QRCodeController : Controller
 
         if (_context.QRCodes.Any(x => x.Id != model.Id && x.Code == model.Code))
         {
-            ModelState.AddModelError(nameof(model.Code), "Ma QR da ton tai.");
+            ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
 
         if (!ModelState.IsValid)
         {
             PreparePoiOptions(model.PoiId);
+            ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
             return View(model);
         }
 
@@ -104,8 +115,128 @@ public class QRCodeController : Controller
         existing.Note = model.Note;
 
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Đã cấp nhat QR.";
+        TempData["Success"] = "Đã cập nhật QR.";
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet("/QRCode/Open/{code}")]
+    public async Task<IActionResult> Open(string code, [FromQuery] string language = "vi-VN")
+    {
+        var normalizedCode = code?.Trim().ToUpperInvariant() ?? string.Empty;
+        var qr = await _context.QRCodes
+            .AsNoTracking()
+            .Include(x => x.Poi)
+            .ThenInclude(x => x!.Translations)
+            .FirstOrDefaultAsync(x => x.Code == normalizedCode);
+
+        if (qr?.Poi == null)
+        {
+            return NotFound();
+        }
+
+        var poi = qr.Poi;
+        var translation = SelectTranslation(poi.Translations, language);
+        var model = new QrPublicPageViewModel
+        {
+            Code = qr.Code,
+            Note = qr.Note,
+            Title = translation?.Title ?? poi.Name,
+            Summary = translation?.Summary ?? poi.Summary,
+            Description = translation?.Description ?? poi.Description,
+            Address = poi.Address,
+            ImageUrl = NormalizeAssetUrl(poi.ImageUrl),
+            AudioUrl = NormalizeAssetUrl(string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation!.AudioUrl),
+            MapUrl = NormalizeMapUrl(poi.MapUrl, poi.Latitude, poi.Longitude),
+            Language = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language,
+            DeepLinkUrl = $"audiotour://qr?code={Uri.EscapeDataString(qr.Code)}"
+        };
+
+        ViewBag.HideAdminChrome = true;
+        return View(model);
+    }
+
+    [HttpGet("RenderSvg/{id:int}")]
+    public async Task<IActionResult> RenderSvg(int id)
+    {
+        var qr = await _context.QRCodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (qr == null)
+        {
+            return NotFound();
+        }
+
+        return BuildQrSvgResult(qr.Code, BuildQrPayloadUrl(qr.Code));
+    }
+
+    [HttpGet("RenderSvgByCode")]
+    public IActionResult RenderSvgByCode([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return NotFound();
+        }
+
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        return BuildQrSvgResult(normalizedCode, BuildQrPayloadUrl(normalizedCode));
+    }
+
+    [HttpGet("DownloadSvg/{id:int}")]
+    public async Task<IActionResult> DownloadSvg(int id)
+    {
+        var qr = await _context.QRCodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (qr == null)
+        {
+            return NotFound();
+        }
+
+        return BuildQrSvgResult(qr.Code, BuildQrPayloadUrl(qr.Code), download: true);
+    }
+
+    [HttpGet("RenderPng/{id:int}")]
+    public async Task<IActionResult> RenderPng(int id)
+    {
+        var qr = await _context.QRCodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (qr == null)
+        {
+            return NotFound();
+        }
+
+        return BuildQrPngResult(qr.Code, BuildQrPayloadUrl(qr.Code));
+    }
+
+    [HttpGet("RenderPngByCode")]
+    public IActionResult RenderPngByCode([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return NotFound();
+        }
+
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        return BuildQrPngResult(normalizedCode, BuildQrPayloadUrl(normalizedCode));
+    }
+
+    [HttpGet("DownloadPng/{id:int}")]
+    public async Task<IActionResult> DownloadPng(int id)
+    {
+        var qr = await _context.QRCodes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (qr == null)
+        {
+            return NotFound();
+        }
+
+        return BuildQrPngResult(qr.Code, BuildQrPayloadUrl(qr.Code), download: true);
     }
 
     public async Task<IActionResult> Delete(int id)
@@ -198,6 +329,130 @@ public class QRCodeController : Controller
     {
         model.Code = model.Code?.Trim().ToUpperInvariant() ?? string.Empty;
         model.Note = model.Note?.Trim() ?? string.Empty;
+    }
+
+    private IActionResult BuildQrSvgResult(string code, string payload, bool download = false)
+    {
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+        var qrSvg = new SvgQRCode(qrData);
+        var svg = qrSvg.GetGraphic(12);
+
+        if (!download)
+        {
+            return new ContentResult
+            {
+                Content = svg,
+                ContentType = "image/svg+xml",
+                StatusCode = 200
+            };
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(svg);
+        return new FileContentResult(bytes, "image/svg+xml")
+        {
+            FileDownloadName = $"{normalizedCode}.svg"
+        };
+    }
+
+    private IActionResult BuildQrPngResult(string code, string payload, bool download = false)
+    {
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+        var qrPng = new PngByteQRCode(qrData);
+        var bytes = qrPng.GetGraphic(20);
+
+        return new FileContentResult(bytes, "image/png")
+        {
+            FileDownloadName = download ? $"{normalizedCode}.png" : null
+        };
+    }
+
+    private string BuildQrPayloadUrl(string code)
+    {
+        return $"{ResolvePublicQrBaseUrl().TrimEnd('/')}/QRCode/Open/{Uri.EscapeDataString(code.Trim().ToUpperInvariant())}";
+    }
+
+    private string ResolvePublicQrBaseUrl()
+    {
+        var configured = _configuration["Qr:PublicBaseUrl"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.TrimEnd('/');
+        }
+
+        var requestBaseUrl = $"{Request.Scheme}://{Request.Host.Value}".TrimEnd('/');
+        if (Request.Host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            Request.Host.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        {
+            var lanBaseUrl = TryResolveLanBaseUrl(Request.Scheme, Request.Host.Port);
+            if (!string.IsNullOrWhiteSpace(lanBaseUrl))
+            {
+                return lanBaseUrl;
+            }
+        }
+
+        return requestBaseUrl;
+    }
+
+    private static string? TryResolveLanBaseUrl(string scheme, int? port)
+    {
+        try
+        {
+            var address = Dns.GetHostAddresses(Dns.GetHostName())
+                .FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip));
+
+            if (address == null)
+            {
+                return null;
+            }
+
+            return port.HasValue
+                ? $"{scheme}://{address}:{port.Value}"
+                : $"{scheme}://{address}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static PoiTranslation? SelectTranslation(IEnumerable<PoiTranslation> translations, string language)
+    {
+        var normalized = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language.Trim();
+        var root = normalized.Split('-')[0];
+
+        return translations.FirstOrDefault(x => x.IsPublished && x.Language.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            ?? translations.FirstOrDefault(x => x.IsPublished && x.Language.StartsWith(root, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string NormalizeAssetUrl(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return string.Empty;
+        }
+
+        if (Uri.TryCreate(raw, UriKind.Absolute, out _))
+        {
+            return raw;
+        }
+
+        return $"{ResolvePublicQrBaseUrl().TrimEnd('/')}/{raw.TrimStart('/')}";
+    }
+
+    private static string NormalizeMapUrl(string? raw, double latitude, double longitude)
+    {
+        if (!string.IsNullOrWhiteSpace(raw))
+        {
+            return raw;
+        }
+
+        return latitude == 0 || longitude == 0
+            ? string.Empty
+            : $"https://www.google.com/maps/search/?api=1&query={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)},{longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
     }
 
     private static Poi? FindBusStopPoi(IEnumerable<Poi> pois, string label)

@@ -8,18 +8,32 @@ public class App : Application
 {
     private readonly Page _rootPage;
     private readonly MainWindowLifecycle _lifecycle;
+    private readonly MainViewModel _mainViewModel;
 
     public App(AppShell shell, MainViewModel mainViewModel, AudioQueueService audioQueueService, LocationTrackingService locationTrackingService)
     {
         Resources = BuildResources();
         _rootPage = shell;
         MainPage = _rootPage;
+        _mainViewModel = mainViewModel;
         _lifecycle = new MainWindowLifecycle(mainViewModel, audioQueueService, locationTrackingService);
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
         return _lifecycle.CreateWindow(_rootPage);
+    }
+
+    protected override async void OnAppLinkRequestReceived(Uri uri)
+    {
+        base.OnAppLinkRequestReceived(uri);
+
+        if (uri == null)
+        {
+            return;
+        }
+
+        await _mainViewModel.LookupQrAsync(uri.AbsoluteUri);
     }
 
     private static ResourceDictionary BuildResources()

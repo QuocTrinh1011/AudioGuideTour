@@ -19,6 +19,7 @@ public class QRCodeController : ControllerBase
     [HttpGet("{code}")]
     public async Task<IActionResult> GetByCode(string code, [FromQuery] string language = "vi-VN")
     {
+        code = code?.Trim().ToUpperInvariant() ?? string.Empty;
         var qr = await _context.QRCodes
             .AsNoTracking()
             .Include(x => x.Poi)

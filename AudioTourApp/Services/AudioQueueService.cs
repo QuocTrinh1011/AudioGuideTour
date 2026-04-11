@@ -42,7 +42,8 @@ public class AudioQueueService
     public async Task EnqueueAsync(AudioPlaybackRequest request, CancellationToken cancellationToken = default)
     {
         var poi = request.Poi;
-        if (_recentPlay.TryGetValue(poi.Id, out var lastPlay) &&
+        if (ShouldRespectCooldown(request) &&
+            _recentPlay.TryGetValue(poi.Id, out var lastPlay) &&
             (DateTime.UtcNow - lastPlay).TotalSeconds < Math.Max(poi.CooldownSeconds, 1))
         {
             StatusChanged?.Invoke(this, $"Bỏ qua {poi.Title} do đang cooldown.");
@@ -99,11 +100,16 @@ public class AudioQueueService
                 var failureReasons = new List<string>();
                 var playbackStartedAt = DateTime.UtcNow;
                 var hasFocus = await _audioInterruptionService.BeginPlaybackAsync();
+                var hasAudio = !string.IsNullOrWhiteSpace(poi.AudioUrl);
                 var audioMode = poi.AudioMode?.Trim() ?? string.Empty;
                 var audioOnly = string.Equals(audioMode, "audio", StringComparison.OrdinalIgnoreCase);
-                var preferAudioFirst = !string.IsNullOrWhiteSpace(poi.AudioUrl) &&
-                    (string.Equals(audioMode, "audio", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(audioMode, "audio-priority", StringComparison.OrdinalIgnoreCase));
+                var preferTtsFirst = !audioOnly &&
+                    hasAudio &&
+                    string.Equals(audioMode, "audio-priority", StringComparison.OrdinalIgnoreCase) &&
+                    await _narrationService.ShouldPreferTtsFirstAsync(poi.Language, poi.VoiceName, _playbackCts.Token);
+                var preferAudioFirst = hasAudio &&
+                    (audioOnly ||
+                     (string.Equals(audioMode, "audio-priority", StringComparison.OrdinalIgnoreCase) && !preferTtsFirst));
 
                 if (!hasFocus)
                 {
@@ -115,6 +121,11 @@ public class AudioQueueService
 
                 try
                 {
+                    if (preferTtsFirst)
+                    {
+                        StatusChanged?.Invoke(this, $"Thiết bị có voice {poi.Language} phù hợp, ưu tiên TTS cho {poi.Title}.");
+                    }
+
                     if (preferAudioFirst)
                     {
                         var result = await _audioFallbackPlayer.TryPlayAsync(poi.AudioUrl, _playbackCts.Token);
@@ -201,6 +212,17 @@ public class AudioQueueService
     private void RaiseQueueChanged()
     {
         QueueChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool ShouldRespectCooldown(AudioPlaybackRequest request)
+    {
+        if (request.WasAutoPlayed)
+        {
+            return true;
+        }
+
+        return !string.Equals(request.TriggerType, "manual", StringComparison.OrdinalIgnoreCase) &&
+               !string.Equals(request.TriggerType, "qr", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? BuildTtsText(PoiItem poi, out string sourceLabel)

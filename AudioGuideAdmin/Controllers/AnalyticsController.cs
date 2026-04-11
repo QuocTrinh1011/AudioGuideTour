@@ -27,9 +27,12 @@ public class AnalyticsController : Controller
         _context = context;
     }
 
-    public IActionResult Index()
+    public IActionResult Index([FromQuery] int days = 7, [FromQuery] double maxAccuracy = 120)
     {
-        var windowStart = DateTime.UtcNow.AddDays(-7);
+        days = Math.Clamp(days, 1, 30);
+        maxAccuracy = Math.Clamp(maxAccuracy, 30, 300);
+
+        var windowStart = DateTime.UtcNow.AddDays(-days);
         var poiLookup = _context.Pois
             .AsNoTracking()
             .Select(x => new PoiLookupItem
@@ -41,11 +44,16 @@ public class AnalyticsController : Controller
             })
             .ToDictionary(x => x.Id);
 
-        var trackingRows = _context.UserTrackings
+        var rawTrackingRows = _context.UserTrackings
             .AsNoTracking()
             .Where(x => x.RecordedAt >= windowStart)
             .OrderByDescending(x => x.RecordedAt)
             .Take(5000)
+            .ToList();
+
+        var trackingRows = rawTrackingRows
+            .Where(x => x.Latitude != 0 && x.Longitude != 0)
+            .Where(x => x.Accuracy == 0 || x.Accuracy <= maxAccuracy)
             .ToList();
 
         var triggerRows = _context.GeofenceTriggers
@@ -115,8 +123,12 @@ public class AnalyticsController : Controller
 
         var model = new AnalyticsViewModel
         {
-            TrackingWindowLabel = "7 ngày gần nhất",
+            TrackingWindowLabel = days == 1 ? "24 giờ gần nhất" : $"{days} ngày gần nhất",
+            SelectedWindowDays = days,
+            SelectedMaxAccuracyMeters = maxAccuracy,
             TotalTrackingPoint = trackingRows.Count,
+            RawTrackingPoint = rawTrackingRows.Count,
+            FilteredOutTrackingPoint = Math.Max(rawTrackingRows.Count - trackingRows.Count, 0),
             UniqueVisitors = visitorAliases.Count,
             TotalTrigger = triggerRows.Count,
             HeatmapClusterCount = heatmapPoints.Count,
@@ -198,7 +210,6 @@ public class AnalyticsController : Controller
     private static List<AnalyticsHeatPointViewModel> BuildHeatmapPoints(IEnumerable<UserTracking> trackingRows)
     {
         var grouped = trackingRows
-            .Where(x => x.Accuracy <= 120 || x.Accuracy == 0)
             .GroupBy(x => new
             {
                 Latitude = Math.Round(x.Latitude, 4),
@@ -234,7 +245,6 @@ public class AnalyticsController : Controller
         var sessions = new List<AnalyticsRouteViewModel>();
 
         foreach (var visitorGroup in trackingRows
-                     .Where(x => x.Accuracy <= 150 || x.Accuracy == 0)
                      .OrderBy(x => x.RecordedAt)
                      .GroupBy(x => x.UserId))
         {

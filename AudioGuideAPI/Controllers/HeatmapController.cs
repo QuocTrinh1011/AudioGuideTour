@@ -16,10 +16,17 @@ public class HeatmapController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetHeatmap()
+    public async Task<IActionResult> GetHeatmap([FromQuery] int days = 7, [FromQuery] double maxAccuracy = 120)
     {
+        days = Math.Clamp(days, 1, 30);
+        maxAccuracy = Math.Clamp(maxAccuracy, 30, 300);
+        var windowStart = DateTime.UtcNow.AddDays(-days);
+
         var data = await _context.UserTrackings
             .AsNoTracking()
+            .Where(x => x.RecordedAt >= windowStart)
+            .Where(x => x.Latitude != 0 && x.Longitude != 0)
+            .Where(x => x.Accuracy == 0 || x.Accuracy <= maxAccuracy)
             .GroupBy(x => new
             {
                 Latitude = Math.Round(x.Latitude, 4),

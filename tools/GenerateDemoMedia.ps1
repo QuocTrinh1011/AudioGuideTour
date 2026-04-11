@@ -250,12 +250,12 @@ if ($IncludeVietnameseAudio)
 {
     $voice = New-OneCoreVoice -languageKeyword "Vietnamese"
     $audioSpecs = @(
-        @{ FileName = "poi-vinh-khanh-food-street-vi.wav"; Text = "Ban dang dung tai cua ngo pho am thuc Vinh Khanh. Day la diem hop ly de bat dau hanh trinh am thuc ve dem cua Quan Bon." },
-        @{ FileName = "poi-vinh-khanh-seafood-cluster-vi.wav"; Text = "Day la cum quan oc va mon nuong nhon nhip nhat tren pho Vinh Khanh, noi visitor co the cam nhan ro mui vi hai san va khong khi via he." },
-        @{ FileName = "poi-khanh-hoi-bus-stop-vi.wav"; Text = "Tram xe buyt Khanh Hoi la diem vao tour nhanh cho visitor den bang xe buyt. Ban co the quet ma QR va nghe ngay tai day." },
-        @{ FileName = "poi-vinh-hoi-bus-stop-vi.wav"; Text = "Tram xe buyt Vinh Hoi phu hop lam diem trung chuyen hoac ket tour. Noi dung tai day giup visitor tiep tuc hanh trinh mot cach nhanh gon." },
-        @{ FileName = "poi-xuan-chieu-bus-stop-vi.wav"; Text = "Day la diem vao tu huong Xuan Chieu, con goi la Xom Chieu. Ma QR tai day giup visitor vao noi dung ma khong can cho geofence." },
-        @{ FileName = "poi-vinh-khanh-street-life-vi.wav"; Text = "Diem nay ke chuyen ve nhip song pho phuong cua Vinh Khanh, noi am thuc, giao tiep va sinh hoat via he hoa thanh mot trai nghiem dem rat rieng cua Quan Bon." }
+        @{ FileName = "poi-vinh-khanh-food-street-vi.wav"; Text = "Bạn đang đứng tại cửa ngõ phố ẩm thực Vĩnh Khánh. Đây là điểm hợp lý để bắt đầu hành trình ẩm thực về đêm của Quận Bốn." },
+        @{ FileName = "poi-vinh-khanh-seafood-cluster-vi.wav"; Text = "Đây là cụm quán ốc và món nướng nhộn nhịp nhất trên phố Vĩnh Khánh, nơi du khách có thể cảm nhận rõ mùi vị hải sản và không khí vỉa hè." },
+        @{ FileName = "poi-khanh-hoi-bus-stop-vi.wav"; Text = "Trạm xe buýt Khánh Hội là điểm vào tour nhanh cho du khách đến bằng xe buýt. Bạn có thể quét mã QR và nghe ngay tại đây." },
+        @{ FileName = "poi-vinh-hoi-bus-stop-vi.wav"; Text = "Trạm xe buýt Vĩnh Hội phù hợp làm điểm trung chuyển hoặc kết tour. Nội dung tại đây giúp du khách tiếp tục hành trình một cách nhanh gọn." },
+        @{ FileName = "poi-xuan-chieu-bus-stop-vi.wav"; Text = "Đây là điểm vào từ hướng Xuân Chiếu, còn gọi là Xóm Chiếu. Mã QR tại đây giúp du khách vào nội dung mà không cần chờ geofence." },
+        @{ FileName = "poi-vinh-khanh-street-life-vi.wav"; Text = "Điểm này kể chuyện về nhịp sống phố phường của Vĩnh Khánh, nơi ẩm thực, giao tiếp và sinh hoạt vỉa hè hòa thành một trải nghiệm đêm rất riêng của Quận Bốn." }
     )
 
     Write-AudioFiles -voice $voice -audioSpecs $audioSpecs

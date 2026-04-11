@@ -3,7 +3,11 @@
 public class AnalyticsViewModel
 {
     public string TrackingWindowLabel { get; set; } = "";
+    public int SelectedWindowDays { get; set; } = 7;
+    public double SelectedMaxAccuracyMeters { get; set; } = 120;
     public int TotalTrackingPoint { get; set; }
+    public int RawTrackingPoint { get; set; }
+    public int FilteredOutTrackingPoint { get; set; }
     public int UniqueVisitors { get; set; }
     public int TotalTrigger { get; set; }
     public int HeatmapClusterCount { get; set; }

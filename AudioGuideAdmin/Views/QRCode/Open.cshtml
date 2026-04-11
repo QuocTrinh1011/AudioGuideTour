@@ -1,0 +1,143 @@
+@model AudioGuideAdmin.ViewModels.QrPublicPageViewModel
+@{
+    Layout = "_Layout";
+}
+
+<style>
+    body {
+        background: linear-gradient(180deg, #fff8ef, #f5efe6);
+    }
+
+    .qr-public-shell {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    .qr-public-card {
+        width: min(920px, 100%);
+        border-radius: 28px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 32px 90px rgba(16, 30, 46, 0.12);
+    }
+
+    .qr-public-hero {
+        background: linear-gradient(135deg, #17324d, #c97732);
+        color: #fff;
+        padding: 22px 24px;
+    }
+
+    .qr-public-content {
+        padding: 24px;
+    }
+
+    .qr-public-image {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 22px;
+        background: #eef3f8;
+    }
+
+    .qr-public-note {
+        border-radius: 18px;
+        background: #f7fafc;
+        border: 1px solid #e3ebf3;
+        padding: 14px 16px;
+    }
+</style>
+
+<div class="qr-public-shell">
+    <div class="qr-public-card">
+        <div class="qr-public-hero">
+            <div class="small text-uppercase opacity-75 mb-2">Audio Guide · QR</div>
+            <h1 class="h3 mb-1">@Model.Title</h1>
+            <div class="opacity-75">@Model.Note</div>
+        </div>
+
+        <div class="qr-public-content">
+            @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+            {
+                <img class="qr-public-image mb-4" src="@Model.ImageUrl" alt="@Model.Title" />
+            }
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="qr-public-note mb-3">
+                        <div class="fw-semibold mb-2">Tóm tắt</div>
+                        <div>@Model.Summary</div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Description))
+                    {
+                        <div class="qr-public-note mb-3">
+                            <div class="fw-semibold mb-2">Giới thiệu</div>
+                            <div>@Model.Description</div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Address))
+                    {
+                        <div class="text-muted small mb-3">Địa chỉ: @Model.Address</div>
+                    }
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        @if (!string.IsNullOrWhiteSpace(Model.MapUrl))
+                        {
+                            <a href="@Model.MapUrl" class="btn btn-outline-dark" target="_blank" rel="noopener noreferrer">Mở bản đồ</a>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.DeepLinkUrl))
+                        {
+                            <a href="@Model.DeepLinkUrl" class="btn btn-primary">Mở trong app</a>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="qr-public-note h-100">
+                        <div class="fw-semibold mb-2">Nghe ngay</div>
+                        @if (!string.IsNullOrWhiteSpace(Model.AudioUrl))
+                        {
+                            <audio id="poi-audio" controls preload="metadata" style="width:100%;">
+                                <source src="@Model.AudioUrl" />
+                            </audio>
+                            <button type="button" class="btn btn-primary w-100 mt-3" onclick="document.getElementById('poi-audio').play()">Phát thuyết minh</button>
+                            <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-2">Đọc bằng giọng máy</button>
+                        }
+                        else
+                        {
+                            <div class="text-muted">POI này chưa có file audio công khai. Hãy mở trong app để dùng TTS hoặc bổ sung audio trong hệ quản trị.</div>
+                            <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-3">Đọc bằng giọng máy</button>
+                        }
+
+                        <div class="small text-muted mt-3">Mã QR: <code>@Model.Code</code></div>
+                        <div class="small text-muted">Ngôn ngữ: <code>@Model.Language</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const browserSpeakButton = document.getElementById('speak-browser-button');
+    const speechText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize($"{Model.Summary} {Model.Description}".Trim()));
+    const speechLanguage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Language));
+
+    if (browserSpeakButton) {
+        browserSpeakButton.addEventListener('click', () => {
+            if (!('speechSynthesis' in window)) {
+                alert('Trình duyệt này chưa hỗ trợ đọc bằng giọng máy.');
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.lang = speechLanguage || 'vi-VN';
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+</script>

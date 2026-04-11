@@ -14,7 +14,8 @@ public static class MauiProgram
 
         builder
             .UseMauiApp<App>()
-            .UseBarcodeScanning();
+            .UseBarcodeScanning()
+            .UseMauiMaps();
 
         builder.Services.AddSingleton(new HttpClient(new HttpClientHandler
         {
