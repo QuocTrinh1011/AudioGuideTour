@@ -707,8 +707,13 @@ public class MainViewModel : INotifyPropertyChanged
         if (stop.Poi != null)
         {
             SelectedPoi = stop.Poi;
-            Status = $"Đã bắt đầu tour {ActiveTour.Name}.";
-            await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(stop.Poi, "tour", false), cancellationToken);
+            Status = stop.AutoPlay
+                ? $"Đã bắt đầu tour {ActiveTour.Name}."
+                : $"Đã bắt đầu tour {ActiveTour.Name}. Điểm dừng này đang tắt tự phát.";
+            if (stop.AutoPlay)
+            {
+                await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(stop.Poi, "tour", false), cancellationToken);
+            }
             RefreshMap();
         }
     }
@@ -744,7 +749,13 @@ public class MainViewModel : INotifyPropertyChanged
         {
             SelectedPoi = nextStop.Poi;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveTourStatus)));
-            await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(nextStop.Poi, "tour", false), cancellationToken);
+            Status = nextStop.AutoPlay
+                ? $"Đã chuyển sang điểm dừng {_activeTourStopIndex + 1} của tour {ActiveTour.Name}."
+                : $"Đã chuyển sang điểm dừng {_activeTourStopIndex + 1} của tour {ActiveTour.Name}. Điểm này đang tắt tự phát.";
+            if (nextStop.AutoPlay)
+            {
+                await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(nextStop.Poi, "tour", false), cancellationToken);
+            }
             RefreshMap();
         }
     }
@@ -1065,12 +1076,21 @@ public class MainViewModel : INotifyPropertyChanged
                 if (CanAutoPlay(geofence.TriggeredPoi) && ShouldAutoPlayForTriggerMode(geofence.TriggeredPoi))
                 {
                     SelectedPoi = geofence.TriggeredPoi;
-                    await _audioQueueService.EnqueueAsync(
-                        CreatePlaybackRequest(
-                            geofence.TriggeredPoi,
-                            string.IsNullOrWhiteSpace(geofence.Reason) ? "geofence" : geofence.Reason,
-                            true));
-                    _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
+                    var activeTourStop = FindActiveTourStop(geofence.TriggeredPoi.Id);
+                    if (activeTourStop != null && !activeTourStop.AutoPlay)
+                    {
+                        Status = $"Đã tới {geofence.TriggeredPoi.Title}, nhưng điểm dừng tour này đang tắt tự phát.";
+                        _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        await _audioQueueService.EnqueueAsync(
+                            CreatePlaybackRequest(
+                                geofence.TriggeredPoi,
+                                string.IsNullOrWhiteSpace(geofence.Reason) ? "geofence" : geofence.Reason,
+                                true));
+                        _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
+                    }
 
                     if (ActiveTour != null)
                     {
@@ -1453,6 +1473,18 @@ public class MainViewModel : INotifyPropertyChanged
             _activeTourStopIndex = currentIndex;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActiveTourStatus)));
         }
+    }
+
+    private TourStopItem? FindActiveTourStop(int poiId)
+    {
+        if (ActiveTour == null)
+        {
+            return null;
+        }
+
+        return (ActiveTour.Stops ?? new List<TourStopItem>())
+            .OrderBy(x => x.SortOrder)
+            .FirstOrDefault(x => x.PoiId == poiId);
     }
 
     private IEnumerable<string> GetApiBaseUrlCandidates()

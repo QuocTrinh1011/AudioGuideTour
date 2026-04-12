@@ -5,6 +5,7 @@ using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace AudioGuideAdmin.Controllers;
 
@@ -38,8 +39,11 @@ public class TourController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(TourFormViewModel model)
     {
-        model.StopPoiIds = NormalizeStopPoiIds(model.StopPoiIds);
+        var stopConfigs = ParseStopConfigs(model.StopConfigJson, model.StopPoiIds);
+        model.StopPoiIds = string.Join(",", stopConfigs.Select(x => x.PoiId));
+        model.StopConfigJson = SerializeStopConfigs(stopConfigs);
         ModelState.Remove(nameof(model.StopPoiIds));
+        ModelState.Remove(nameof(model.StopConfigJson));
         if (string.IsNullOrWhiteSpace(model.StopPoiIds))
         {
             ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
@@ -47,13 +51,13 @@ public class TourController : Controller
 
         if (!ModelState.IsValid)
         {
-            return View(BuildForm(model.Tour, model.StopPoiIds));
+            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson));
         }
 
         model.Tour.CoverImageUrl = await SaveImageAsync(model.CoverImageFile, model.Tour.CoverImageUrl);
         model.Tour.CreatedAt = DateTime.UtcNow;
         model.Tour.UpdatedAt = DateTime.UtcNow;
-        model.Tour.Stops = BuildStops(model.StopPoiIds, model.Tour.Id);
+        model.Tour.Stops = BuildStops(stopConfigs, model.Tour.Id);
 
         _context.Tours.Add(model.Tour);
         await _context.SaveChangesAsync();
@@ -71,16 +75,26 @@ public class TourController : Controller
             return NotFound();
         }
 
-        var stopPoiIds = string.Join(",", tour.Stops.OrderBy(x => x.SortOrder).Select(x => x.PoiId));
-        return View(BuildForm(tour, stopPoiIds));
+        var orderedStops = tour.Stops.OrderBy(x => x.SortOrder).ToList();
+        var stopPoiIds = string.Join(",", orderedStops.Select(x => x.PoiId));
+        var stopConfigJson = SerializeStopConfigs(orderedStops.Select(x => new TourStopDraft
+        {
+            PoiId = x.PoiId,
+            AutoPlay = x.AutoPlay,
+            Note = x.Note
+        }));
+        return View(BuildForm(tour, stopPoiIds, stopConfigJson));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(TourFormViewModel model)
     {
-        model.StopPoiIds = NormalizeStopPoiIds(model.StopPoiIds);
+        var stopConfigs = ParseStopConfigs(model.StopConfigJson, model.StopPoiIds);
+        model.StopPoiIds = string.Join(",", stopConfigs.Select(x => x.PoiId));
+        model.StopConfigJson = SerializeStopConfigs(stopConfigs);
         ModelState.Remove(nameof(model.StopPoiIds));
+        ModelState.Remove(nameof(model.StopConfigJson));
         if (string.IsNullOrWhiteSpace(model.StopPoiIds))
         {
             ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
@@ -88,7 +102,7 @@ public class TourController : Controller
 
         if (!ModelState.IsValid)
         {
-            return View(BuildForm(model.Tour, model.StopPoiIds));
+            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson));
         }
 
         var existing = await _context.Tours
@@ -109,7 +123,7 @@ public class TourController : Controller
         existing.UpdatedAt = DateTime.UtcNow;
 
         _context.TourStops.RemoveRange(existing.Stops);
-        existing.Stops = BuildStops(model.StopPoiIds, existing.Id);
+        existing.Stops = BuildStops(stopConfigs, existing.Id);
 
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
@@ -129,12 +143,14 @@ public class TourController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private TourFormViewModel BuildForm(Tour tour, string stopPoiIds = "")
+    private TourFormViewModel BuildForm(Tour tour, string stopPoiIds = "", string? stopConfigJson = null)
     {
+        var normalizedStopConfigs = ParseStopConfigs(stopConfigJson, stopPoiIds);
         return new TourFormViewModel
         {
             Tour = tour,
-            StopPoiIds = stopPoiIds,
+            StopPoiIds = string.Join(",", normalizedStopConfigs.Select(x => x.PoiId)),
+            StopConfigJson = SerializeStopConfigs(normalizedStopConfigs),
             PoiOptions = _context.Pois
                 .OrderBy(x => x.Name)
                 .Select(x => new SelectListItem($"{x.Name} (#{x.Id})", x.Id.ToString()))
@@ -148,31 +164,76 @@ public class TourController : Controller
         };
     }
 
-    private static List<TourStop> BuildStops(string stopPoiIds, int tourId)
+    private static List<TourStop> BuildStops(IEnumerable<TourStopDraft> stopConfigs, int tourId)
     {
-        return stopPoiIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct()
-            .Select((value, index) => int.TryParse(value, out var poiId)
-                ? new TourStop
-                {
-                    TourId = tourId,
-                    PoiId = poiId,
-                    SortOrder = index + 1,
-                    AutoPlay = true
-                }
-                : null)
-            .Where(x => x != null)
-            .Cast<TourStop>()
+        return stopConfigs
+            .Select((stop, index) => new TourStop
+            {
+                TourId = tourId,
+                PoiId = stop.PoiId,
+                SortOrder = index + 1,
+                AutoPlay = stop.AutoPlay,
+                Note = stop.Note
+            })
             .ToList();
     }
 
-    private static string NormalizeStopPoiIds(string? raw)
+    private static List<TourStopDraft> ParseStopConfigs(string? rawJson, string? fallbackPoiIds)
     {
-        return string.Join(",",
-            (raw ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(value => int.TryParse(value, out _))
-                .Distinct());
+        List<TourStopDraft>? parsedStops = null;
+        if (!string.IsNullOrWhiteSpace(rawJson))
+        {
+            try
+            {
+                parsedStops = JsonSerializer.Deserialize<List<TourStopDraft>>(rawJson);
+            }
+            catch (JsonException)
+            {
+                parsedStops = null;
+            }
+        }
+
+        var normalized = (parsedStops ?? new List<TourStopDraft>())
+            .Where(x => x.PoiId > 0)
+            .GroupBy(x => x.PoiId)
+            .Select(group =>
+            {
+                var item = group.First();
+                return new TourStopDraft
+                {
+                    PoiId = item.PoiId,
+                    AutoPlay = item.AutoPlay,
+                    Note = (item.Note ?? string.Empty).Trim()
+                };
+            })
+            .ToList();
+
+        if (normalized.Count > 0)
+        {
+            return normalized;
+        }
+
+        return (fallbackPoiIds ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => int.TryParse(value, out _))
+            .Distinct()
+            .Select(value => new TourStopDraft
+            {
+                PoiId = int.Parse(value),
+                AutoPlay = true,
+                Note = string.Empty
+            })
+            .ToList();
+    }
+
+    private static string SerializeStopConfigs(IEnumerable<TourStopDraft> stopConfigs)
+    {
+        return JsonSerializer.Serialize(stopConfigs.Select(x => new TourStopDraft
+        {
+            PoiId = x.PoiId,
+            AutoPlay = x.AutoPlay,
+            Note = x.Note
+        }));
     }
 
     private async Task<string> SaveImageAsync(IFormFile? imageFile, string? currentUrl)
@@ -194,5 +255,12 @@ public class TourController : Controller
         await using var stream = new FileStream(physicalPath, FileMode.Create);
         await imageFile.CopyToAsync(stream);
         return $"/images/{fileName}";
+    }
+
+    private sealed class TourStopDraft
+    {
+        public int PoiId { get; set; }
+        public bool AutoPlay { get; set; } = true;
+        public string Note { get; set; } = string.Empty;
     }
 }

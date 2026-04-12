@@ -4,6 +4,7 @@
     @Html.AntiForgeryToken()
     <input asp-for="Tour.Id" type="hidden" />
     <input asp-for="Tour.CoverImageUrl" type="hidden" />
+    <input asp-for="StopConfigJson" type="hidden" />
     <div class="row g-3">
         <div class="col-md-6">
             <label class="form-label">Tên tour</label>
@@ -18,7 +19,7 @@
             <input asp-for="Tour.EstimatedDurationMinutes" class="form-control" />
         </div>
         <div class="col-12">
-            <label class="form-label">Description</label>
+            <label class="form-label">Mô tả</label>
             <textarea asp-for="Tour.Description" class="form-control" rows="3"></textarea>
         </div>
         <div class="col-md-8">
@@ -41,8 +42,8 @@
             <div class="card p-3 bg-light-subtle border-0">
                 <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                     <div>
-                        <div class="fw-semibold">Preview cover tour</div>
-                        <div class="text-muted small">Cover này sẽ hiện ở admin và mobile app.</div>
+                        <div class="fw-semibold">Xem trước ảnh cover tour</div>
+                        <div class="text-muted small">Cover này sẽ hiện ở admin và app mobile.</div>
                     </div>
                     <div class="text-end">
                         <div class="text-muted small">Đường dẫn hiện tại</div>
@@ -77,7 +78,7 @@
                         <button type="button" class="btn btn-outline-primary" id="tour-add-stop">Thêm vào tour</button>
                     </div>
                 </div>
-                <div class="form-text mt-2">Sắp xếp thứ tự bằng nút lên/xuống. Tour sẽ lưu theo đúng thứ tự đang hiển thị.</div>
+                <div class="form-text mt-2">Sắp xếp thứ tự bằng nút lên/xuống. Mỗi điểm dừng có thể bật tắt tự phát và ghi chú riêng.</div>
                 <span asp-validation-for="StopPoiIds" class="text-danger small mt-2 d-block"></span>
                 <div id="tour-stop-empty" class="text-muted small mt-3">Chưa có POI nào trong tour.</div>
                 <div id="tour-stop-list" class="d-flex flex-column gap-2 mt-3"></div>
@@ -135,6 +136,7 @@
 </script>
 <script>
     const stopInput = document.querySelector('[name="StopPoiIds"]');
+    const stopConfigInput = document.querySelector('[name="StopConfigJson"]');
     const stopPicker = document.getElementById('tour-poi-picker');
     const stopList = document.getElementById('tour-stop-list');
     const stopEmpty = document.getElementById('tour-stop-empty');
@@ -145,42 +147,122 @@
         }
     ]);
 
+    function normalizeStops(values) {
+        const unique = [];
+
+        (values || []).forEach((value) => {
+            const poiId = `${value?.poiId || value?.PoiId || ''}`.trim();
+            if (!poiId || unique.some(item => item.poiId === poiId)) {
+                return;
+            }
+
+            unique.push({
+                poiId,
+                autoPlay: value?.autoPlay ?? value?.AutoPlay ?? true,
+                note: `${value?.note ?? value?.Note ?? ''}`.trim()
+            });
+        });
+
+        return unique;
+    }
+
     function getStops() {
-        return (stopInput?.value || '')
+        if (stopConfigInput?.value?.trim()) {
+            try {
+                return normalizeStops(JSON.parse(stopConfigInput.value));
+            } catch (error) {
+            }
+        }
+
+        return normalizeStops((stopInput?.value || '')
             .split(',')
             .map(x => x.trim())
-            .filter(Boolean);
+            .filter(Boolean)
+            .map(poiId => ({
+                poiId,
+                autoPlay: true,
+                note: ''
+            })));
+    }
+
+    function syncStops(values) {
+        const normalized = normalizeStops(values);
+        if (stopInput) {
+            stopInput.value = normalized.map(item => item.poiId).join(',');
+        }
+
+        if (stopConfigInput) {
+            stopConfigInput.value = JSON.stringify(normalized.map(item => ({
+                poiId: Number(item.poiId),
+                autoPlay: !!item.autoPlay,
+                note: item.note || ''
+            })));
+        }
+
+        return normalized;
     }
 
     function setStops(values) {
-        const unique = [];
-        values.forEach((value) => {
-            if (value && !unique.includes(value)) {
-                unique.push(value);
-            }
-        });
-
-        stopInput.value = unique.join(',');
+        syncStops(values);
         renderStops();
     }
 
-    function renderStops() {
+    function escapeHtml(value) {
+        return `${value || ''}`
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function updateStopField(poiId, field, value) {
         const stops = getStops();
+        const item = stops.find(stop => stop.poiId === poiId);
+        if (!item) {
+            return;
+        }
+
+        if (field === 'autoPlay') {
+            item.autoPlay = !!value;
+        } else if (field === 'note') {
+            item.note = `${value || ''}`.trim();
+        }
+
+        syncStops(stops);
+    }
+
+    function renderStops() {
+        const stops = syncStops(getStops());
         stopList.innerHTML = '';
         stopEmpty.style.display = stops.length ? 'none' : 'block';
 
-        stops.forEach((poiId, index) => {
+        stops.forEach((stop, index) => {
             const item = document.createElement('div');
-            item.className = 'd-flex align-items-center justify-content-between gap-2 rounded-4 border bg-white px-3 py-2';
+            item.className = 'rounded-4 border bg-white px-3 py-3';
             item.innerHTML = `
-                <div>
-                    <div class="fw-semibold">Điểm dừng ${index + 1}</div>
-                    <div class="text-muted small">${poiLookup[poiId] || `POI #${poiId}`}</div>
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                    <div>
+                        <div class="fw-semibold">Điểm dừng ${index + 1}</div>
+                        <div class="text-muted small">${poiLookup[stop.poiId] || `POI #${stop.poiId}`}</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="up" data-poi-id="${stop.poiId}" ${index === 0 ? 'disabled' : ''}>Lên</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="down" data-poi-id="${stop.poiId}" ${index === stops.length - 1 ? 'disabled' : ''}>Xuống</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove" data-poi-id="${stop.poiId}">Xóa</button>
+                    </div>
                 </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="up" data-poi-id="${poiId}" ${index === 0 ? 'disabled' : ''}>Lên</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="down" data-poi-id="${poiId}" ${index === stops.length - 1 ? 'disabled' : ''}>Xuống</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove" data-poi-id="${poiId}">Xóa</button>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mt-2">
+                            <input type="checkbox" class="form-check-input" data-action="autoplay" data-poi-id="${stop.poiId}" ${stop.autoPlay ? 'checked' : ''} />
+                            <label class="form-check-label">Tự phát ở điểm dừng này</label>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small text-muted mb-1">Ghi chú nội bộ</label>
+                        <textarea class="form-control form-control-sm" rows="2" data-action="note" data-poi-id="${stop.poiId}" placeholder="Ví dụ: dừng ngắn, ưu tiên giới thiệu món đặc trưng.">${escapeHtml(stop.note)}</textarea>
+                    </div>
                 </div>`;
             stopList.appendChild(item);
         });
@@ -193,8 +275,12 @@
         }
 
         const stops = getStops();
-        if (!stops.includes(poiId)) {
-            stops.push(poiId);
+        if (!stops.some(stop => stop.poiId === poiId)) {
+            stops.push({
+                poiId,
+                autoPlay: true,
+                note: ''
+            });
             setStops(stops);
         }
 
@@ -210,7 +296,7 @@
         const action = button.getAttribute('data-action');
         const poiId = button.getAttribute('data-poi-id');
         const stops = getStops();
-        const index = stops.indexOf(poiId);
+        const index = stops.findIndex(stop => stop.poiId === poiId);
         if (index < 0) {
             return;
         }
@@ -224,6 +310,36 @@
         }
 
         setStops(stops);
+    });
+
+    stopList?.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        const action = target.getAttribute('data-action');
+        const poiId = target.getAttribute('data-poi-id');
+        if (!action || !poiId) {
+            return;
+        }
+
+        if (action === 'autoplay' && target instanceof HTMLInputElement) {
+            updateStopField(poiId, 'autoPlay', target.checked);
+        }
+    });
+
+    stopList?.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        const action = target.getAttribute('data-action');
+        const poiId = target.getAttribute('data-poi-id');
+        if (action === 'note' && poiId) {
+            updateStopField(poiId, 'note', target.value);
+        }
     });
 
     renderStops();
