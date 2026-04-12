@@ -22,7 +22,7 @@ public class MapPage : ContentPage
         BindingContext = _viewModel = viewModel;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
-        Title = "Map";
+        Title = "Bản đồ";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         _nativeMap = CreateNativeMap();
         Content = BuildContent();
@@ -57,11 +57,6 @@ public class MapPage : ContentPage
     private async void OnOpenNarrationClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedNarrationAsync();
-    }
-
-    private async void OnDiagnoseAudioClicked(object? sender, EventArgs e)
-    {
-        await _viewModel.RunSelectedPoiAudioDiagnosticsAsync();
     }
 
     private async void OnLanguageChanged(object? sender, EventArgs e)
@@ -108,7 +103,7 @@ public class MapPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Google Maps và Geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Google Maps và geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
                     new Label { Text = "Hiển thị vị trí của bạn, tất cả POI, điểm gần nhất và chạm marker để xem chi tiết nhanh.", TextColor = Color.FromArgb("#E4EEF7") }
                 }
             }
@@ -164,7 +159,7 @@ public class MapPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        statusStrip.Add(CreateInfoChip("Tracking", nameof(MainViewModel.TrackingStatusText), "#EEF5FB", "#17324D"));
+        statusStrip.Add(CreateInfoChip("Định vị", nameof(MainViewModel.TrackingStatusText), "#EEF5FB", "#17324D"));
         var nearestChip = CreateInfoChip("POI gần nhất", nameof(MainViewModel.NearestPoiSummaryText), "#FFF7E2", "#8B5E00");
         Grid.SetColumn(nearestChip, 1);
         statusStrip.Add(nearestChip);
@@ -209,6 +204,7 @@ public class MapPage : ContentPage
             LineBreakMode = LineBreakMode.TailTruncation
         }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiNarrationText)));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiAudioText)));
+
         var selectedActions = new Grid
         {
             ColumnDefinitions =
@@ -227,6 +223,7 @@ public class MapPage : ContentPage
         Grid.SetColumn(selectedDetailButton, 2);
         selectedActions.Add(selectedDetailButton);
         selectedLayout.Add(selectedActions);
+
         var bottomSelectedActions = new Grid
         {
             ColumnDefinitions =
@@ -241,16 +238,8 @@ public class MapPage : ContentPage
         Grid.SetColumn(nearestButton, 1);
         bottomSelectedActions.Add(nearestButton);
         selectedLayout.Add(bottomSelectedActions);
-        selectedLayout.Add(CreateActionButton("Chẩn đoán audio", OnDiagnoseAudioClicked, "#EEF5FB", "#17324D"));
-        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B"), FontAttributes = FontAttributes.Bold }
             .Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
-        selectedLayout.Add(new Label
-        {
-            TextColor = Color.FromArgb("#667C92"),
-            FontSize = 12,
-            LineBreakMode = LineBreakMode.WordWrap
-        }.Bind(Label.TextProperty, nameof(MainViewModel.AudioDiagnosticsSummary)));
         selectedCard.Content = selectedLayout;
         root.Add(selectedCard);
 
@@ -347,7 +336,7 @@ public class MapPage : ContentPage
 
     private Map CreateNativeMap()
     {
-        var map = new Map
+        return new Map
         {
             HeightRequest = 420,
             IsShowingUser = true,
@@ -356,7 +345,6 @@ public class MapPage : ContentPage
             IsTrafficEnabled = false,
             MapType = MapType.Street
         };
-        return map;
     }
 
     private void RefreshNativeMap(bool forceRegion = false)

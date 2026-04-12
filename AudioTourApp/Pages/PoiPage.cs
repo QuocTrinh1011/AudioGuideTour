@@ -11,7 +11,7 @@ public class PoiPage : ContentPage
     public PoiPage(MainViewModel viewModel)
     {
         BindingContext = _viewModel = viewModel;
-        Title = "POI";
+        Title = "Thư viện POI";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
     }
@@ -34,11 +34,6 @@ public class PoiPage : ContentPage
     private async void OnOpenNarrationClicked(object? sender, EventArgs e)
     {
         await _viewModel.OpenSelectedNarrationAsync();
-    }
-
-    private async void OnDiagnoseAudioClicked(object? sender, EventArgs e)
-    {
-        await _viewModel.RunSelectedPoiAudioDiagnosticsAsync();
     }
 
     private async void OnLanguageChanged(object? sender, EventArgs e)
@@ -93,7 +88,7 @@ public class PoiPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Thu vien POI", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Thư viện POI", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
                     new Label { Text = "Duyệt tất cả điểm thuyết minh, xem nhanh nội dung và mở bản thuyết minh đầy đủ.", TextColor = Color.FromArgb("#E4EEF7") }
                 }
             }
@@ -170,17 +165,6 @@ public class PoiPage : ContentPage
         selectedActions.Add(narrationButton);
         selectedLayout.Add(selectedActions);
 
-        selectedLayout.Add(CreateActionButton("Chan doan audio", OnDiagnoseAudioClicked, "#EEF5FB", "#17324D"));
-        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
-        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B"), FontAttributes = FontAttributes.Bold }
-            .Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
-        selectedLayout.Add(new Label
-        {
-            TextColor = Color.FromArgb("#667C92"),
-            FontSize = 12,
-            LineBreakMode = LineBreakMode.WordWrap
-        }.Bind(Label.TextProperty, nameof(MainViewModel.AudioDiagnosticsSummary)));
-
         var navigationActions = new Grid
         {
             ColumnDefinitions =
@@ -191,11 +175,11 @@ public class PoiPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        navigationActions.Add(CreateActionButton("POI truoc", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
-        var nearestButton = CreateActionButton("Gan nhat", OnNearestPoiClicked, "#EEF3F8", "#17324D");
+        navigationActions.Add(CreateActionButton("POI trước", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
+        var nearestButton = CreateActionButton("Gần nhất", OnNearestPoiClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(nearestButton, 1);
         navigationActions.Add(nearestButton);
-        var nextButton = CreateActionButton("POI tiep", OnNextPoiClicked, "#F5F8FB", "#17324D");
+        var nextButton = CreateActionButton("POI tiếp", OnNextPoiClicked, "#F5F8FB", "#17324D");
         Grid.SetColumn(nextButton, 2);
         navigationActions.Add(nextButton);
         selectedLayout.Add(navigationActions);
@@ -210,7 +194,7 @@ public class PoiPage : ContentPage
             ColumnSpacing = 10
         };
         secondActions.Add(CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#EEF3F8", "#17324D"));
-        var detailButton = CreateActionButton("Chi tiet", OnOpenPoiDetailsClicked, "#F3F7FB", "#17324D");
+        var detailButton = CreateActionButton("Chi tiết", OnOpenPoiDetailsClicked, "#F3F7FB", "#17324D");
         Grid.SetColumn(detailButton, 1);
         secondActions.Add(detailButton);
         selectedLayout.Add(secondActions);
@@ -295,7 +279,7 @@ public class PoiPage : ContentPage
     {
         var picker = new Picker
         {
-            Title = "Chọn ngôn ngữ noi dung",
+            Title = "Chọn ngôn ngữ nội dung",
             ItemDisplayBinding = new Binding("NativeName"),
             BackgroundColor = Color.FromArgb("#F8FAFD"),
             TextColor = Color.FromArgb("#17324D")

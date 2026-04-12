@@ -334,14 +334,14 @@ public class MainViewModel : INotifyPropertyChanged
     public string TrackingActionText => IsTracking ? "Tắt tracking" : "Bật tracking";
     public string PlaybackStatusText => _audioQueueService.CurrentItem == null
         ? "Chưa có audio đang phát"
-        : $"Đang phat: {_audioQueueService.CurrentItem.Title}";
+        : $"Đang phát: {_audioQueueService.CurrentItem.Title}";
     public string QueueSummaryText => _audioQueueService.PendingItems.Count == 0
-        ? "Hang doi rong"
-        : $"Hang doi: {string.Join(", ", _audioQueueService.PendingItems.Select(x => x.Title))}";
+        ? "Hàng đợi trống"
+        : $"Hàng đợi: {string.Join(", ", _audioQueueService.PendingItems.Select(x => x.Title))}";
 
     public string SelectedPoiSubtitle => SelectedPoi == null
         ? "Chọn 1 POI gần đây hoặc quét QR để xem thông tin chi tiết."
-        : $"{SelectedPoi.Language} | {SelectedPoi.DistanceMeters:F0}m | Priority {SelectedPoi.Priority}";
+        : $"{SelectedPoi.Language} | {SelectedPoi.DistanceMeters:F0}m | Ưu tiên {SelectedPoi.Priority}";
     public string SelectedPoiNarrationText => SelectedPoi == null
         ? "Chưa có POI nào được chọn."
         : !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript)
@@ -360,12 +360,12 @@ public class MainViewModel : INotifyPropertyChanged
                     : "POI này chưa có script đọc.";
     public string SelectedPoiMetaText => SelectedPoi == null
         ? "Chọn 1 POI để xem thông tin kích hoạt."
-        : $"{ResolveCategoryDisplayName(SelectedPoi.Category)} | Trigger {SelectedPoi.TriggerMode} | Radius {SelectedPoi.Radius}m | Nearby {SelectedPoi.ApproachRadiusMeters}m";
+        : $"{ResolveCategoryDisplayName(SelectedPoi.Category)} | Kích hoạt {SelectedPoi.TriggerMode} | Bán kính {SelectedPoi.Radius}m | Tiếp cận {SelectedPoi.ApproachRadiusMeters}m";
     public string SelectedPoiCoordinateText => SelectedPoi == null
         ? "Chưa có tọa độ POI."
         : $"{SelectedPoi.Latitude:F6}, {SelectedPoi.Longitude:F6}";
     public string SelectedPoiVoiceText => SelectedPoi == null
-        ? "Chưa có voice."
+        ? "Chưa có giọng đọc."
         : string.IsNullOrWhiteSpace(SelectedPoi.VoiceName)
             ? $"Ngôn ngữ đọc: {SelectedPoi.Language}"
             : $"Voice ưu tiên: {SelectedPoi.VoiceName} | Ngôn ngữ: {SelectedPoi.Language}";
@@ -373,7 +373,7 @@ public class MainViewModel : INotifyPropertyChanged
         ? "Chưa có thông tin audio."
         : string.IsNullOrWhiteSpace(SelectedPoi.AudioUrl)
             ? $"Chế độ: {SelectedPoi.AudioMode}. Đang ưu tiên TTS."
-            : $"Chế độ: {SelectedPoi.AudioMode}. Có audio fallback.";
+            : $"Chế độ: {SelectedPoi.AudioMode}. Có file audio hỗ trợ.";
     public string SelectedPoiPositionText
     {
         get
@@ -387,7 +387,7 @@ public class MainViewModel : INotifyPropertyChanged
             var index = source.FindIndex(x => x.Id == SelectedPoi.Id);
             return index < 0
                 ? "POI này chưa nằm trong danh sách hiện tại."
-                : $"POI {index + 1}/{source.Count} trong danh sach hien tai.";
+                : $"POI {index + 1}/{source.Count} trong danh sách hiện tại.";
         }
     }
     public string NearestPoiSummaryText
@@ -448,7 +448,7 @@ public class MainViewModel : INotifyPropertyChanged
 
             return currentStop?.Poi == null
                 ? $"Tour {ActiveTour.Name} chưa có điểm dừng hợp lệ."
-                : $"Tour {ActiveTour.Name}: diem {_activeTourStopIndex + 1}/{totalStops} - {currentStop.Poi.Title}";
+                : $"Tour {ActiveTour.Name}: điểm {_activeTourStopIndex + 1}/{totalStops} - {currentStop.Poi.Title}";
         }
     }
 
@@ -595,7 +595,7 @@ public class MainViewModel : INotifyPropertyChanged
         var code = string.IsNullOrWhiteSpace(overrideCode) ? QrCodeInput : overrideCode;
         if (string.IsNullOrWhiteSpace(code))
         {
-            Status = "Nhap ma QR truoc khi mo noi dung.";
+            Status = "Nhập mã QR trước khi mở nội dung.";
             return;
         }
 
@@ -615,7 +615,7 @@ public class MainViewModel : INotifyPropertyChanged
             NormalizePoiCategory(result.Poi);
             SelectedPoi = result.Poi;
             PushRecentQr(result);
-            Status = $"QR {result.Code} da mo noi dung {result.Poi.Title}.";
+            Status = $"QR {result.Code} đã mở nội dung {result.Poi.Title}.";
             await _audioQueueService.EnqueueAsync(CreatePlaybackRequest(result.Poi, "qr", false), cancellationToken);
             RefreshMap();
         }
@@ -682,7 +682,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         if (SelectedTour == null)
         {
-            Status = "Chon 1 tour truoc khi bật dau.";
+            Status = "Chọn 1 tour trước khi bắt đầu.";
             return;
         }
 
@@ -739,7 +739,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (_activeTourStopIndex + 1 >= stops.Count)
         {
-            Status = $"Tour {ActiveTour.Name} da hoan thanh.";
+            Status = $"Tour {ActiveTour.Name} đã hoàn thành.";
             return;
         }
 
@@ -778,7 +778,7 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _ = MainThread.InvokeOnMainThreadAsync(async () =>
             {
-                await StopTrackingAsync("Admin da tắt background tracking cho visitor nay, nen app dung tracking khi chuyen sang nen.", clearPreference: true);
+                await StopTrackingAsync("Quyền chạy nền đang tắt, nên app sẽ dừng tracking khi chuyển sang nền.", clearPreference: true);
             });
         }
     }
@@ -1280,7 +1280,7 @@ public class MainViewModel : INotifyPropertyChanged
             var blockFor = Math.Max(1, Math.Max(poi.DebounceSeconds, poi.CooldownSeconds));
             if ((DateTime.UtcNow - lastTrigger).TotalSeconds < blockFor)
             {
-                Status = $"Bo qua auto play {poi.Title} vi van trong thoi gian debounce/cooldown tren may.";
+                Status = $"Bỏ qua tự phát cho {poi.Title} vì vẫn đang trong thời gian debounce/cooldown trên máy.";
                 return false;
             }
         }
@@ -1311,7 +1311,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (!shouldPlay && mode != "manual")
         {
-            Status = $"Bỏ qua {poi.Title} vì chưa có chuyển trạng thái mới cho trigger mode {poi.TriggerMode}.";
+            Status = $"Bỏ qua {poi.Title} vì chưa có chuyển trạng thái mới cho kiểu kích hoạt {poi.TriggerMode}.";
         }
 
         return shouldPlay;

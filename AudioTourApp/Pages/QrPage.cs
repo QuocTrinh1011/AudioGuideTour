@@ -104,49 +104,19 @@ public class QrPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "QR kích hoạt nhanh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Nhập, dán, hoặc dùng mã nhanh để mở ngay nội dung xe buýt mà không cần GPS.", TextColor = Color.FromArgb("#E8F0F7") }
+                    new Label { Text = "Quét QR để nghe ngay", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Dùng camera để mở nội dung tại điểm dừng. Nếu cần, bạn vẫn có thể nhập mã thủ công.", TextColor = Color.FromArgb("#E8F0F7") }
                 }
             }
         });
 
-        var qrCard = CreateCard();
-        var qrLayout = new VerticalStackLayout { Spacing = 12 };
-        qrLayout.Add(new Label { Text = "Mở mã QR", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        qrLayout.Add(new Entry
-        {
-            Placeholder = "BUS-KH-001",
-            BackgroundColor = Color.FromArgb("#F8FAFD"),
-            TextColor = Color.FromArgb("#17324D")
-        }.Bind(Entry.TextProperty, nameof(MainViewModel.QrCodeInput), BindingMode.TwoWay));
-
-        var quickCodes = new HorizontalStackLayout { Spacing = 8 };
-        quickCodes.Add(CreateActionButton("Khánh Hội", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-KH-001"));
-        quickCodes.Add(CreateActionButton("Vĩnh Hội", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-VH-002"));
-        quickCodes.Add(CreateActionButton("Xuân Chiếu", OnQuickQrClicked, "#EEF3F8", "#17324D", "BUS-XC-003"));
-        qrLayout.Add(quickCodes);
-
-        var qrActions = new Grid
-        {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
-            ColumnSpacing = 10
-        };
-        qrActions.Add(CreateActionButton("Mở QR", OnLookupQrClicked, "#17324D", "White"));
-        var pasteButton = CreateActionButton("Dán từ clipboard", OnPasteQrClicked, "#E4B43C", "#17324D");
-        Grid.SetColumn(pasteButton, 1);
-        qrActions.Add(pasteButton);
-        qrLayout.Add(qrActions);
-        qrLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
-        qrCard.Content = qrLayout;
-        root.Add(qrCard);
-
         var cameraCard = CreateCard();
         var cameraLayout = new VerticalStackLayout { Spacing = 12 };
-        cameraLayout.Add(new Label { Text = "Quyền camera", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        cameraLayout.Add(new Label { Text = "Quét bằng camera", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         cameraLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CameraPermissionText)));
         cameraLayout.Add(new Label
         {
-            Text = "Bạn có thể quét camera thật, hoặc dùng luồng nhập/dán mã QR nếu đang test trên emulator.",
+            Text = "Hãy đưa mã QR vào khung camera để app mở nội dung ngay tại điểm dừng.",
             TextColor = Color.FromArgb("#667C92"),
             FontSize = 12
         });
@@ -166,6 +136,30 @@ public class QrPage : ContentPage
         cameraLayout.Add(cameraActions);
         cameraCard.Content = cameraLayout;
         root.Add(cameraCard);
+
+        var qrCard = CreateCard();
+        var qrLayout = new VerticalStackLayout { Spacing = 12 };
+        qrLayout.Add(new Label { Text = "Nhập mã thủ công", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        qrLayout.Add(new Entry
+        {
+            Placeholder = "Ví dụ: BUS-KH-001",
+            BackgroundColor = Color.FromArgb("#F8FAFD"),
+            TextColor = Color.FromArgb("#17324D")
+        }.Bind(Entry.TextProperty, nameof(MainViewModel.QrCodeInput), BindingMode.TwoWay));
+
+        var qrActions = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
+            ColumnSpacing = 10
+        };
+        qrActions.Add(CreateActionButton("Mở nội dung", OnLookupQrClicked, "#17324D", "White"));
+        var pasteButton = CreateActionButton("Dán mã", OnPasteQrClicked, "#E4B43C", "#17324D");
+        Grid.SetColumn(pasteButton, 1);
+        qrActions.Add(pasteButton);
+        qrLayout.Add(qrActions);
+        qrLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
+        qrCard.Content = qrLayout;
+        root.Add(qrCard);
 
         var historyCard = CreateCard();
         var historyLayout = new VerticalStackLayout { Spacing = 12 };

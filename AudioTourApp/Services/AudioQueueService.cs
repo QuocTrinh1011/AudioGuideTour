@@ -92,7 +92,7 @@ public class AudioQueueService
                 _playbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _currentRequest = request;
                 RaiseQueueChanged();
-                StatusChanged?.Invoke(this, $"Đang phat {poi.Title}...");
+                StatusChanged?.Invoke(this, $"Đang phát {poi.Title}...");
 
                 var played = false;
                 var wasCompleted = false;
@@ -139,7 +139,7 @@ public class AudioQueueService
                         else if (!string.IsNullOrWhiteSpace(result.Message))
                         {
                             failureReasons.Add($"Audio: {result.Message}");
-                            StatusChanged?.Invoke(this, $"Audio cua {poi.Title} gap loi. {(audioOnly ? "Không có fallback TTS cho POI này." : "Đang thử TTS dự phòng...")}");
+                            StatusChanged?.Invoke(this, $"Audio của {poi.Title} gặp lỗi. {(audioOnly ? "Không có fallback TTS cho POI này." : "Đang thử TTS dự phòng...")}");
                         }
                     }
 
@@ -153,7 +153,7 @@ public class AudioQueueService
                         playbackMode = "tts";
                         if (played)
                         {
-                            StatusChanged?.Invoke(this, $"Đang doc {ttsSourceLabel} cho {poi.Title} bang {poi.Language}.");
+                            StatusChanged?.Invoke(this, $"Đang đọc {ttsSourceLabel} cho {poi.Title} bằng {poi.Language}.");
                         }
                         else if (!string.IsNullOrWhiteSpace(result.Message))
                         {
@@ -198,7 +198,7 @@ public class AudioQueueService
                     ? wasCompleted
                         ? $"Đã xong {poi.Title}."
                         : $"Đã dừng giữa chừng {poi.Title}."
-                    : $"Không the phat {poi.Title}. {lastFailure}".Trim());
+                    : $"Không thể phát {poi.Title}. {lastFailure}".Trim());
             }
         }
         finally
@@ -257,7 +257,7 @@ public class AudioQueueService
         await _audioFallbackPlayer.StopAsync();
         _currentRequest = null;
         RaiseQueueChanged();
-        StatusChanged?.Invoke(this, $"{reason} Hang doi audio da duoc dung.");
+        StatusChanged?.Invoke(this, $"{reason} Hàng đợi audio đã được dừng.");
     }
 
     private async Task SaveVisitAsync(AudioPlaybackRequest request, DateTime startedAt, DateTime endedAt, bool played, bool wasCompleted, string playbackMode)

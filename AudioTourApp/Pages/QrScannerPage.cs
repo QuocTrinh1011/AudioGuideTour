@@ -17,7 +17,7 @@ public class QrScannerPage : ContentPage
     {
         _viewModel = viewModel;
         BindingContext = viewModel;
-        Title = "Scan QR";
+        Title = "Quét QR";
         BackgroundColor = Color.FromArgb("#081320");
 
         _cameraView = new CameraView
@@ -33,7 +33,7 @@ public class QrScannerPage : ContentPage
 
         _statusLabel = new Label
         {
-            Text = "Dua ma QR vao khung camera de mo ngay noi dung POI.",
+            Text = "Đưa mã QR vào khung camera để mở ngay nội dung POI.",
             TextColor = Color.FromArgb("#DCE9F5"),
             HorizontalTextAlignment = TextAlignment.Center
         };
@@ -83,7 +83,7 @@ public class QrScannerPage : ContentPage
             {
                 new Label
                 {
-                    Text = "Quet ma QR",
+                    Text = "Quét mã QR",
                     FontSize = 28,
                     FontAttributes = FontAttributes.Bold,
                     TextColor = Colors.White
@@ -137,7 +137,7 @@ public class QrScannerPage : ContentPage
         var refreshButton = CreateButton("Kiểm tra quyền", OnRefreshPermissionClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(refreshButton, 1);
         actions.Add(refreshButton);
-        var closeButton = CreateButton("Dong", OnCloseClicked, "#17324D", "White");
+        var closeButton = CreateButton("Đóng", OnCloseClicked, "#17324D", "White");
         Grid.SetColumn(closeButton, 2);
         actions.Add(closeButton);
         Grid.SetRow(actions, 2);

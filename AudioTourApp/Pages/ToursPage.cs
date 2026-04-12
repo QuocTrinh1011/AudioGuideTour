@@ -11,7 +11,7 @@ public class ToursPage : ContentPage
     public ToursPage(MainViewModel viewModel)
     {
         BindingContext = _viewModel = viewModel;
-        Title = "Tours";
+        Title = "Tour";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
     }
@@ -67,22 +67,22 @@ public class ToursPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Tour am thuc", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Chon tour, bật dau lo trinh va chuyen den diem dung ke tiep khi can.", TextColor = Color.FromArgb("#FFF7E1") }
+                    new Label { Text = "Tour ẩm thực", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Chọn tour, bắt đầu lộ trình và chuyển đến điểm dừng kế tiếp khi cần.", TextColor = Color.FromArgb("#FFF7E1") }
                 }
             }
         });
 
         var statusCard = CreateCard();
         var statusLayout = new VerticalStackLayout { Spacing = 14 };
-        statusLayout.Add(new Label { Text = "Trang thai tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        statusLayout.Add(new Label { Text = "Trạng thái tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         statusLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.ActiveTourStatus)));
         var statusActions = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        statusActions.Add(CreateActionButton("Bat dau tour", OnStartTourClicked, "#17324D", "White"));
+        statusActions.Add(CreateActionButton("Bắt đầu tour", OnStartTourClicked, "#17324D", "White"));
         var nextStopButton = CreateActionButton("Điểm kế tiếp", OnNextTourStopClicked, "#E4B43C", "#17324D");
         Grid.SetColumn(nextStopButton, 1);
         statusActions.Add(nextStopButton);
@@ -92,7 +92,7 @@ public class ToursPage : ContentPage
 
         var toursCard = CreateCard();
         var toursLayout = new VerticalStackLayout { Spacing = 12 };
-        toursLayout.Add(new Label { Text = "Danh sach tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        toursLayout.Add(new Label { Text = "Danh sách tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
         var toursCollection = new CollectionView { SelectionMode = SelectionMode.Single };
         toursCollection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.Tours));
         toursCollection.SetBinding(SelectableItemsView.SelectedItemProperty, nameof(MainViewModel.SelectedTour), BindingMode.TwoWay);
@@ -119,9 +119,9 @@ public class ToursPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Description)));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Stops.Count), stringFormat: "{0} diem dung"));
+                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Stops.Count), stringFormat: "{0} điểm dừng"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.EstimatedDurationMinutes), stringFormat: "Thoi luong: {0} phut"));
+                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.EstimatedDurationMinutes), stringFormat: "Thời lượng: {0} phút"));
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;
@@ -133,8 +133,8 @@ public class ToursPage : ContentPage
 
         var stopsCard = CreateCard();
         var stopsLayout = new VerticalStackLayout { Spacing = 12 };
-        stopsLayout.Add(new Label { Text = "Cac diem dung trong tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        var stopsCollection = new CollectionView { EmptyView = "Chon 1 tour de xem cac diem dung." };
+        stopsLayout.Add(new Label { Text = "Các điểm dừng trong tour", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        var stopsCollection = new CollectionView { EmptyView = "Chọn 1 tour để xem các điểm dừng." };
         stopsCollection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.SelectedTourStops));
         stopsCollection.ItemTemplate = new DataTemplate(() =>
         {
@@ -187,8 +187,8 @@ public class ToursPage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        poiActions.Add(CreateActionButton("Nghe diem nay", OnPlaySelectedClicked, "#17324D", "White"));
-        var stopButton = CreateActionButton("Dung", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
+        poiActions.Add(CreateActionButton("Nghe điểm này", OnPlaySelectedClicked, "#17324D", "White"));
+        var stopButton = CreateActionButton("Dừng", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(stopButton, 1);
         poiActions.Add(stopButton);
         poiLayout.Add(poiActions);

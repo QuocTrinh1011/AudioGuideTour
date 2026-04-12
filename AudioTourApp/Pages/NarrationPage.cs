@@ -102,7 +102,7 @@ public class NarrationPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Label { Text = "Noi dung day du", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Nội dung đầy đủ", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label
                 {
                     TextColor = Color.FromArgb("#31485F"),
@@ -120,7 +120,7 @@ public class NarrationPage : ContentPage
             Spacing = 8,
             Children =
             {
-                new Label { Text = "Trang thai phat", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Trạng thái phát", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)),
                 new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.QueueSummaryText))
             }
@@ -137,7 +137,7 @@ public class NarrationPage : ContentPage
             ColumnSpacing = 10
         };
         actions.Add(CreateActionButton("Nghe ngay", OnPlaySelectedClicked, "#17324D", "White"));
-        var stopButton = CreateActionButton("Dung", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
+        var stopButton = CreateActionButton("Dừng", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(stopButton, 1);
         actions.Add(stopButton);
         root.Add(actions);
@@ -152,11 +152,11 @@ public class NarrationPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        navigationActions.Add(CreateActionButton("POI truoc", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
-        var nearestButton = CreateActionButton("Gan nhat", OnNearestPoiClicked, "#EEF3F8", "#17324D");
+        navigationActions.Add(CreateActionButton("POI trước", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
+        var nearestButton = CreateActionButton("Gần nhất", OnNearestPoiClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(nearestButton, 1);
         navigationActions.Add(nearestButton);
-        var nextButton = CreateActionButton("POI tiep", OnNextPoiClicked, "#F5F8FB", "#17324D");
+        var nextButton = CreateActionButton("POI tiếp", OnNextPoiClicked, "#F5F8FB", "#17324D");
         Grid.SetColumn(nextButton, 2);
         navigationActions.Add(nextButton);
         root.Add(navigationActions);

@@ -11,7 +11,7 @@ public class PoiDetailPage : ContentPage
     public PoiDetailPage(MainViewModel viewModel)
     {
         BindingContext = _viewModel = viewModel;
-        Title = "Chi tiet POI";
+        Title = "Chi tiết POI";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
     }
@@ -103,10 +103,10 @@ public class PoiDetailPage : ContentPage
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Address", stringFormat: "Địa chỉ: {0}"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Language", stringFormat: "Ngôn ngữ: {0}"),
                 new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Category", stringFormat: "Danh mục: {0}"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.TriggerMode", stringFormat: "Kich hoat: {0}"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Radius", stringFormat: "Ban kinh geofence: {0}m"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.ApproachRadiusMeters", stringFormat: "Ban kinh nearby: {0}m"),
-                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Priority", stringFormat: "Uu tien: {0}")
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.TriggerMode", stringFormat: "Kích hoạt: {0}"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Radius", stringFormat: "Bán kính geofence: {0}m"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.ApproachRadiusMeters", stringFormat: "Bán kính tiếp cận: {0}m"),
+                new Label { TextColor = Color.FromArgb("#5F7488") }.Bind(Label.TextProperty, "SelectedPoi.Priority", stringFormat: "Ưu tiên: {0}")
             }
         };
         root.Add(infoCard);
@@ -147,7 +147,7 @@ public class PoiDetailPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Label { Text = "Hang cho audio", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "Hàng chờ audio", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
                 new Label { TextColor = Color.FromArgb("#35526B") }.Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)),
                 new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.QueueSummaryText))
             }
@@ -165,7 +165,7 @@ public class PoiDetailPage : ContentPage
             ColumnSpacing = 10
         };
         actions.Add(CreateActionButton("Nghe ngay", OnPlaySelectedClicked, "#17324D", "White"));
-        var stopButton = CreateActionButton("Dung", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
+        var stopButton = CreateActionButton("Dừng", OnStopPlaybackClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(stopButton, 1);
         actions.Add(stopButton);
         var mapButton = CreateActionButton("Mở bản đồ", OnOpenMapClicked, "#E4B43C", "#17324D");
@@ -182,11 +182,11 @@ public class PoiDetailPage : ContentPage
             },
             ColumnSpacing = 10
         };
-        navigationActions.Add(CreateActionButton("POI truoc", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
-        var nearestButton = CreateActionButton("Gan nhat", OnNearestPoiClicked, "#EEF3F8", "#17324D");
+        navigationActions.Add(CreateActionButton("POI trước", OnPreviousPoiClicked, "#F5F8FB", "#17324D"));
+        var nearestButton = CreateActionButton("Gần nhất", OnNearestPoiClicked, "#EEF3F8", "#17324D");
         Grid.SetColumn(nearestButton, 1);
         navigationActions.Add(nearestButton);
-        var nextButton = CreateActionButton("POI tiep", OnNextPoiClicked, "#F5F8FB", "#17324D");
+        var nextButton = CreateActionButton("POI tiếp", OnNextPoiClicked, "#F5F8FB", "#17324D");
         Grid.SetColumn(nextButton, 2);
         navigationActions.Add(nextButton);
         root.Add(navigationActions);
