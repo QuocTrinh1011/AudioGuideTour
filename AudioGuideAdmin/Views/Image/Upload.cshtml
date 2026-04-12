@@ -28,7 +28,13 @@
                     </td>
                     <td>@file.FileName</td>
                     <td><input value="@file.Url" class="form-control" readonly /></td>
-                    <td class="text-end"><a href="/Image/Delete?fileName=@file.FileName" class="btn btn-sm btn-danger">Delete</a></td>
+                    <td class="text-end">
+                        <form method="post" action="/Image/Delete" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="fileName" value="@file.FileName" />
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa file ảnh này?')">Delete</button>
+                        </form>
+                    </td>
                 </tr>
             }
             </tbody>

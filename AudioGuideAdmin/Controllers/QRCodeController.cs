@@ -239,6 +239,8 @@ public class QRCodeController : Controller
         return BuildQrPngResult(qr.Code, BuildQrPayloadUrl(qr.Code), download: true);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var item = await _context.QRCodes.FindAsync(id);

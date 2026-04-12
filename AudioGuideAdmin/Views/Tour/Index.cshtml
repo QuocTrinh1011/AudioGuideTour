@@ -23,7 +23,10 @@
                     <td>@(item.IsActive ? "Active" : "Inactive")</td>
                     <td class="text-end">
                         <a href="/Tour/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Tour/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa tour này?')">Delete</a>
+                        <form method="post" action="/Tour/Delete/@item.Id" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa tour này?')">Delete</button>
+                        </form>
                     </td>
                 </tr>
             }

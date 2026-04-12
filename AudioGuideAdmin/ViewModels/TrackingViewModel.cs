@@ -14,6 +14,9 @@ public class TrackingViewModel
     public int VisitCount { get; set; }
     public int TriggerCount { get; set; }
     public int UniqueVisitorCount { get; set; }
+    public int DisplayedTrackingCount { get; set; }
+    public int DisplayedVisitCount { get; set; }
+    public int DisplayedTriggerCount { get; set; }
 
     public List<SelectListItem> PoiOptions { get; set; } = new();
     public List<SelectListItem> TriggerTypeOptions { get; set; } = new();

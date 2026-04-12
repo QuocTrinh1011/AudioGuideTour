@@ -75,7 +75,10 @@
                         <a href="/QRCode/DownloadSvg/@item.Id" class="btn btn-sm btn-outline-dark">Tải SVG</a>
                         <a href="/QRCode/Open/@item.Code" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Mở link</a>
                         <a href="/QRCode/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/QRCode/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Delete</a>
+                        <form method="post" action="/QRCode/Delete/@item.Id" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Delete</button>
+                        </form>
                     </td>
                 </tr>
             }

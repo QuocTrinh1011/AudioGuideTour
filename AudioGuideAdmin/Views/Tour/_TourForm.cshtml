@@ -6,15 +6,15 @@
     <input asp-for="Tour.CoverImageUrl" type="hidden" />
     <div class="row g-3">
         <div class="col-md-6">
-            <label class="form-label">Ten tour</label>
+            <label class="form-label">Tên tour</label>
             <input asp-for="Tour.Name" class="form-control" />
         </div>
         <div class="col-md-3">
-            <label class="form-label">Language</label>
-            <input asp-for="Tour.Language" class="form-control" />
+            <label class="form-label">Ngôn ngữ</label>
+            <select asp-for="Tour.Language" asp-items="Model.LanguageOptions" class="form-select"></select>
         </div>
         <div class="col-md-3">
-            <label class="form-label">Duration (min)</label>
+            <label class="form-label">Thời lượng (phút)</label>
             <input asp-for="Tour.EstimatedDurationMinutes" class="form-control" />
         </div>
         <div class="col-12">
@@ -22,9 +22,9 @@
             <textarea asp-for="Tour.Description" class="form-control" rows="3"></textarea>
         </div>
         <div class="col-md-8">
-            <label class="form-label">Upload cover image</label>
+            <label class="form-label">Upload ảnh cover</label>
             <input asp-for="CoverImageFile" class="form-control" type="file" accept="image/*" />
-            <div class="form-text">Chon file cover, he thong se tu luu vao /images va mobile app se lay anh tour tu dong.</div>
+            <div class="form-text">Chọn file cover, hệ thống sẽ tự lưu vào `/images` và mobile app sẽ lấy ảnh tour tự động.</div>
         </div>
         <div class="col-md-4 d-flex align-items-end">
             <div class="d-grid gap-2 w-100">
@@ -42,7 +42,7 @@
                 <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                     <div>
                         <div class="fw-semibold">Preview cover tour</div>
-                        <div class="text-muted small">Cover nay se hien o admin va mobile app.</div>
+                        <div class="text-muted small">Cover này sẽ hiện ở admin và mobile app.</div>
                     </div>
                     <div class="text-end">
                         <div class="text-muted small">Đường dẫn hiện tại</div>
@@ -59,9 +59,29 @@
             </div>
         </div>
         <div class="col-12">
-            <label class="form-label">Thu tu POI trong tour</label>
-            <input asp-for="StopPoiIds" class="form-control" placeholder="Vi du: 1,5,2,8" />
-            <div class="form-text">Nhap ID POI cach nhau bang dau phay theo dung thu tu tour.</div>
+            <label class="form-label">Các điểm dừng trong tour</label>
+            <input asp-for="StopPoiIds" type="hidden" />
+            <div class="card border-0 bg-light-subtle p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-lg-8">
+                        <label class="form-label">Chọn POI để thêm</label>
+                        <select id="tour-poi-picker" class="form-select">
+                            <option value="">Chọn một POI</option>
+                            @foreach (var poi in Model.PoiOptions)
+                            {
+                                <option value="@poi.Value">@poi.Text</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-lg-4 d-grid">
+                        <button type="button" class="btn btn-outline-primary" id="tour-add-stop">Thêm vào tour</button>
+                    </div>
+                </div>
+                <div class="form-text mt-2">Sắp xếp thứ tự bằng nút lên/xuống. Tour sẽ lưu theo đúng thứ tự đang hiển thị.</div>
+                <span asp-validation-for="StopPoiIds" class="text-danger small mt-2 d-block"></span>
+                <div id="tour-stop-empty" class="text-muted small mt-3">Chưa có POI nào trong tour.</div>
+                <div id="tour-stop-list" class="d-flex flex-column gap-2 mt-3"></div>
+            </div>
         </div>
         <div class="col-12">
             <div class="d-flex flex-wrap gap-2">
@@ -112,4 +132,99 @@
 
     coverFileInput?.addEventListener('change', refreshCoverPreview);
     refreshCoverPreview();
+</script>
+<script>
+    const stopInput = document.querySelector('[name="StopPoiIds"]');
+    const stopPicker = document.getElementById('tour-poi-picker');
+    const stopList = document.getElementById('tour-stop-list');
+    const stopEmpty = document.getElementById('tour-stop-empty');
+    const poiLookup = Object.fromEntries([
+        @foreach (var poi in Model.PoiOptions)
+        {
+            @: ['@poi.Value', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(poi.Text))],
+        }
+    ]);
+
+    function getStops() {
+        return (stopInput?.value || '')
+            .split(',')
+            .map(x => x.trim())
+            .filter(Boolean);
+    }
+
+    function setStops(values) {
+        const unique = [];
+        values.forEach((value) => {
+            if (value && !unique.includes(value)) {
+                unique.push(value);
+            }
+        });
+
+        stopInput.value = unique.join(',');
+        renderStops();
+    }
+
+    function renderStops() {
+        const stops = getStops();
+        stopList.innerHTML = '';
+        stopEmpty.style.display = stops.length ? 'none' : 'block';
+
+        stops.forEach((poiId, index) => {
+            const item = document.createElement('div');
+            item.className = 'd-flex align-items-center justify-content-between gap-2 rounded-4 border bg-white px-3 py-2';
+            item.innerHTML = `
+                <div>
+                    <div class="fw-semibold">Điểm dừng ${index + 1}</div>
+                    <div class="text-muted small">${poiLookup[poiId] || `POI #${poiId}`}</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="up" data-poi-id="${poiId}" ${index === 0 ? 'disabled' : ''}>Lên</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="down" data-poi-id="${poiId}" ${index === stops.length - 1 ? 'disabled' : ''}>Xuống</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove" data-poi-id="${poiId}">Xóa</button>
+                </div>`;
+            stopList.appendChild(item);
+        });
+    }
+
+    document.getElementById('tour-add-stop')?.addEventListener('click', () => {
+        const poiId = stopPicker?.value?.trim();
+        if (!poiId) {
+            return;
+        }
+
+        const stops = getStops();
+        if (!stops.includes(poiId)) {
+            stops.push(poiId);
+            setStops(stops);
+        }
+
+        stopPicker.value = '';
+    });
+
+    stopList?.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) {
+            return;
+        }
+
+        const action = button.getAttribute('data-action');
+        const poiId = button.getAttribute('data-poi-id');
+        const stops = getStops();
+        const index = stops.indexOf(poiId);
+        if (index < 0) {
+            return;
+        }
+
+        if (action === 'remove') {
+            stops.splice(index, 1);
+        } else if (action === 'up' && index > 0) {
+            [stops[index - 1], stops[index]] = [stops[index], stops[index - 1]];
+        } else if (action === 'down' && index < stops.length - 1) {
+            [stops[index + 1], stops[index]] = [stops[index], stops[index + 1]];
+        }
+
+        setStops(stops);
+    });
+
+    renderStops();
 </script>

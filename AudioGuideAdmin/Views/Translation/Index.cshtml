@@ -43,7 +43,10 @@
                     </td>
                     <td class="text-end">
                         <a href="/Translation/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Translation/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa bản dịch này?')">Delete</a>
+                        <form method="post" action="/Translation/Delete/@item.Id" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa bản dịch này?')">Delete</button>
+                        </form>
                     </td>
                 </tr>
             }

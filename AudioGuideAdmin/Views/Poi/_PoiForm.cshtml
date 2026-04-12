@@ -82,7 +82,13 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">Chế độ thuyết minh</label>
-            <input class="form-control" value="TTS only" disabled />
+            <select asp-for="AudioMode" class="form-select">
+                <option value="tts">TTS</option>
+                <option value="tts-fallback">TTS, fallback sang audio</option>
+                <option value="audio-priority">Ưu tiên audio, fallback TTS</option>
+                <option value="audio">Chỉ audio</option>
+            </select>
+            <div class="form-text">Chọn cách app mobile ưu tiên TTS hay file audio cho POI này.</div>
         </div>
         <div class="col-md-8">
             <label class="form-label">Upload ảnh POI</label>
@@ -131,12 +137,12 @@
             </div>
         </div>
         <div class="col-12">
-            <label class="form-label">Audio fallback URL</label>
+            <label class="form-label">Audio URL</label>
             <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
             <span asp-validation-for="AudioUrl" class="text-danger small"></span>
             <div class="d-flex justify-content-between align-items-center mt-2">
-                <small class="text-muted">Nếu TTS gặp lỗi, hệ thống có thể dùng file audio dự phòng này.</small>
-                <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mo thu vien audio</a>
+                <small class="text-muted">Nhập file audio nếu bạn muốn dùng `audio`, `audio-priority`, hoặc `tts-fallback`.</small>
+                <a href="/Audio/Upload" target="_blank" class="btn btn-sm btn-outline-secondary">Mở thư viện audio</a>
             </div>
         </div>
         <div class="col-12">

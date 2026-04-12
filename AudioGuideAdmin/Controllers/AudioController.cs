@@ -27,6 +27,7 @@ public class AudioController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Upload(IFormFile file)
     {
         if (file != null && file.Length > 0)
@@ -47,16 +48,34 @@ public class AudioController : Controller
         return RedirectToAction(nameof(Upload));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult Delete(string fileName)
     {
-        var path = Path.Combine(_audioStorageOptions.RootPath, fileName);
+        var path = ResolveSafePath(fileName, _audioStorageOptions.RootPath);
 
-        if (System.IO.File.Exists(path))
+        if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
         {
             System.IO.File.Delete(path);
         }
 
         return RedirectToAction(nameof(Upload));
+    }
+
+    private static string? ResolveSafePath(string? fileName, string rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var safeFileName = Path.GetFileName(fileName);
+        var combinedPath = Path.GetFullPath(Path.Combine(rootPath, safeFileName));
+        var normalizedRoot = Path.GetFullPath(rootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return combinedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+            ? combinedPath
+            : null;
     }
 
     public record AudioFileItem(string FileName, string Url);

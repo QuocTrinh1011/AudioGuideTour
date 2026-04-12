@@ -35,8 +35,16 @@ public class TourController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(TourFormViewModel model)
     {
+        model.StopPoiIds = NormalizeStopPoiIds(model.StopPoiIds);
+        ModelState.Remove(nameof(model.StopPoiIds));
+        if (string.IsNullOrWhiteSpace(model.StopPoiIds))
+        {
+            ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
+        }
+
         if (!ModelState.IsValid)
         {
             return View(BuildForm(model.Tour, model.StopPoiIds));
@@ -68,8 +76,21 @@ public class TourController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(TourFormViewModel model)
     {
+        model.StopPoiIds = NormalizeStopPoiIds(model.StopPoiIds);
+        ModelState.Remove(nameof(model.StopPoiIds));
+        if (string.IsNullOrWhiteSpace(model.StopPoiIds))
+        {
+            ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(BuildForm(model.Tour, model.StopPoiIds));
+        }
+
         var existing = await _context.Tours
             .Include(x => x.Stops)
             .FirstOrDefaultAsync(x => x.Id == model.Tour.Id);
@@ -94,6 +115,8 @@ public class TourController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var tour = await _context.Tours.FindAsync(id);
@@ -115,6 +138,12 @@ public class TourController : Controller
             PoiOptions = _context.Pois
                 .OrderBy(x => x.Name)
                 .Select(x => new SelectListItem($"{x.Name} (#{x.Id})", x.Id.ToString()))
+                .ToList(),
+            LanguageOptions = _context.LanguageOptions
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.Name)
+                .Select(x => new SelectListItem($"{x.Name} ({x.Code})", x.Code, x.Code == tour.Language))
                 .ToList()
         };
     }
@@ -122,6 +151,7 @@ public class TourController : Controller
     private static List<TourStop> BuildStops(string stopPoiIds, int tourId)
     {
         return stopPoiIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
             .Select((value, index) => int.TryParse(value, out var poiId)
                 ? new TourStop
                 {
@@ -134,6 +164,15 @@ public class TourController : Controller
             .Where(x => x != null)
             .Cast<TourStop>()
             .ToList();
+    }
+
+    private static string NormalizeStopPoiIds(string? raw)
+    {
+        return string.Join(",",
+            (raw ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => int.TryParse(value, out _))
+                .Distinct());
     }
 
     private async Task<string> SaveImageAsync(IFormFile? imageFile, string? currentUrl)

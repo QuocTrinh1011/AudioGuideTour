@@ -90,6 +90,8 @@ public class CategoryController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var category = await _context.Categories.FindAsync(id);

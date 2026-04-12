@@ -150,6 +150,13 @@ public class TranslationController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(PoiTranslation model, bool contextLocked = false)
     {
+        var duplicate = await _context.PoiTranslations
+            .AnyAsync(x => x.Id != model.Id && x.PoiId == model.PoiId && x.Language == model.Language);
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(model.Language), "POI này đã có bản dịch cho ngôn ngữ được chọn.");
+        }
+
         if (!_context.LanguageOptions.Any(x => x.Code == model.Language && x.IsActive))
         {
             ModelState.AddModelError(nameof(model.Language), "Chỉ được chọn ngôn ngữ trong danh sách đang hoạt động.");
@@ -197,6 +204,8 @@ public class TranslationController : Controller
         }
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var item = await _context.PoiTranslations.FindAsync(id);

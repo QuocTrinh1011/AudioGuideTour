@@ -46,7 +46,10 @@
                     </td>
                     <td class="text-end">
                         <a href="/Category/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
-                        <a href="/Category/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Xóa danh mục này?')">Delete</a>
+                        <form method="post" action="/Category/Delete/@item.Id" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa danh mục này?')">Delete</button>
+                        </form>
                     </td>
                 </tr>
             }

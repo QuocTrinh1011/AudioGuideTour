@@ -9,5 +9,6 @@ public class TourFormViewModel
     public Tour Tour { get; set; } = new();
     public string StopPoiIds { get; set; } = "";
     public List<SelectListItem> PoiOptions { get; set; } = new();
+    public List<SelectListItem> LanguageOptions { get; set; } = new();
     public IFormFile? CoverImageFile { get; set; }
 }

@@ -90,6 +90,8 @@ public class LanguageController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var item = await _context.LanguageOptions.FindAsync(id);

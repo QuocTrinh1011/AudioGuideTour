@@ -1,4 +1,5 @@
 ﻿using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -17,9 +18,9 @@ public class TrackingController : Controller
     {
         var poiLookup = _context.Pois.ToDictionary(x => x.Id, x => x.Name);
 
-        var trackingQuery = _context.UserTrackings.AsQueryable();
-        var visitQuery = _context.VisitHistories.AsQueryable();
-        var triggerQuery = _context.GeofenceTriggers.AsQueryable();
+        IQueryable<UserTracking> trackingQuery = _context.UserTrackings.AsQueryable();
+        IQueryable<VisitHistory> visitQuery = _context.VisitHistories.AsQueryable();
+        IQueryable<GeofenceTrigger> triggerQuery = _context.GeofenceTriggers.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(userId))
         {
@@ -56,6 +57,15 @@ public class TrackingController : Controller
             triggerQuery = triggerQuery.Where(x => x.RecordedAt < to);
         }
 
+        var totalTrackingCount = trackingQuery.Count();
+        var totalVisitCount = visitQuery.Count();
+        var totalTriggerCount = triggerQuery.Count();
+        var totalUniqueVisitorCount = trackingQuery.Select(x => x.UserId)
+            .Concat(visitQuery.Select(x => x.UserId))
+            .Concat(triggerQuery.Select(x => x.UserId))
+            .Distinct()
+            .Count();
+
         var trackingRows = trackingQuery
             .OrderByDescending(x => x.RecordedAt)
             .Take(200)
@@ -78,10 +88,13 @@ public class TrackingController : Controller
             TriggerType = triggerType,
             DateFrom = dateFrom,
             DateTo = dateTo,
-            TrackingCount = trackingRows.Count,
-            VisitCount = visitRows.Count,
-            TriggerCount = triggerRows.Count,
-            UniqueVisitorCount = trackingRows.Select(x => x.UserId).Union(visitRows.Select(x => x.UserId)).Union(triggerRows.Select(x => x.UserId)).Distinct().Count(),
+            TrackingCount = totalTrackingCount,
+            VisitCount = totalVisitCount,
+            TriggerCount = totalTriggerCount,
+            UniqueVisitorCount = totalUniqueVisitorCount,
+            DisplayedTrackingCount = trackingRows.Count,
+            DisplayedVisitCount = visitRows.Count,
+            DisplayedTriggerCount = triggerRows.Count,
             PoiOptions = BuildPoiOptions(poiId),
             TriggerTypeOptions = BuildTriggerTypeOptions(triggerType),
             TrackingPoints = trackingRows
@@ -150,7 +163,9 @@ public class TrackingController : Controller
             new SelectListItem("Tất cả trigger", "", string.IsNullOrWhiteSpace(selected)),
             new SelectListItem("enter", "enter", selected == "enter"),
             new SelectListItem("nearby", "nearby", selected == "nearby"),
-            new SelectListItem("manual", "manual", selected == "manual")
+            new SelectListItem("manual", "manual", selected == "manual"),
+            new SelectListItem("qr", "qr", selected == "qr"),
+            new SelectListItem("tour", "tour", selected == "tour")
         };
 
         return types.ToList();

@@ -43,20 +43,38 @@ public class ImageController : Controller
         return RedirectToAction(nameof(Upload));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult Delete(string fileName)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
+        var path = ResolveSafePath(fileName, _imageStorageOptions.RootPath);
+        if (string.IsNullOrWhiteSpace(path))
         {
             return RedirectToAction(nameof(Upload));
         }
 
-        var path = Path.Combine(_imageStorageOptions.RootPath, Path.GetFileName(fileName));
         if (System.IO.File.Exists(path))
         {
             System.IO.File.Delete(path);
         }
 
         return RedirectToAction(nameof(Upload));
+    }
+
+    private static string? ResolveSafePath(string? fileName, string rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var safeFileName = Path.GetFileName(fileName);
+        var combinedPath = Path.GetFullPath(Path.Combine(rootPath, safeFileName));
+        var normalizedRoot = Path.GetFullPath(rootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return combinedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+            ? combinedPath
+            : null;
     }
 
     public record ImageFileItem(string FileName, string Url);

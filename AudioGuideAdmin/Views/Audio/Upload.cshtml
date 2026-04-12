@@ -4,6 +4,7 @@
 <p class="text-muted">Upload file audio du phong roi copy URL gan vao POI hoac Translation de dung khi TTS gap loi.</p>
 
 <form method="post" enctype="multipart/form-data" class="card p-3 mb-3">
+    @Html.AntiForgeryToken()
     <div class="row g-2">
         <div class="col-md-9">
             <input type="file" name="file" class="form-control" />
@@ -25,7 +26,13 @@
                     <td>@file.FileName</td>
                     <td><audio controls src="@file.Url" style="height: 32px;"></audio></td>
                     <td><input value="@file.Url" class="form-control" readonly /></td>
-                    <td class="text-end"><a href="/Audio/Delete?fileName=@file.FileName" class="btn btn-sm btn-danger">Delete</a></td>
+                    <td class="text-end">
+                        <form method="post" action="/Audio/Delete" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="fileName" value="@file.FileName" />
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa file audio này?')">Delete</button>
+                        </form>
+                    </td>
                 </tr>
             }
             </tbody>

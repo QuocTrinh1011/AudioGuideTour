@@ -43,6 +43,16 @@
     <div class="col-md-6 col-xl-3"><div class="card p-3"><div class="text-muted">Visitor</div><div class="fs-3 fw-bold">@Model.UniqueVisitorCount</div></div></div>
 </div>
 
+<div class="card p-3 mb-4">
+    <div class="text-muted small">
+        Bảng bên dưới đang hiển thị dữ liệu gần nhất theo giới hạn vận hành:
+        tracking @Model.DisplayedTrackingCount bản ghi,
+        visit @Model.DisplayedVisitCount bản ghi,
+        trigger @Model.DisplayedTriggerCount bản ghi.
+        Các số ở 4 ô thống kê phía trên là tổng sau khi áp bộ lọc.
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-xl-4">
         <div class="card p-3">

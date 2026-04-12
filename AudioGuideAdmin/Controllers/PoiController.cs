@@ -91,6 +91,8 @@ public class PoiController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Poi poi)
     {
+        ValidateNarrationMode(poi);
+
         if (!ModelState.IsValid)
         {
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
@@ -101,7 +103,7 @@ public class PoiController : Controller
         try
         {
             poi.ImageUrl = await SaveImageAsync(poi.ImageFile, poi.ImageUrl);
-            poi.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
+            poi.AudioMode = NormalizeAudioMode(poi.AudioMode, poi.AudioUrl);
             poi.CreatedAt = DateTime.UtcNow;
             poi.UpdatedAt = DateTime.UtcNow;
             _context.Pois.Add(poi);
@@ -134,6 +136,8 @@ public class PoiController : Controller
         return View(poi);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
         var poi = await _context.Pois.FindAsync(id);
@@ -201,6 +205,8 @@ public class PoiController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(Poi poi)
     {
+        ValidateNarrationMode(poi);
+
         if (!ModelState.IsValid)
         {
             ViewBag.Categories = BuildCategoryOptions(poi.Category);
@@ -233,7 +239,7 @@ public class PoiController : Controller
             existing.ImageUrl = await SaveImageAsync(poi.ImageFile, poi.ImageUrl);
             existing.MapUrl = poi.MapUrl;
             existing.IsActive = poi.IsActive;
-            existing.AudioMode = string.IsNullOrWhiteSpace(poi.AudioUrl) ? "tts" : "tts-fallback";
+            existing.AudioMode = NormalizeAudioMode(poi.AudioMode, poi.AudioUrl);
             existing.AudioUrl = poi.AudioUrl;
             existing.TtsScript = poi.TtsScript;
             existing.DefaultLanguage = poi.DefaultLanguage;
@@ -338,5 +344,30 @@ public class PoiController : Controller
                 Url = $"/Translation/EditForPoi?poiId={poiId}&language={x.Code}"
             })
             .ToList();
+    }
+
+    private void ValidateNarrationMode(Poi poi)
+    {
+        poi.AudioMode = NormalizeAudioMode(poi.AudioMode, poi.AudioUrl);
+
+        if ((string.Equals(poi.AudioMode, "audio", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(poi.AudioMode, "audio-priority", StringComparison.OrdinalIgnoreCase)) &&
+            string.IsNullOrWhiteSpace(poi.AudioUrl))
+        {
+            ModelState.AddModelError(nameof(poi.AudioUrl), "Chế độ audio cần có file audio URL.");
+        }
+    }
+
+    private static string NormalizeAudioMode(string? requestedMode, string? audioUrl)
+    {
+        var normalized = requestedMode?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "audio" => "audio",
+            "audio-priority" => "audio-priority",
+            "tts-fallback" => string.IsNullOrWhiteSpace(audioUrl) ? "tts" : "tts-fallback",
+            "tts" => "tts",
+            _ => string.IsNullOrWhiteSpace(audioUrl) ? "tts" : "tts-fallback"
+        };
     }
 }
