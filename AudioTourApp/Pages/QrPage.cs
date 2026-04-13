@@ -37,17 +37,6 @@ public class QrPage : ContentPage
         await Navigation.PushAsync(new QrContentPreviewPage(item));
     }
 
-    private void OnRecentQrSelected(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is not CollectionView collection || e.CurrentSelection.FirstOrDefault() is not QrLookupHistoryItem item)
-        {
-            return;
-        }
-
-        _viewModel.OpenRecentQr(item);
-        collection.SelectedItem = null;
-    }
-
     private View BuildContent()
     {
         var root = new VerticalStackLayout
@@ -75,16 +64,36 @@ public class QrPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Mở QR để điện thoại khác quét", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Trong app chỉ hiển thị danh sách điểm và mã QR. Muốn mở đầy đủ, hãy lấy điện thoại khác quét mã đang hiển thị trên màn hình.", TextColor = Color.FromArgb("#E8F0F7") }
+                    new Label
+                    {
+                        Text = "Mở QR để điện thoại khác quét",
+                        FontSize = 26,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Colors.White
+                    },
+                    new Label
+                    {
+                        Text = "App này dùng để mở mã QR và xem nhanh nội dung. Khi cần mở đầy đủ, hãy dùng điện thoại khác quét mã đang hiển thị trên màn hình.",
+                        TextColor = Color.FromArgb("#E8F0F7")
+                    }
                 }
             }
         });
 
         var directoryCard = CreateCard();
         var directoryLayout = new VerticalStackLayout { Spacing = 12 };
-        directoryLayout.Add(new Label { Text = "Điểm mở bằng QR", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        directoryLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.QrDirectorySummary)));
+        directoryLayout.Add(new Label
+        {
+            Text = "Điểm mở bằng QR",
+            FontSize = 20,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        });
+        directoryLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#667C92"),
+            FontSize = 12
+        }.Bind(Label.TextProperty, nameof(MainViewModel.QrDirectorySummary)));
 
         var directoryCollection = new CollectionView
         {
@@ -147,11 +156,11 @@ public class QrPage : ContentPage
                 Margin = new Thickness(0, 8, 0, 0)
             };
 
-            var qrButton = CreateActionButton("Mở QR", OnOpenQrCardClicked, "#E4B43C", "#17324D");
+            var qrButton = CreateActionButton("Mở QR", OnOpenQrCardClicked, "#17324D", "White");
             qrButton.SetBinding(Button.CommandParameterProperty, new Binding("."));
             actions.Add(qrButton);
 
-            var previewButton = CreateActionButton("Mở nội dung", OnOpenQrPreviewClicked, "#17324D", "White");
+            var previewButton = CreateActionButton("Mở nội dung", OnOpenQrPreviewClicked, "#E4B43C", "#17324D");
             previewButton.SetBinding(Button.CommandParameterProperty, new Binding("."));
             Grid.SetColumn(previewButton, 1);
             actions.Add(previewButton);
@@ -173,21 +182,53 @@ public class QrPage : ContentPage
             Spacing = 8,
             Children =
             {
-                new Label { Text = "Cách dùng", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
-                new Label { Text = "1. Bấm Mở QR để app hiển thị mã vuông đen trắng toàn màn hình.", TextColor = Color.FromArgb("#445D75") },
-                new Label { Text = "2. Dùng điện thoại khác quét mã này để mở trang nội dung đầy đủ.", TextColor = Color.FromArgb("#445D75") },
-                new Label { Text = "3. Nếu chỉ muốn xem nhanh trong app, bấm Mở nội dung.", TextColor = Color.FromArgb("#445D75") }
+                new Label
+                {
+                    Text = "Cách dùng",
+                    FontSize = 20,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#17324D")
+                },
+                new Label
+                {
+                    Text = "1. Bấm Mở QR để app hiển thị mã vuông đen trắng toàn màn hình.",
+                    TextColor = Color.FromArgb("#445D75")
+                },
+                new Label
+                {
+                    Text = "2. Dùng điện thoại khác quét mã này để mở trang nội dung đầy đủ.",
+                    TextColor = Color.FromArgb("#445D75")
+                },
+                new Label
+                {
+                    Text = "3. Nếu chỉ muốn xem nhanh trong app, bấm Mở nội dung.",
+                    TextColor = Color.FromArgb("#445D75")
+                }
             }
         };
         root.Add(noteCard);
 
         var historyCard = CreateCard();
         var historyLayout = new VerticalStackLayout { Spacing = 12 };
-        historyLayout.Add(new Label { Text = "QR đã mở gần đây", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        historyLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.RecentQrSummary)));
-        var historyCollection = new CollectionView { SelectionMode = SelectionMode.Single, EmptyView = "Chưa có QR nào được mở." };
+        historyLayout.Add(new Label
+        {
+            Text = "QR đã mở gần đây",
+            FontSize = 20,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        });
+        historyLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#667C92"),
+            FontSize = 12
+        }.Bind(Label.TextProperty, nameof(MainViewModel.RecentQrSummary)));
+
+        var historyCollection = new CollectionView
+        {
+            SelectionMode = SelectionMode.None,
+            EmptyView = "Chưa có QR nào được mở."
+        };
         historyCollection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.RecentQrLookups));
-        historyCollection.SelectionChanged += OnRecentQrSelected;
         historyCollection.ItemTemplate = new DataTemplate(() =>
         {
             var card = new Border
@@ -208,17 +249,38 @@ public class QrPage : ContentPage
                 },
                 ColumnSpacing = 12
             };
-            grid.Add(new Image { HeightRequest = 88, WidthRequest = 92, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(QrLookupHistoryItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+
+            grid.Add(new Image
+            {
+                HeightRequest = 88,
+                WidthRequest = 92,
+                Aspect = Aspect.AspectFill,
+                BackgroundColor = Color.FromArgb("#E8EDF3")
+            }.Bind(Image.SourceProperty, nameof(QrLookupHistoryItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+
             var details = new VerticalStackLayout { Spacing = 4 };
-            details.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.PoiTitle)));
-            details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.PoiSummary)));
-            details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.Code), stringFormat: "Mã: {0}"));
-            details.Add(new Label { TextColor = Color.FromArgb("#73869A"), FontSize = 12 }
-                .Bind(Label.TextProperty, nameof(QrLookupHistoryItem.OpenedAt), stringFormat: "Mở lúc: {0:HH:mm dd/MM}"));
+            details.Add(new Label
+            {
+                FontAttributes = FontAttributes.Bold,
+                FontSize = 17,
+                TextColor = Color.FromArgb("#17324D")
+            }.Bind(Label.TextProperty, nameof(QrLookupHistoryItem.PoiTitle)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#5D7287"),
+                MaxLines = 2,
+                LineBreakMode = LineBreakMode.TailTruncation
+            }.Bind(Label.TextProperty, nameof(QrLookupHistoryItem.PoiSummary)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#17324D")
+            }.Bind(Label.TextProperty, nameof(QrLookupHistoryItem.Code), stringFormat: "Mã: {0}"));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#73869A"),
+                FontSize = 12
+            }.Bind(Label.TextProperty, nameof(QrLookupHistoryItem.OpenedAt), stringFormat: "Mở lúc: {0:HH:mm dd/MM}"));
+
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;

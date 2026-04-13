@@ -506,8 +506,8 @@ public class MainViewModel : INotifyPropertyChanged
         : $"Hàng đợi: {string.Join(", ", _audioQueueService.PendingItems.Select(x => x.Title))}";
 
     public string SelectedPoiSubtitle => SelectedPoi == null
-        ? "Chọn 1 POI gần đây hoặc quét QR để xem thông tin chi tiết."
-        : $"{SelectedPoi.Language} | {SelectedPoi.DistanceMeters:F0}m | Ưu tiên {SelectedPoi.Priority}";
+        ? "Chọn 1 POI gần đây hoặc mở QR để xem thông tin chi tiết."
+        : $"{SelectedPoi.Language} | {SelectedPoi.DistanceDisplay} | Ưu tiên {SelectedPoi.Priority}";
     public string SelectedPoiNarrationText => SelectedPoi == null
         ? "Chưa có POI nào được chọn."
         : !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript)
@@ -566,7 +566,7 @@ public class MainViewModel : INotifyPropertyChanged
 
             return nearest == null
                 ? "Chưa xác định được POI gần nhất."
-                : $"Gần nhất: {nearest.Title} ({nearest.DistanceMeters:F0}m)";
+                : $"Gần nhất: {nearest.Title} ({nearest.DistanceDisplay})";
         }
     }
     public string VisiblePoisSummary => VisiblePois.Count == 0

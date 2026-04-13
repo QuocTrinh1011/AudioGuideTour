@@ -39,8 +39,18 @@ public class QrDisplayPage : ContentPage
                             Spacing = 6,
                             Children =
                             {
-                                new Label { Text = "Mã QR trình chiếu", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                                new Label { Text = "Giữ màn hình này để điện thoại khác quét và mở nội dung đầy đủ.", TextColor = Color.FromArgb("#E8F0F7") }
+                                new Label
+                                {
+                                    Text = "Mã QR trình chiếu",
+                                    FontSize = 26,
+                                    FontAttributes = FontAttributes.Bold,
+                                    TextColor = Colors.White
+                                },
+                                new Label
+                                {
+                                    Text = "Giữ màn hình này để điện thoại khác quét và mở nội dung đầy đủ.",
+                                    TextColor = Color.FromArgb("#E8F0F7")
+                                }
                             }
                         }
                     },
@@ -49,10 +59,16 @@ public class QrDisplayPage : ContentPage
                         Spacing = 12,
                         Children =
                         {
-                            new Label { FontAttributes = FontAttributes.Bold, FontSize = 22, TextColor = Color.FromArgb("#17324D") }
-                                .Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiTitle)),
-                            new Label { TextColor = Color.FromArgb("#667C92") }
-                                .Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"),
+                            new Label
+                            {
+                                FontAttributes = FontAttributes.Bold,
+                                FontSize = 22,
+                                TextColor = Color.FromArgb("#17324D")
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiTitle)),
+                            new Label
+                            {
+                                TextColor = Color.FromArgb("#667C92")
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"),
                             new Border
                             {
                                 Stroke = Color.FromArgb("#E3EAF2"),

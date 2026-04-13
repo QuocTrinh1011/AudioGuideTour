@@ -373,7 +373,7 @@ public class HomePage : ContentPage
                 Padding = new Thickness(8, 5),
                 HorizontalOptions = LayoutOptions.Start,
                 Content = new Label { TextColor = Color.FromArgb("#17324D"), FontAttributes = FontAttributes.Bold }
-                    .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.DistanceMeters), stringFormat: "{0:F0}m")
+                    .Bind(Label.TextProperty, nameof(AudioTourApp.Models.PoiItem.DistanceDisplay))
             };
             layout.Add(distanceBadge);
             card.Content = layout;

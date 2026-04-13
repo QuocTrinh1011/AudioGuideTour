@@ -31,6 +31,28 @@ public class PoiItem
     public bool IsNearest { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+
+    [JsonIgnore]
+    public bool HasKnownDistance => DistanceMeters > 0 && !double.IsNaN(DistanceMeters) && !double.IsInfinity(DistanceMeters);
+
+    [JsonIgnore]
+    public string DistanceDisplay
+    {
+        get
+        {
+            if (!HasKnownDistance)
+            {
+                return "chưa xác định";
+            }
+
+            return DistanceMeters >= 1000
+                ? $"{DistanceMeters / 1000d:F1} km"
+                : $"{DistanceMeters:F0} m";
+        }
+    }
+
+    [JsonIgnore]
+    public string DistanceLabel => $"Khoảng cách: {DistanceDisplay}";
 }
 
 public class LanguageItem

@@ -38,8 +38,18 @@ public class QrContentPreviewPage : ContentPage
                             Spacing = 6,
                             Children =
                             {
-                                new Label { Text = "Nội dung xem nhanh", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                                new Label { Text = "Trong app chỉ xem nhanh một phần nội dung. Muốn mở đầy đủ, hãy quay lại và bấm Mở QR để điện thoại khác quét.", TextColor = Color.FromArgb("#E8F0F7") }
+                                new Label
+                                {
+                                    Text = "Nội dung xem nhanh",
+                                    FontSize = 26,
+                                    FontAttributes = FontAttributes.Bold,
+                                    TextColor = Colors.White
+                                },
+                                new Label
+                                {
+                                    Text = "Trong app chỉ xem nhanh một phần nội dung. Muốn mở đầy đủ, hãy quay lại và bấm Mở QR để điện thoại khác quét.",
+                                    TextColor = Color.FromArgb("#E8F0F7")
+                                }
                             }
                         }
                     },
@@ -54,13 +64,28 @@ public class QrContentPreviewPage : ContentPage
                         Spacing = 10,
                         Children =
                         {
-                            new Label { FontSize = 24, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
-                                .Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiTitle)),
-                            new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }
-                                .Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"),
-                            new Label { TextColor = Color.FromArgb("#445D75"), FontAttributes = FontAttributes.Bold, Text = "Tóm tắt" },
-                            new Label { TextColor = Color.FromArgb("#31485F"), LineBreakMode = LineBreakMode.WordWrap }
-                                .Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiSummary)),
+                            new Label
+                            {
+                                FontSize = 24,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Color.FromArgb("#17324D")
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiTitle)),
+                            new Label
+                            {
+                                TextColor = Color.FromArgb("#667C92"),
+                                FontSize = 12
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"),
+                            new Label
+                            {
+                                TextColor = Color.FromArgb("#445D75"),
+                                FontAttributes = FontAttributes.Bold,
+                                Text = "Tóm tắt"
+                            },
+                            new Label
+                            {
+                                TextColor = Color.FromArgb("#31485F"),
+                                LineBreakMode = LineBreakMode.WordWrap
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiSummary)),
                             new Label
                             {
                                 Text = BuildPreviewDescription(item),

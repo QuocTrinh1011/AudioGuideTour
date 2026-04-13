@@ -237,7 +237,7 @@ public class PoiPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, "Summary"));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, "DistanceMeters", stringFormat: "Khoảng cách: {0:F0}m"));
+                .Bind(Label.TextProperty, "DistanceLabel"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
                 .Bind(Label.TextProperty, "Language", stringFormat: "Ngôn ngữ: {0}"));
             details.Add(new Label { TextColor = Color.FromArgb("#8A9BAA"), FontSize = 12 }
