@@ -9,6 +9,13 @@ namespace AudioGuideAPI.Controllers;
 [Route("api/[controller]")]
 public class UserController : ControllerBase
 {
+    private static readonly HashSet<string> SupportedCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vi-VN",
+        "en-US",
+        "zh-CN"
+    };
+
     private readonly AppDbContext _context;
 
     public UserController(AppDbContext context)
@@ -19,6 +26,8 @@ public class UserController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Upsert(User user)
     {
+        user.Language = NormalizeLanguage(user.Language);
+
         var existing = await _context.Users
             .FirstOrDefaultAsync(x => x.Id == user.Id || x.DeviceId == user.DeviceId);
 
@@ -42,7 +51,7 @@ public class UserController : ControllerBase
         }
 
         existing.DisplayName = user.DisplayName;
-        existing.Language = user.Language;
+        existing.Language = NormalizeLanguage(user.Language);
         existing.AllowAutoPlay = user.AllowAutoPlay;
         existing.AllowBackgroundTracking = user.AllowBackgroundTracking;
         existing.LastSeenAt = DateTime.UtcNow;
@@ -58,5 +67,16 @@ public class UserController : ControllerBase
             .AsNoTracking()
             .OrderByDescending(x => x.LastSeenAt)
             .ToListAsync());
+    }
+
+    private static string NormalizeLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return "vi-VN";
+        }
+
+        var normalized = language.Trim().Replace('_', '-');
+        return SupportedCodes.Contains(normalized) ? normalized : "vi-VN";
     }
 }

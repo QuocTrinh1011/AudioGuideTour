@@ -7,6 +7,13 @@ namespace AudioGuideAdmin.Controllers;
 
 public class VisitorController : Controller
 {
+    private static readonly HashSet<string> SupportedCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vi-VN",
+        "en-US",
+        "zh-CN"
+    };
+
     private readonly AppDbContext _context;
 
     public VisitorController(AppDbContext context)
@@ -69,7 +76,7 @@ public class VisitorController : Controller
         }
 
         existing.DisplayName = model.DisplayName?.Trim() ?? existing.DisplayName;
-        existing.Language = model.Language?.Trim() ?? existing.Language;
+        existing.Language = NormalizeLanguage(model.Language, existing.Language);
         existing.AllowAutoPlay = model.AllowAutoPlay;
         existing.AllowBackgroundTracking = model.AllowBackgroundTracking;
         existing.LastSeenAt = existing.LastSeenAt == default ? DateTime.UtcNow : existing.LastSeenAt;
@@ -77,5 +84,14 @@ public class VisitorController : Controller
         await _context.SaveChangesAsync();
         TempData["Success"] = "Đã cấp nhat visitor cho mobile app.";
         return RedirectToAction(nameof(Index));
+    }
+
+    private static string NormalizeLanguage(string? language, string currentLanguage)
+    {
+        var normalized = string.IsNullOrWhiteSpace(language)
+            ? currentLanguage
+            : language.Trim().Replace('_', '-');
+
+        return SupportedCodes.Contains(normalized) ? normalized : "vi-VN";
     }
 }

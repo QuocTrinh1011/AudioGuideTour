@@ -55,16 +55,8 @@ public static class AppDataInitializer
 
     private static async Task SeedCoreDataAsync(AppDbContext context)
     {
-        if (!await context.LanguageOptions.AnyAsync())
-        {
-            context.LanguageOptions.AddRange(
-                new LanguageOption { Code = "vi-VN", Name = "Tieng Viet", NativeName = "Tieng Viet", Locale = "vi-VN", SortOrder = 1 },
-                new LanguageOption { Code = "en-US", Name = "English", NativeName = "English", Locale = "en-US", SortOrder = 2 },
-                new LanguageOption { Code = "zh-CN", Name = "Chinese", NativeName = "Zhongwen", Locale = "zh-CN", SortOrder = 3 },
-                new LanguageOption { Code = "ja-JP", Name = "Japanese", NativeName = "Nihongo", Locale = "ja-JP", SortOrder = 4 });
-
-            await context.SaveChangesAsync();
-        }
+        await EnsureSupportedLanguagesAsync(context);
+        await NormalizeUnsupportedLanguageReferencesAsync(context);
 
         if (!await context.Categories.AnyAsync())
         {
@@ -82,6 +74,118 @@ public static class AppDataInitializer
         await EnsureDemoMediaLinksAsync(context);
         await EnsureDemoEnglishAudioLinksAsync(context);
     }
+
+    private static async Task EnsureSupportedLanguagesAsync(AppDbContext context)
+    {
+        var supportedLanguages = new[]
+        {
+            new LanguageOption { Code = "vi-VN", Name = "Tiếng Việt", NativeName = "Tiếng Việt", Locale = "vi-VN", SortOrder = 1, IsActive = true },
+            new LanguageOption { Code = "en-US", Name = "English", NativeName = "English", Locale = "en-US", SortOrder = 2, IsActive = true },
+            new LanguageOption { Code = "zh-CN", Name = "Tiếng Trung", NativeName = "简体中文", Locale = "zh-CN", SortOrder = 3, IsActive = true }
+        };
+        var supportedCodes = supportedLanguages
+            .Select(x => x.Code)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        await DeleteLanguageOptionAsync(context, "ja-JP");
+        var existingLanguages = await context.LanguageOptions.ToListAsync();
+
+        foreach (var supported in supportedLanguages)
+        {
+            var existing = existingLanguages.FirstOrDefault(x => string.Equals(x.Code, supported.Code, StringComparison.OrdinalIgnoreCase));
+            if (existing == null)
+            {
+                context.LanguageOptions.Add(new LanguageOption
+                {
+                    Code = supported.Code,
+                    Name = supported.Name,
+                    NativeName = supported.NativeName,
+                    Locale = supported.Locale,
+                    SortOrder = supported.SortOrder,
+                    IsActive = true
+                });
+                continue;
+            }
+
+            existing.Name = supported.Name;
+            existing.NativeName = supported.NativeName;
+            existing.Locale = supported.Locale;
+            existing.SortOrder = supported.SortOrder;
+            existing.IsActive = true;
+        }
+
+        foreach (var extra in existingLanguages.Where(x => !supportedCodes.Contains(x.Code) && !string.Equals(x.Code, "ja-JP", StringComparison.OrdinalIgnoreCase)))
+        {
+            extra.IsActive = false;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static async Task NormalizeUnsupportedLanguageReferencesAsync(AppDbContext context)
+    {
+        var fallbackLanguage = "vi-VN";
+
+        var users = await context.Users
+            .Where(x => x.Language == "ja-JP")
+            .ToListAsync();
+        foreach (var user in users)
+        {
+            user.Language = fallbackLanguage;
+        }
+
+        var tours = await context.Tours
+            .Where(x => x.Language == "ja-JP")
+            .ToListAsync();
+        foreach (var tour in tours)
+        {
+            tour.Language = fallbackLanguage;
+        }
+
+        var pois = await context.Pois
+            .Where(x => x.DefaultLanguage == "ja-JP")
+            .ToListAsync();
+        foreach (var poi in pois)
+        {
+            poi.DefaultLanguage = fallbackLanguage;
+        }
+
+        var visitHistories = await context.VisitHistories
+            .Where(x => x.Language == "ja-JP")
+            .ToListAsync();
+        foreach (var visit in visitHistories)
+        {
+            visit.Language = fallbackLanguage;
+        }
+
+        var geofenceTriggers = await context.GeofenceTriggers
+            .Where(x => x.Language == "ja-JP")
+            .ToListAsync();
+        foreach (var trigger in geofenceTriggers)
+        {
+            trigger.Language = fallbackLanguage;
+        }
+
+        await DeletePoiTranslationsByLanguageAsync(context, "ja-JP");
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static Task DeleteLanguageOptionAsync(AppDbContext context, string languageCode)
+        => context.Database.IsSqlite()
+            ? context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM \"LanguageOptions\" WHERE \"Code\" = {languageCode}")
+            : context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [LanguageOptions] WHERE [Code] = {languageCode}");
+
+    private static Task DeletePoiTranslationsByLanguageAsync(AppDbContext context, string languageCode)
+        => context.Database.IsSqlite()
+            ? context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM \"PoiTranslations\" WHERE \"Language\" = {languageCode}")
+            : context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [PoiTranslations] WHERE [Language] = {languageCode}");
 
     private static async Task EnsureLanguageTableAsync(AppDbContext context)
     {
@@ -187,7 +291,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 90,
                 TriggerMode = "manual",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76148,106.70302",
-                TtsScript = "Trạm xe buýt Khánh Hội la diem vao nhanh cho tour. Neu ban vua xuong xe, hay quet QR de nghe tong quan va bat dau hanh trinh ngay lap tuc.",
+                TtsScript = "Trạm xe buýt Khánh Hội là điểm vào nhanh cho tour. Nếu bạn vừa xuống xe, hãy quét QR để nghe tổng quan và bắt đầu hành trình ngay lập tức.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 50,
                 CreatedAt = now,
@@ -209,7 +313,7 @@ public static class AppDataInitializer
                 CooldownSeconds = 90,
                 TriggerMode = "manual",
                 MapUrl = "https://www.google.com/maps/search/?api=1&query=10.76198,106.70403",
-                TtsScript = "Trạm xe buýt Vĩnh Hội phu hop lam diem ket tour hoac trung chuyen. Noi dung QR tai day giup visitor nghe nhanh ma khong phu thuoc vao vi tri GPS.",
+                TtsScript = "Trạm xe buýt Vĩnh Hội phù hợp làm điểm kết tour hoặc trung chuyển. Nội dung QR tại đây giúp visitor nghe nhanh mà không phụ thuộc vào vị trí GPS.",
                 DefaultLanguage = "vi-VN",
                 EstimatedDurationSeconds = 50,
                 CreatedAt = now,
@@ -308,6 +412,17 @@ public static class AppDataInitializer
             new PoiTranslation
             {
                 PoiId = foodStreet.Id,
+                Language = "vi-VN",
+                Title = "Phố ẩm thực Vĩnh Khánh",
+                Summary = "Điểm bắt đầu phố ẩm thực nổi tiếng của Quận 4.",
+                Description = "Khu phố này sáng đèn từ chiều tới đêm khuya, nổi bật với các quán ốc, món nướng và không khí ăn đêm rất sôi động.",
+                TtsScript = "Bạn đang đứng tại cửa ngõ phố ẩm thực Vĩnh Khánh. Đây là điểm hợp lý để bắt đầu tour và làm quen với không khí ăn đêm của Quận 4.",
+                IsPublished = true,
+                UpdatedAt = now
+            },
+            new PoiTranslation
+            {
+                PoiId = foodStreet.Id,
                 Language = "en-US",
                 Title = "Vinh Khanh Food Street",
                 Summary = "A lively entry point to District 4 night-food culture.",
@@ -320,21 +435,10 @@ public static class AppDataInitializer
             {
                 PoiId = foodStreet.Id,
                 Language = "zh-CN",
-                Title = "Vinh Khanh Mei Shi Jie",
-                Summary = "Qu 4 ye jian mei shi jie de ru kou.",
-                Description = "Zhe tiao jie zai bang wan hou bian de re nao, ji zhong le hai xian, shao kao he jie bian yong can khong gian.",
-                TtsScript = "Nin xianzai zai Vinh Khanh mei shi jie ru kou. Zheli shi kaishi zhe tiao yesheng canyin luxian de hao difang.",
-                IsPublished = true,
-                UpdatedAt = now
-            },
-            new PoiTranslation
-            {
-                PoiId = foodStreet.Id,
-                Language = "ja-JP",
-                Title = "Vinh Khanh Gurume Street",
-                Summary = "4-ku no yoru no shokugai e no iriguchi desu.",
-                Description = "Yuugata kara yoru ni kakete, seafood, grilled food, soshite rojou no shokubunka de kono toori wa totemo nigiyaka ni narimasu.",
-                TtsScript = "Koko wa Vinh Khanh gurume street no iriguchi desu. Mazu wa koko de kuiki no funiki o tsukande kara aruite susumu no ga osusume desu.",
+                Title = "永庆美食街",
+                Summary = "第四郡夜间美食街的入口。",
+                Description = "这条街从傍晚到深夜都很热闹，汇集了海鲜、烧烤和充满烟火气的人行道用餐空间。",
+                TtsScript = "您现在来到永庆美食街的入口。这里很适合作为行程的起点，先感受第四郡热闹的夜间餐饮氛围。",
                 IsPublished = true,
                 UpdatedAt = now
             });
@@ -355,7 +459,7 @@ public static class AppDataInitializer
         }
 
         var now = DateTime.UtcNow;
-        var poiIds = await context.Pois
+        var poiMap = await context.Pois
             .Where(x =>
                 x.Name == "Phố ẩm thực Vĩnh Khánh" ||
                 x.Name == "Cụm quán ốc Vĩnh Khánh" ||
@@ -363,66 +467,78 @@ public static class AppDataInitializer
                 x.Name == "Trạm xe buýt Vĩnh Hội" ||
                 x.Name == "Trạm xe buýt Xuân Chiếu" ||
                 x.Name == "Nhịp sống khu vực Vĩnh Khánh")
-            .ToDictionaryAsync(x => x.Name, x => x.Id);
+            .ToDictionaryAsync(x => x.Name, x => x);
 
-        if (poiIds.Count == 0)
+        if (poiMap.Count == 0)
         {
             return;
         }
 
-        var existingKeys = (await context.PoiTranslations
-                .Where(x => poiIds.Values.Contains(x.PoiId))
-                .Select(x => new { x.PoiId, x.Language })
-                .ToListAsync())
-            .Select(x => $"{x.PoiId}:{x.Language}")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var poiIds = poiMap.Values.Select(x => x.Id).ToList();
+        var existingTranslations = await context.PoiTranslations
+            .Where(x => poiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var translationMap = existingTranslations.ToDictionary(
+            x => $"{x.PoiId}:{x.Language}",
+            x => x,
+            StringComparer.OrdinalIgnoreCase);
 
         var definitions = new (string PoiName, string Language, string Title, string Summary, string Description, string TtsScript)[]
         {
+            ("Phố ẩm thực Vĩnh Khánh", "vi-VN", "Phố ẩm thực Vĩnh Khánh", "Điểm bắt đầu phố ẩm thực nổi tiếng của Quận 4.", "Khu phố này sáng đèn từ chiều tới đêm khuya, nổi bật với các quán ốc, món nướng và không khí ăn đêm rất sôi động.", "Bạn đang đứng tại cửa ngõ phố ẩm thực Vĩnh Khánh. Đây là điểm hợp lý để bắt đầu tour và làm quen với không khí ăn đêm của Quận 4."),
             ("Phố ẩm thực Vĩnh Khánh", "en-US", "Vinh Khanh Food Street", "A lively entry point to District 4 night-food culture.", "This street lights up from late afternoon to night with seafood, grilled dishes, and dense street-side dining.", "You are at the entrance of Vinh Khanh Food Street. This is a good starting point to get the overview before walking deeper into the food corridor."),
-            ("Phố ẩm thực Vĩnh Khánh", "zh-CN", "Vinh Khanh Mei Shi Jie", "Qu 4 ye jian mei shi jie de ru kou.", "Zhe tiao jie zai bang wan hou bian de re nao, ji zhong le hai xian, shao kao he jie bian yong can khong gian.", "Nin xianzai zai Vinh Khanh mei shi jie ru kou. Zheli shi kaishi zhe tiao yesheng canyin luxian de hao difang."),
-            ("Phố ẩm thực Vĩnh Khánh", "ja-JP", "Vinh Khanh Gurume Street", "4-ku no yoru no shokugai e no iriguchi desu.", "Yuugata kara yoru ni kakete, seafood, grilled food, soshite rojou no shokubunka de kono toori wa totemo nigiyaka ni narimasu.", "Koko wa Vinh Khanh gurume street no iriguchi desu. Mazu wa koko de kuiki no funiki o tsukande kara aruite susumu no ga osusume desu."),
+            ("Phố ẩm thực Vĩnh Khánh", "zh-CN", "永庆美食街", "第四郡夜间美食街的入口。", "这条街从傍晚到深夜都很热闹，汇集了海鲜、烧烤和充满烟火气的人行道用餐空间。", "您现在来到永庆美食街的入口。这里很适合作为行程的起点，先感受第四郡热闹的夜间餐饮氛围。"),
+            ("Cụm quán ốc Vĩnh Khánh", "vi-VN", "Cụm quán ốc Vĩnh Khánh", "Cụm quán ốc và món ăn đêm đông khách nhất trên tuyến phố.", "Du khách thường dừng lại tại đây để thử ốc, hải sản, món nướng và nhiều phiên bản nước chấm đặc trưng của khu vực.", "Đây là cụm quán ốc tiêu biểu của Vĩnh Khánh. Nhịp phục vụ nhanh, bàn sát vỉa hè và mùi nướng tạo nên bản sắc rất riêng của khu phố này."),
             ("Cụm quán ốc Vĩnh Khánh", "en-US", "Vinh Khanh Seafood Cluster", "One of the busiest late-night seafood stretches on the route.", "Visitors often stop here for snails, shellfish, grilled plates, and dipping sauces that define the street-food identity of the area.", "This seafood cluster represents the most energetic dining section of Vinh Khanh. It is where the smell of grilled dishes and the sidewalk atmosphere feel strongest."),
-            ("Cụm quán ốc Vĩnh Khánh", "zh-CN", "Vinh Khanh Hai Xian Qu", "Zhe shi zhe tiao jie zui re nao de yejian hai xian qu.", "Youke chang chang zai zheli ting liu, pinchang luo, bei lei, shao kao he dai you difang tese de jiangliao.", "Zheli shi Vinh Khanh zui ju daibiao xing de hai xian qu. Shaokao xiangqi he lu bian canyin de fenwei tebie qianglie."),
-            ("Cụm quán ốc Vĩnh Khánh", "ja-JP", "Vinh Khanh Seafood Zone", "Kono toori de mottomo nigiwai no aru yoru no kaisen eria desu.", "Kankoukyaku wa koko de tamemono, kai, yakimono, soshite chiiki rashii sauce o tanoshimu koto ga dekimasu.", "Koko wa Vinh Khanh no kaisen eria no chuushin desu. Yakimono no kaori to rojou no kuuki ga kono machi rashisa o tsukutteimasu."),
+            ("Cụm quán ốc Vĩnh Khánh", "zh-CN", "永庆海鲜小吃区", "这里是路线中最热闹的夜间海鲜聚集区之一。", "游客常在这里停留，品尝螺类、贝类、烧烤和带有本地特色的蘸酱。", "这里是永庆街最具代表性的海鲜小吃区。烧烤的香气和路边用餐的氛围最能体现这条街的特色。"),
+            ("Trạm xe buýt Khánh Hội", "vi-VN", "Trạm xe buýt Khánh Hội", "Điểm vào tour bằng QR cho visitor đến bằng xe buýt.", "Khách có thể quét QR tại điểm này để nghe giới thiệu ngay mà không cần đợi GPS kích hoạt.", "Trạm xe buýt Khánh Hội là điểm vào nhanh cho tour. Nếu bạn vừa xuống xe, hãy quét QR để nghe tổng quan và bắt đầu hành trình ngay lập tức."),
             ("Trạm xe buýt Khánh Hội", "en-US", "Khánh Hội Bus Stop", "A QR entry point for visitors arriving by bus.", "Visitors can scan the code here and start listening immediately without waiting for GPS activation.", "This bus stop is a fast entry point to the tour. Scan the QR code here if you want to begin listening right after getting off the bus."),
-            ("Trạm xe buýt Khánh Hội", "zh-CN", "Khánh Hội Gong Che Zhan", "Da ba shi daoda de youke keyi cong zheli saoma kaishi.", "Youke keyi zai zheli saoma bing liji shiting, er bu xu dengdai GPS chufa.", "Khánh Hội gongchezhan shi yi ge kuaisu jinru dian. Ruguo nin gang xiache, keyi zhijie saoma kaishi ting jie shao."),
-            ("Trạm xe buýt Khánh Hội", "ja-JP", "Khánh Hội Bus Stop", "Basu de kita hito no tame no QR start point desu.", "Koko de QR o yomeba, GPS no handou o matazu ni sugu ni annai o kiku koto ga dekimasu.", "Koko wa Khánh Hội no basutei desu. Basu o orita ato, sugu ni QR de tour o hajimeru no ni muiteimasu."),
+            ("Trạm xe buýt Khánh Hội", "zh-CN", "庆会公交站", "乘公交到达的游客可从这里扫码开始。", "游客可以在这里扫码并立即收听介绍，不必等待 GPS 触发。", "庆会公交站是一个快速进入导览的起点。如果您刚下车，可以直接扫码，马上开始收听介绍。"),
+            ("Trạm xe buýt Vĩnh Hội", "vi-VN", "Trạm xe buýt Vĩnh Hội", "Điểm dừng chân để vào hoặc kết thúc lộ trình tham quan.", "Tại đây visitor có thể quét QR, nghe tóm tắt và chọn hướng tiếp tục đi bộ vào phố ẩm thực.", "Trạm xe buýt Vĩnh Hội phù hợp làm điểm kết tour hoặc trung chuyển. Nội dung QR tại đây giúp visitor nghe nhanh mà không phụ thuộc vào vị trí GPS."),
             ("Trạm xe buýt Vĩnh Hội", "en-US", "Vĩnh Hội Bus Stop", "A flexible stop for entering or ending the walking route.", "From here visitors can scan a QR code, hear a short summary, and decide whether to continue into the food street on foot.", "Vĩnh Hội Bus Stop works well as a transfer point or tour ending point. The QR content here lets visitors listen quickly without depending on GPS."),
-            ("Trạm xe buýt Vĩnh Hội", "zh-CN", "Vĩnh Hội Gong Che Zhan", "Zheli shi jinru huo jieshu canyin bushixingcheng de linghuo zhandian.", "Youke keyi zai zheli saoma, xian ting yi duan jianjie, zai jueding shifou jixu zou jin mei shijie.", "Vĩnh Hội gongchezhan keyi zuowei zhuancheng dian huo jieshu dian. Zheli de QR neirong neng rang youke kuaisu shiting."),
-            ("Trạm xe buýt Vĩnh Hội", "ja-JP", "Vĩnh Hội Bus Stop", "Aruki route no hajimari ni mo owari ni mo tsukaeru basutei desu.", "Koko de QR o yonde mijikai setsumei o kiite kara, aruite susumu ka douka o erabu koto ga dekimasu.", "Vĩnh Hội no basutei wa tour no shuuten ni mo chuukei ni mo muki masu. QR o tsukatte sugu ni naiyou o kaku nin dekimasu."),
+            ("Trạm xe buýt Vĩnh Hội", "zh-CN", "永会公交站", "这里适合作为步行美食路线的进入点或结束点。", "游客可以在这里先扫码听一段简介，再决定是否继续步行进入美食街。", "永会公交站既适合作为中转点，也适合作为行程终点。这里的二维码内容能让游客快速开始收听。"),
+            ("Trạm xe buýt Xuân Chiếu", "vi-VN", "Trạm xe buýt Xuân Chiếu", "Điểm QR cho visitor tiếp cận từ hướng Xuân Chiếu - Xóm Chiếu.", "Nội dung được kích hoạt bằng QR để visitor nghe ngay khi vừa đến khu vực bằng xe buýt.", "Đây là điểm vào từ hướng Xuân Chiếu, còn gọi là Xóm Chiếu. QR tại đây giúp visitor vào nội dung nhanh và không cần đợi app bật geofence."),
             ("Trạm xe buýt Xuân Chiếu", "en-US", "Xuân Chiếu Bus Stop", "A QR point for visitors entering from the Xuân Chiếu direction.", "The narration here is designed to start right away for visitors who reach the area by bus from the Xuân Chiếu - Xóm Chiếu side.", "This is the QR entry point from the Xuân Chiếu side, also known as Xóm Chiếu. It helps visitors access the content quickly without waiting for geofence activation."),
-            ("Trạm xe buýt Xuân Chiếu", "zh-CN", "Xuân Chiếu Gong Che Zhan", "Cong Xuân Chiếu fangxiang dao da de youke keyi zai zheli saoma.", "Zheli de neirong sheji gei cong Xuân Chiếu huo Xóm Chiếu yi ce daoda de youke, keyi liji kaishi shiting.", "Zhe shi cong Xuân Chiếu huo Xóm Chiếu fangxiang jinru de QR dian. Ta keyi rang youke bu yong deng geofence ye neng kuaisu ting dao neirong."),
-            ("Trạm xe buýt Xuân Chiếu", "ja-JP", "Xuân Chiếu Bus Stop", "Xuân Chiếu gawa kara hairu hito no tame no QR point desu.", "Koko no annai wa, Xuân Chiếu ya Xóm Chiếu no houkou kara kuru hito ga sugu ni kikeru you ni settei sareteimasu.", "Koko wa Xuân Chiếu gawa kara no nyuuryokuten desu. Geofence o matanai demo, QR de sugu ni annai naiyou ni haireru no ga tokuchou desu."),
+            ("Trạm xe buýt Xuân Chiếu", "zh-CN", "春照公交站", "从春照或旧称 Xóm Chiếu 方向到达的游客可在这里扫码。", "这里的讲解内容为从春照一侧到达的游客设计，方便一到就开始收听。", "这是从春照，也就是旧称 Xóm Chiếu 方向进入的二维码点。不用等待 geofence，也能快速听到内容。"),
+            ("Nhịp sống khu vực Vĩnh Khánh", "vi-VN", "Nhịp sống khu vực Vĩnh Khánh", "Điểm kể chuyện về không khí đường phố, sinh hoạt và nhịp sống về đêm.", "Ngoài ẩm thực, khu vực này còn hấp dẫn nhờ sự nhộn nhịp của người bán, khách đi bộ và không gian sinh hoạt sát nhau trên vỉa hè.", "Điểm này giúp visitor hiểu thêm về đời sống phố phường ở Quận 4. Không chỉ có món ăn, Vĩnh Khánh còn là nơi thể hiện nhịp sống và văn hóa giao tiếp rất riêng."),
             ("Nhịp sống khu vực Vĩnh Khánh", "en-US", "Vinh Khanh Street Life", "A stop that explains the nighttime rhythm and social life of the neighborhood.", "Beyond food, this area is memorable for its busy sidewalks, close-knit street trading, and the flow of people through the evening.", "This stop helps visitors understand the local street rhythm of District 4. Vinh Khanh is not only about food, but also about how people gather, trade, and socialize at night."),
-            ("Nhịp sống khu vực Vĩnh Khánh", "zh-CN", "Vinh Khanh Jie Tou Sheng Huo", "Zhe ge dian jieshao de shi zheli de yejian jietou jiezhou he shenghuo qiwei.", "Chu le meishi, zhe li hai yin manglu de renxingdao, linjin de xiaotan he buduan liudong de renqun er rang ren jixu lianshang.", "Zhe ge dian bangzhu youke liaojie Qu 4 de jietou shenghuo. Vinh Khanh bu zhi shi chi de difang, ye shi yi ge neng kanjian renmen jiaoliu he yewan qifen de kongjian."),
-            ("Nhịp sống khu vực Vĩnh Khánh", "ja-JP", "Vinh Khanh Street Rhythm", "Kono point de wa, yoru no machi no rizumu to kurashi no kuuki o shoukai shimasu.", "Tabemono dake de naku, isogashii hodou, chikaku de eigyou suru mise, soshite yoru no hito no nagare ga kono chiiki no miryoku desu.", "Koko de wa Quan 4 no machi no seikatsu kan o rikaisuru koto ga dekimasu. Vinh Khanh wa tabemono dake de naku, yoru no kouryuu ga mienai tokoro made tsunagatteimasu.")
+            ("Nhịp sống khu vực Vĩnh Khánh", "zh-CN", "永庆街区生活节奏", "这个点介绍这里夜晚街头的节奏与生活气息。", "除了美食，这里繁忙的人行道、临近的小摊和不断流动的人群，也让第四郡的夜晚更有魅力。", "这个点帮助游客了解第四郡的街头生活。永庆不仅是吃东西的地方，也是观察人们交流、做生意和感受夜晚气氛的空间。")
         };
 
         foreach (var definition in definitions)
         {
-            if (!poiIds.TryGetValue(definition.PoiName, out var poiId))
+            if (!poiMap.TryGetValue(definition.PoiName, out var poi))
             {
                 continue;
             }
 
-            var key = $"{poiId}:{definition.Language}";
-            if (!existingKeys.Add(key))
+            if (string.Equals(definition.Language, "vi-VN", StringComparison.OrdinalIgnoreCase))
             {
-                continue;
+                poi.Summary = definition.Summary;
+                poi.Description = definition.Description;
+                poi.TtsScript = definition.TtsScript;
+                poi.DefaultLanguage = "vi-VN";
+                poi.UpdatedAt = now;
             }
 
-            context.PoiTranslations.Add(new PoiTranslation
+            var key = $"{poi.Id}:{definition.Language}";
+            if (!translationMap.TryGetValue(key, out var translation))
             {
-                PoiId = poiId,
-                Language = definition.Language,
-                Title = definition.Title,
-                Summary = definition.Summary,
-                Description = definition.Description,
-                TtsScript = definition.TtsScript,
-                IsPublished = true,
-                UpdatedAt = now
-            });
+                translation = new PoiTranslation
+                {
+                    PoiId = poi.Id,
+                    Language = definition.Language
+                };
+                context.PoiTranslations.Add(translation);
+                translationMap[key] = translation;
+            }
+
+            translation.Title = definition.Title;
+            translation.Summary = definition.Summary;
+            translation.Description = definition.Description;
+            translation.TtsScript = definition.TtsScript;
+            translation.IsPublished = true;
+            translation.UpdatedAt = now;
         }
 
         if (context.ChangeTracker.HasChanges())
@@ -494,18 +610,42 @@ public static class AppDataInitializer
 
     private static async Task EnsureDemoEnglishAudioLinksAsync(AppDbContext context)
     {
-        var poiAudioMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        var translatedAudioMaps = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Phố ẩm thực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-food-street-en.wav",
-            ["Cụm quán ốc Vĩnh Khánh"] = "/audio/poi-vinh-khanh-seafood-cluster-en.wav",
-            ["Trạm xe buýt Khánh Hội"] = "/audio/poi-khanh-hoi-bus-stop-en.wav",
-            ["Trạm xe buýt Vĩnh Hội"] = "/audio/poi-vinh-hoi-bus-stop-en.wav",
-            ["Trạm xe buýt Xuân Chiếu"] = "/audio/poi-xuan-chieu-bus-stop-en.wav",
-            ["Nhịp sống khu vực Vĩnh Khánh"] = "/audio/poi-vinh-khanh-street-life-en.wav"
+            ["Phố ẩm thực Vĩnh Khánh"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-vinh-khanh-food-street-vi.wav",
+                ["en-US"] = "/audio/poi-vinh-khanh-food-street-en.wav"
+            },
+            ["Cụm quán ốc Vĩnh Khánh"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-vinh-khanh-seafood-cluster-vi.wav",
+                ["en-US"] = "/audio/poi-vinh-khanh-seafood-cluster-en.wav"
+            },
+            ["Trạm xe buýt Khánh Hội"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-khanh-hoi-bus-stop-vi.wav",
+                ["en-US"] = "/audio/poi-khanh-hoi-bus-stop-en.wav"
+            },
+            ["Trạm xe buýt Vĩnh Hội"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-vinh-hoi-bus-stop-vi.wav",
+                ["en-US"] = "/audio/poi-vinh-hoi-bus-stop-en.wav"
+            },
+            ["Trạm xe buýt Xuân Chiếu"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-xuan-chieu-bus-stop-vi.wav",
+                ["en-US"] = "/audio/poi-xuan-chieu-bus-stop-en.wav"
+            },
+            ["Nhịp sống khu vực Vĩnh Khánh"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vi-VN"] = "/audio/poi-vinh-khanh-street-life-vi.wav",
+                ["en-US"] = "/audio/poi-vinh-khanh-street-life-en.wav"
+            }
         };
 
         var pois = await context.Pois
-            .Where(x => poiAudioMap.Keys.Contains(x.Name))
+            .Where(x => translatedAudioMaps.Keys.Contains(x.Name))
             .Select(x => new { x.Id, x.Name })
             .ToListAsync();
 
@@ -516,13 +656,18 @@ public static class AppDataInitializer
         }
 
         var translations = await context.PoiTranslations
-            .Where(x => x.Language == "en-US" && poiIds.Contains(x.PoiId))
+            .Where(x => poiIds.Contains(x.PoiId) && (x.Language == "vi-VN" || x.Language == "en-US"))
             .ToListAsync();
 
         foreach (var translation in translations)
         {
             var poiName = pois.First(x => x.Id == translation.PoiId).Name;
-            var desiredAudio = poiAudioMap[poiName];
+            if (!translatedAudioMaps.TryGetValue(poiName, out var languageAudioMap) ||
+                !languageAudioMap.TryGetValue(translation.Language, out var desiredAudio))
+            {
+                continue;
+            }
+
             if (!string.Equals(translation.AudioUrl, desiredAudio, StringComparison.OrdinalIgnoreCase))
             {
                 translation.AudioUrl = desiredAudio;

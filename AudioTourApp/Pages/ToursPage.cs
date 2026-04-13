@@ -119,7 +119,7 @@ public class ToursPage : ContentPage
             details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Description)));
             details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.Stops.Count), stringFormat: "{0} điểm dừng"));
+                .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.StopCount), stringFormat: "{0} điểm dừng"));
             details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
                 .Bind(Label.TextProperty, nameof(AudioTourApp.Models.TourItem.EstimatedDurationMinutes), stringFormat: "Thời lượng: {0} phút"));
             Grid.SetColumn(details, 1);

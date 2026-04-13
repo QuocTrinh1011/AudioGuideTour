@@ -6,6 +6,13 @@ namespace AudioGuideAdmin.Controllers;
 
 public class LanguageController : Controller
 {
+    private static readonly HashSet<string> SupportedCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vi-VN",
+        "en-US",
+        "zh-CN"
+    };
+
     private readonly AppDbContext _context;
 
     public LanguageController(AppDbContext context)
@@ -16,6 +23,7 @@ public class LanguageController : Controller
     public IActionResult Index()
     {
         var items = _context.LanguageOptions
+            .Where(x => SupportedCodes.Contains(x.Code))
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
             .ToList();
@@ -25,7 +33,8 @@ public class LanguageController : Controller
 
     public IActionResult Create()
     {
-        return View(new LanguageOption());
+        TempData["Error"] = "Bản demo hiện chỉ giữ 3 ngôn ngữ: Tiếng Việt, English và 简体中文.";
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -33,6 +42,11 @@ public class LanguageController : Controller
     public async Task<IActionResult> Create(LanguageOption model)
     {
         Normalize(model);
+
+        if (!SupportedCodes.Contains(model.Code))
+        {
+            ModelState.AddModelError(nameof(model.Code), "Bản demo hiện chỉ hỗ trợ vi-VN, en-US và zh-CN.");
+        }
 
         if (_context.LanguageOptions.Any(x => x.Code == model.Code))
         {
@@ -61,6 +75,11 @@ public class LanguageController : Controller
     public async Task<IActionResult> Edit(LanguageOption model)
     {
         Normalize(model);
+
+        if (!SupportedCodes.Contains(model.Code))
+        {
+            ModelState.AddModelError(nameof(model.Code), "Bản demo hiện chỉ hỗ trợ vi-VN, en-US và zh-CN.");
+        }
 
         if (_context.LanguageOptions.Any(x => x.Id != model.Id && x.Code == model.Code))
         {
@@ -97,6 +116,12 @@ public class LanguageController : Controller
         var item = await _context.LanguageOptions.FindAsync(id);
         if (item == null)
         {
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (SupportedCodes.Contains(item.Code))
+        {
+            TempData["Error"] = "Không xóa 3 ngôn ngữ chính của hệ thống demo.";
             return RedirectToAction(nameof(Index));
         }
 

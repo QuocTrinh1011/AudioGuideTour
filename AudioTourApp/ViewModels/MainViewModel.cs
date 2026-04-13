@@ -23,6 +23,12 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceAllowBackground = "audio-tour-allow-background";
     private const string PreferenceTrackingEnabled = "audio-tour-tracking-enabled";
     private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
+    private static readonly HashSet<string> SupportedLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vi-VN",
+        "en-US",
+        "zh-CN"
+    };
 
     private readonly ApiClient _apiClient;
     private readonly LocationTrackingService _locationService;
@@ -76,7 +82,7 @@ public class MainViewModel : INotifyPropertyChanged
         _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, "Khách ẩn danh");
         _allowAutoPlay = Preferences.Default.Get(PreferenceAllowAutoPlay, true);
         _allowBackgroundTracking = Preferences.Default.Get(PreferenceAllowBackground, true);
-        var savedLanguage = Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
+        var savedLanguage = NormalizeSupportedLanguage(Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN"));
         _selectedLanguage = new LanguageItem { Code = savedLanguage, NativeName = savedLanguage, Name = savedLanguage, Locale = savedLanguage };
         _isTracking = _locationService.IsRunning;
 
@@ -1398,10 +1404,11 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (!string.IsNullOrWhiteSpace(visitor.Language))
         {
-            Preferences.Default.Set(PreferenceVisitorLanguage, visitor.Language);
+            var normalizedVisitorLanguage = NormalizeSupportedLanguage(visitor.Language);
+            Preferences.Default.Set(PreferenceVisitorLanguage, normalizedVisitorLanguage);
             if (Languages.Count > 0)
             {
-                SelectedLanguage = Languages.FirstOrDefault(x => x.Code == visitor.Language)
+                SelectedLanguage = Languages.FirstOrDefault(x => x.Code == normalizedVisitorLanguage)
                     ?? SelectedLanguage;
             }
         }
@@ -1418,6 +1425,17 @@ public class MainViewModel : INotifyPropertyChanged
         var created = factory();
         Preferences.Default.Set(key, created);
         return created;
+    }
+
+    private static string NormalizeSupportedLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return "vi-VN";
+        }
+
+        var normalized = language.Trim().Replace('_', '-');
+        return SupportedLanguageCodes.Contains(normalized) ? normalized : "vi-VN";
     }
 
     private async Task StartTrackingInternalAsync(bool isRestore, CancellationToken cancellationToken = default)

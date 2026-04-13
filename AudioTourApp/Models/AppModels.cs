@@ -79,6 +79,7 @@ public class TourItem
     public string CoverImageUrl { get; set; } = "";
     public int EstimatedDurationMinutes { get; set; }
     public List<TourStopItem> Stops { get; set; } = new();
+    public int StopCount => Stops?.Count ?? 0;
 }
 
 public class TourStopItem
