@@ -38,6 +38,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<MapPage>();
         builder.Services.AddSingleton<ToursPage>();
         builder.Services.AddSingleton<SettingsPage>();
+        builder.Services.AddTransient<RegistrationPage>();
+        builder.Services.AddTransient<RegistrationPlanPage>();
         builder.Services.AddTransient<PoiDetailPage>();
         builder.Services.AddTransient<NarrationPage>();
 

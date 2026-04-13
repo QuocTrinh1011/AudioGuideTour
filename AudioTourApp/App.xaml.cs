@@ -33,6 +33,12 @@ public class App : Application
             return;
         }
 
+        if (string.Equals(uri.Host, "registration", StringComparison.OrdinalIgnoreCase))
+        {
+            await _mainViewModel.HandleRegistrationAppLinkAsync(uri);
+            return;
+        }
+
         await _mainViewModel.LookupQrAsync(uri.AbsoluteUri);
     }
 

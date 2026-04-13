@@ -96,6 +96,65 @@ public class ApiClient
         return await response.Content.ReadFromJsonAsync<VisitorProfile>(_jsonOptions, cancellationToken) ?? visitor;
     }
 
+    public async Task<RegistrationBootstrapItem> GetRegistrationBootstrapAsync(string visitorId, string deviceId, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync(
+            $"{BaseUrl.TrimEnd('/')}/api/registration/bootstrap?visitorId={Uri.EscapeDataString(visitorId ?? string.Empty)}&deviceId={Uri.EscapeDataString(deviceId ?? string.Empty)}",
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RegistrationBootstrapItem>(_jsonOptions, cancellationToken) ?? new RegistrationBootstrapItem();
+    }
+
+    public async Task<RegistrationStatusItem> SubmitRegistrationFormAsync(SubmitRegistrationFormPayload payload, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/registration/form", payload, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RegistrationStatusItem>(_jsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("API không trả về hồ sơ đăng ký.");
+    }
+
+    public async Task<RegistrationStatusItem> CreateRegistrationPaymentAsync(string registrationId, CreateRegistrationPaymentPayload payload, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/registration/{Uri.EscapeDataString(registrationId)}/payment", payload, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RegistrationStatusItem>(_jsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("API không trả về link thanh toán.");
+    }
+
+    public async Task<RegistrationStatusItem?> GetRegistrationStatusAsync(string registrationId, bool refresh = false, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(registrationId))
+        {
+            return null;
+        }
+
+        var response = await _httpClient.GetAsync($"{BaseUrl.TrimEnd('/')}/api/registration/{Uri.EscapeDataString(registrationId)}?refresh={refresh.ToString().ToLowerInvariant()}", cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RegistrationStatusItem>(_jsonOptions, cancellationToken);
+    }
+
+    public async Task<RegistrationStatusItem?> RefreshRegistrationPaymentAsync(string registrationId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(registrationId))
+        {
+            return null;
+        }
+
+        var response = await _httpClient.PostAsync($"{BaseUrl.TrimEnd('/')}/api/registration/{Uri.EscapeDataString(registrationId)}/refresh", null, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RegistrationStatusItem>(_jsonOptions, cancellationToken);
+    }
+
     public async Task SaveVisitAsync(VisitHistoryRequest visit, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/visit", visit, cancellationToken);

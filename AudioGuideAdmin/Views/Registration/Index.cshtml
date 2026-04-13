@@ -1,0 +1,78 @@
+@model AudioGuideAdmin.ViewModels.RegistrationIndexViewModel
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Quản lý đăng ký gói</h2>
+        <p class="text-muted mb-0">Theo dõi hồ sơ người dùng đã điền form, chọn gói và thanh toán qua payOS.</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card p-3"><div class="text-muted">Tổng hồ sơ</div><div class="fs-3 fw-bold">@Model.TotalCount</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="text-muted">Đã thanh toán</div><div class="fs-3 fw-bold text-success">@Model.PaidCount</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="text-muted">Đang chờ</div><div class="fs-3 fw-bold text-warning">@Model.PendingCount</div></div></div>
+    <div class="col-md-3"><div class="card p-3"><div class="text-muted">Đã hủy</div><div class="fs-3 fw-bold text-danger">@Model.CancelledCount</div></div></div>
+</div>
+
+<div class="card p-3 mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Lọc theo trạng thái</label>
+            <select class="form-select" name="status">
+                <option value="">Tất cả</option>
+                <option value="paid" selected="@(Model.StatusFilter == "paid")">Đã thanh toán</option>
+                <option value="pending-payment" selected="@(Model.StatusFilter == "pending-payment")">Chờ thanh toán</option>
+                <option value="pending-plan" selected="@(Model.StatusFilter == "pending-plan")">Chờ chọn gói</option>
+                <option value="cancelled" selected="@(Model.StatusFilter == "cancelled")">Đã hủy</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Lọc</button>
+            <a href="/Registration" class="btn btn-outline-secondary">Xóa lọc</a>
+        </div>
+    </form>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Người đăng ký</th>
+                    <th>Liên hệ</th>
+                    <th>Gói</th>
+                    <th>Số tiền</th>
+                    <th>Trạng thái</th>
+                    <th>Thời gian</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@item.Registration.FullName</div>
+                        <div class="small text-muted"><code>@item.Registration.Id</code></div>
+                        <div class="small text-muted">Nguồn: @item.Registration.Source | @item.Registration.PreferredLanguage</div>
+                    </td>
+                    <td>
+                        <div>@item.Registration.Phone</div>
+                        <div class="small text-muted">@item.Registration.Email</div>
+                    </td>
+                    <td>@item.PlanName</td>
+                    <td>@string.Format("{0:N0} {1}", item.Registration.Amount, item.Registration.Currency)</td>
+                    <td><span class="badge @item.StatusBadgeClass">@item.StatusLabel</span></td>
+                    <td>
+                        <div>@item.Registration.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                        <div class="small text-muted">Paid: @(item.Registration.PaidAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "--")</div>
+                    </td>
+                    <td class="text-end">
+                        <a href="/Registration/Details/@item.Registration.Id" class="btn btn-sm btn-outline-dark">Chi tiết</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

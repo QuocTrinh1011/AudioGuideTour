@@ -22,6 +22,11 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceAllowAutoPlay = "audio-tour-allow-auto-play";
     private const string PreferenceAllowBackground = "audio-tour-allow-background";
     private const string PreferenceTrackingEnabled = "audio-tour-tracking-enabled";
+    private const string PreferenceRegistrationId = "audio-tour-registration-id";
+    private const string PreferenceRegistrationName = "audio-tour-registration-name";
+    private const string PreferenceRegistrationPhone = "audio-tour-registration-phone";
+    private const string PreferenceRegistrationEmail = "audio-tour-registration-email";
+    private const string PreferenceRegistrationNote = "audio-tour-registration-note";
     private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
     private static readonly HashSet<string> SupportedLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -68,6 +73,12 @@ public class MainViewModel : INotifyPropertyChanged
     private string _backgroundPermissionText = "Chưa kiểm tra";
     private string _cameraPermissionText = "Chưa kiểm tra";
     private string _notificationPermissionText = "Chưa kiểm tra";
+    private string _registrationFullName;
+    private string _registrationPhone;
+    private string _registrationEmail;
+    private string _registrationNote;
+    private RegistrationStatusItem? _currentRegistration;
+    private RegistrationPlanItem? _selectedRegistrationPlan;
 
     public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService, AppPermissionService permissionService, NarrationService narrationService)
     {
@@ -82,6 +93,10 @@ public class MainViewModel : INotifyPropertyChanged
         _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, "Khách ẩn danh");
         _allowAutoPlay = Preferences.Default.Get(PreferenceAllowAutoPlay, true);
         _allowBackgroundTracking = Preferences.Default.Get(PreferenceAllowBackground, true);
+        _registrationFullName = Preferences.Default.Get(PreferenceRegistrationName, _visitorDisplayName);
+        _registrationPhone = Preferences.Default.Get(PreferenceRegistrationPhone, string.Empty);
+        _registrationEmail = Preferences.Default.Get(PreferenceRegistrationEmail, string.Empty);
+        _registrationNote = Preferences.Default.Get(PreferenceRegistrationNote, string.Empty);
         var savedLanguage = NormalizeSupportedLanguage(Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN"));
         _selectedLanguage = new LanguageItem { Code = savedLanguage, NativeName = savedLanguage, Name = savedLanguage, Locale = savedLanguage };
         _isTracking = _locationService.IsRunning;
@@ -106,6 +121,7 @@ public class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<string> CategoryFilterOptions { get; } = new();
     public ObservableCollection<QrLookupHistoryItem> RecentQrLookups { get; } = new();
     public ObservableCollection<string> AudioDiagnostics { get; } = new();
+    public ObservableCollection<RegistrationPlanItem> RegistrationPlans { get; } = new();
 
     public string ApiBaseUrl
     {
@@ -246,6 +262,54 @@ public class MainViewModel : INotifyPropertyChanged
         set => SetField(ref _qrCodeInput, value);
     }
 
+    public string RegistrationFullName
+    {
+        get => _registrationFullName;
+        set
+        {
+            if (SetField(ref _registrationFullName, value))
+            {
+                Preferences.Default.Set(PreferenceRegistrationName, value ?? string.Empty);
+            }
+        }
+    }
+
+    public string RegistrationPhone
+    {
+        get => _registrationPhone;
+        set
+        {
+            if (SetField(ref _registrationPhone, value))
+            {
+                Preferences.Default.Set(PreferenceRegistrationPhone, value ?? string.Empty);
+            }
+        }
+    }
+
+    public string RegistrationEmail
+    {
+        get => _registrationEmail;
+        set
+        {
+            if (SetField(ref _registrationEmail, value))
+            {
+                Preferences.Default.Set(PreferenceRegistrationEmail, value ?? string.Empty);
+            }
+        }
+    }
+
+    public string RegistrationNote
+    {
+        get => _registrationNote;
+        set
+        {
+            if (SetField(ref _registrationNote, value))
+            {
+                Preferences.Default.Set(PreferenceRegistrationNote, value ?? string.Empty);
+            }
+        }
+    }
+
     public string VisitorDisplayName
     {
         get => _visitorDisplayName;
@@ -333,6 +397,43 @@ public class MainViewModel : INotifyPropertyChanged
     public bool HasSelectedPoi => SelectedPoi != null;
     public bool HasSelectedTour => SelectedTour != null;
     public bool HasActiveTour => ActiveTour != null;
+    public RegistrationStatusItem? CurrentRegistration
+    {
+        get => _currentRegistration;
+        private set
+        {
+            if (SetField(ref _currentRegistration, value))
+            {
+                if (!string.IsNullOrWhiteSpace(value?.Id))
+                {
+                    Preferences.Default.Set(PreferenceRegistrationId, value.Id);
+                }
+
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasCurrentRegistration)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRegisteredSuccessfully)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RegistrationSummaryText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RegistrationPaymentStatusText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RegistrationPrimaryActionText)));
+            }
+        }
+    }
+
+    public RegistrationPlanItem? SelectedRegistrationPlan
+    {
+        get => _selectedRegistrationPlan;
+        set
+        {
+            if (SetField(ref _selectedRegistrationPlan, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasSelectedRegistrationPlan)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedRegistrationPlanPriceText)));
+            }
+        }
+    }
+
+    public bool HasCurrentRegistration => CurrentRegistration != null;
+    public bool HasSelectedRegistrationPlan => SelectedRegistrationPlan != null;
+    public bool IsRegisteredSuccessfully => CurrentRegistration?.IsSuccessful == true;
     public string SelectedLanguageDisplayText => SelectedLanguage == null
         ? "Chưa chọn ngôn ngữ"
         : $"{SelectedLanguage.NativeName} ({SelectedLanguage.Code})";
@@ -418,6 +519,26 @@ public class MainViewModel : INotifyPropertyChanged
     public string AudioDiagnosticsSummary => AudioDiagnostics.Count == 0
         ? "Chưa có log chẩn đoán audio."
         : string.Join(Environment.NewLine, AudioDiagnostics.Take(6));
+    public string RegistrationSummaryText => CurrentRegistration == null
+        ? "Bạn chưa hoàn tất đăng ký gói. Hãy điền form và chọn gói để hệ thống xác nhận."
+        : CurrentRegistration.IsSuccessful
+            ? $"Đăng ký thành công: {CurrentRegistration.FullName} | {CurrentRegistration.Plan?.Name ?? "Đã chọn gói"}"
+            : $"Hồ sơ: {CurrentRegistration.FullName} | Trạng thái: {RegistrationPaymentStatusText}";
+    public string RegistrationPaymentStatusText => CurrentRegistration == null
+        ? "Chưa có hồ sơ đăng ký."
+        : CurrentRegistration.PaymentStatus switch
+        {
+            "PAID" => "Đã thanh toán và đã xác nhận.",
+            "PENDING" => "Đang chờ người dùng thanh toán.",
+            "PROCESSING" => "payOS đang xử lý giao dịch.",
+            "CANCELLED" => "Thanh toán đã bị hủy.",
+            "FORM_ONLY" => "Đã gửi form, chưa chọn gói.",
+            _ => string.IsNullOrWhiteSpace(CurrentRegistration.Status) ? "Chưa rõ trạng thái." : CurrentRegistration.Status
+        };
+    public string RegistrationPrimaryActionText => IsRegisteredSuccessfully ? "Xem lại gói đã đăng ký" : "Đăng ký gói";
+    public string SelectedRegistrationPlanPriceText => SelectedRegistrationPlan == null
+        ? "Chọn một gói từ 20.000đ trở lên."
+        : $"{SelectedRegistrationPlan.Name} - {SelectedRegistrationPlan.Price:N0} {SelectedRegistrationPlan.Currency} / {SelectedRegistrationPlan.DurationDays} ngày";
     public IReadOnlyList<TourStopItem> SelectedTourStops => SelectedTour?.Stops == null
         ? Array.Empty<TourStopItem>()
         : SelectedTour.Stops
@@ -522,6 +643,7 @@ public class MainViewModel : INotifyPropertyChanged
                     RefreshMap();
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisiblePoisSummary)));
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
+                    await RefreshRegistrationBootstrapAsync(cancellationToken);
                     Status = $"Đã tải {bootstrap.Pois.Count} POI, {bootstrap.Tours.Count} tour và {bootstrap.Languages.Count} ngôn ngữ. Visitor: {VisitorDisplayName}.";
                     await RefreshPermissionStatusAsync();
                     await TryRestoreTrackingAsync(cancellationToken);
@@ -579,6 +701,148 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         await BootstrapAsync();
+    }
+
+    public async Task RefreshRegistrationBootstrapAsync(CancellationToken cancellationToken = default)
+    {
+        _apiClient.BaseUrl = ApiBaseUrl;
+        var bootstrap = await _apiClient.GetRegistrationBootstrapAsync(_userId, _deviceId, cancellationToken);
+        ReplaceCollection(RegistrationPlans, bootstrap.Plans.OrderBy(x => x.Price));
+
+        var resolved = bootstrap.ActiveRegistration;
+        var savedRegistrationId = Preferences.Default.Get(PreferenceRegistrationId, string.Empty);
+        if (resolved == null && !string.IsNullOrWhiteSpace(savedRegistrationId))
+        {
+            resolved = await _apiClient.GetRegistrationStatusAsync(savedRegistrationId, refresh: false, cancellationToken);
+        }
+
+        ApplyRegistrationState(resolved);
+        if (SelectedRegistrationPlan == null)
+        {
+            SelectedRegistrationPlan = RegistrationPlans.FirstOrDefault(x => x.Price >= 20_000) ?? RegistrationPlans.FirstOrDefault();
+        }
+    }
+
+    public async Task SubmitRegistrationFormAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(RegistrationFullName))
+        {
+            Status = "Vui lòng nhập họ và tên trước khi tiếp tục.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RegistrationPhone))
+        {
+            Status = "Vui lòng nhập số điện thoại trước khi tiếp tục.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RegistrationEmail))
+        {
+            Status = "Vui lòng nhập email trước khi tiếp tục.";
+            return;
+        }
+
+        _apiClient.BaseUrl = ApiBaseUrl;
+        var result = await _apiClient.SubmitRegistrationFormAsync(new SubmitRegistrationFormPayload
+        {
+            VisitorId = _userId,
+            DeviceId = _deviceId,
+            FullName = RegistrationFullName.Trim(),
+            Phone = RegistrationPhone.Trim(),
+            Email = RegistrationEmail.Trim(),
+            PreferredLanguage = SelectedLanguage?.Code ?? "vi-VN",
+            Source = "mobile",
+            Note = RegistrationNote?.Trim() ?? string.Empty
+        }, cancellationToken);
+
+        ApplyRegistrationState(result);
+        Status = "Đã lưu form đăng ký. Hãy chọn gói và tiến hành thanh toán.";
+    }
+
+    public async Task CreateRegistrationPaymentAsync(CancellationToken cancellationToken = default)
+    {
+        if (CurrentRegistration == null || string.IsNullOrWhiteSpace(CurrentRegistration.Id))
+        {
+            await SubmitRegistrationFormAsync(cancellationToken);
+        }
+
+        if (CurrentRegistration == null || string.IsNullOrWhiteSpace(CurrentRegistration.Id))
+        {
+            return;
+        }
+
+        if (SelectedRegistrationPlan == null)
+        {
+            Status = "Vui lòng chọn một gói đăng ký trước khi thanh toán.";
+            return;
+        }
+
+        _apiClient.BaseUrl = ApiBaseUrl;
+        var result = await _apiClient.CreateRegistrationPaymentAsync(CurrentRegistration.Id, new CreateRegistrationPaymentPayload
+        {
+            PlanId = SelectedRegistrationPlan.Id,
+            CallbackBaseUrl = ApiBaseUrl
+        }, cancellationToken);
+
+        ApplyRegistrationState(result);
+        Status = $"Đã tạo link thanh toán cho {SelectedRegistrationPlan.Name}.";
+    }
+
+    public async Task OpenRegistrationCheckoutAsync(CancellationToken cancellationToken = default)
+    {
+        if (CurrentRegistration == null || string.IsNullOrWhiteSpace(CurrentRegistration.CheckoutUrl))
+        {
+            await CreateRegistrationPaymentAsync(cancellationToken);
+        }
+
+        if (CurrentRegistration == null || string.IsNullOrWhiteSpace(CurrentRegistration.CheckoutUrl))
+        {
+            return;
+        }
+
+        await Launcher.Default.OpenAsync(new Uri(CurrentRegistration.CheckoutUrl));
+        Status = "Đã mở trang thanh toán payOS. Sau khi thanh toán xong, ứng dụng sẽ kiểm tra lại trạng thái đăng ký.";
+    }
+
+    public async Task RefreshRegistrationPaymentAsync(CancellationToken cancellationToken = default)
+    {
+        var registrationId = CurrentRegistration?.Id;
+        if (string.IsNullOrWhiteSpace(registrationId))
+        {
+            registrationId = Preferences.Default.Get(PreferenceRegistrationId, string.Empty);
+        }
+
+        if (string.IsNullOrWhiteSpace(registrationId))
+        {
+            Status = "Chưa có hồ sơ đăng ký nào để kiểm tra.";
+            return;
+        }
+
+        _apiClient.BaseUrl = ApiBaseUrl;
+        var refreshed = await _apiClient.RefreshRegistrationPaymentAsync(registrationId, cancellationToken);
+        ApplyRegistrationState(refreshed);
+
+        if (CurrentRegistration?.IsSuccessful == true)
+        {
+            Status = "Đăng ký gói đã được xác nhận thành công.";
+            await MainThread.InvokeOnMainThreadAsync(() =>
+                Shell.Current?.CurrentPage?.DisplayAlert("Đăng ký thành công", "Hệ thống đã xác nhận gói đăng ký của bạn.", "OK") ?? Task.CompletedTask);
+            return;
+        }
+
+        Status = $"Đã kiểm tra lại thanh toán: {RegistrationPaymentStatusText}";
+    }
+
+    public async Task HandleRegistrationAppLinkAsync(Uri uri)
+    {
+        var registrationId = TryReadQueryValue(uri, "registrationId");
+        if (!string.IsNullOrWhiteSpace(registrationId))
+        {
+            Preferences.Default.Set(PreferenceRegistrationId, registrationId);
+        }
+
+        await RefreshRegistrationPaymentAsync();
     }
 
     public async Task ToggleTrackingAsync()
@@ -1621,6 +1885,39 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         return null;
+    }
+
+    private void ApplyRegistrationState(RegistrationStatusItem? registration)
+    {
+        CurrentRegistration = registration;
+
+        if (registration == null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(registration.FullName))
+        {
+            RegistrationFullName = registration.FullName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(registration.Phone))
+        {
+            RegistrationPhone = registration.Phone;
+        }
+
+        if (!string.IsNullOrWhiteSpace(registration.Email))
+        {
+            RegistrationEmail = registration.Email;
+        }
+
+        RegistrationNote = registration.Note ?? string.Empty;
+
+        if (registration.Plan != null)
+        {
+            var matchedPlan = RegistrationPlans.FirstOrDefault(x => x.Id == registration.Plan.Id);
+            SelectedRegistrationPlan = matchedPlan ?? registration.Plan;
+        }
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IEnumerable<T> items)

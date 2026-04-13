@@ -13,12 +13,14 @@ public static class AppDataInitializer
         if (context.Database.IsSqlite())
         {
             await context.Database.EnsureCreatedAsync();
+            await EnsureSqliteRegistrationTablesAsync(context);
             await SeedCoreDataAsync(context);
             return;
         }
 
         await context.Database.MigrateAsync();
         await EnsureLanguageTableAsync(context);
+        await EnsureRegistrationTablesAsync(context);
         await context.Database.ExecuteSqlRawAsync(
             """
             IF OBJECT_ID(N'[Categories]', N'U') IS NULL
@@ -57,6 +59,7 @@ public static class AppDataInitializer
     {
         await EnsureSupportedLanguagesAsync(context);
         await NormalizeUnsupportedLanguageReferencesAsync(context);
+        await SeedRegistrationPlansAsync(context);
 
         if (!await context.Categories.AnyAsync())
         {
@@ -219,6 +222,247 @@ public static class AppDataInitializer
                 CREATE UNIQUE INDEX [IX_LanguageOptions_Code] ON [LanguageOptions]([Code]);
             END
             """);
+    }
+
+    private static async Task EnsureSqliteRegistrationTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "RegistrationPlans" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_RegistrationPlans" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                "HighlightText" TEXT NOT NULL DEFAULT '',
+                "Price" INTEGER NOT NULL DEFAULT 0,
+                "DurationDays" INTEGER NOT NULL DEFAULT 0,
+                "Currency" TEXT NOT NULL DEFAULT 'VND',
+                "IsActive" INTEGER NOT NULL DEFAULT 1,
+                "SortOrder" INTEGER NOT NULL DEFAULT 1
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_RegistrationPlans_Code"
+            ON "RegistrationPlans" ("Code");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "MembershipRegistrations" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_MembershipRegistrations" PRIMARY KEY,
+                "VisitorId" TEXT NOT NULL DEFAULT '',
+                "DeviceId" TEXT NOT NULL DEFAULT '',
+                "FullName" TEXT NOT NULL DEFAULT '',
+                "Phone" TEXT NOT NULL DEFAULT '',
+                "Email" TEXT NOT NULL DEFAULT '',
+                "PreferredLanguage" TEXT NOT NULL DEFAULT 'vi-VN',
+                "Source" TEXT NOT NULL DEFAULT 'mobile',
+                "Status" TEXT NOT NULL DEFAULT 'pending-form',
+                "PaymentStatus" TEXT NOT NULL DEFAULT 'FORM_ONLY',
+                "RegistrationPlanId" INTEGER NULL,
+                "Amount" INTEGER NOT NULL DEFAULT 0,
+                "Currency" TEXT NOT NULL DEFAULT 'VND',
+                "OrderCode" INTEGER NULL,
+                "PaymentLinkId" TEXT NOT NULL DEFAULT '',
+                "CheckoutUrl" TEXT NOT NULL DEFAULT '',
+                "QrCode" TEXT NOT NULL DEFAULT '',
+                "ReturnToken" TEXT NOT NULL DEFAULT '',
+                "Note" TEXT NOT NULL DEFAULT '',
+                "AdminNote" TEXT NOT NULL DEFAULT '',
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "FormSubmittedAt" TEXT NULL,
+                "PaymentStartedAt" TEXT NULL,
+                "PaidAt" TEXT NULL,
+                "CancelledAt" TEXT NULL,
+                "LastSyncedAt" TEXT NULL,
+                CONSTRAINT "FK_MembershipRegistrations_RegistrationPlans_RegistrationPlanId"
+                    FOREIGN KEY ("RegistrationPlanId") REFERENCES "RegistrationPlans" ("Id") ON DELETE SET NULL
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_MembershipRegistrations_VisitorId"
+            ON "MembershipRegistrations" ("VisitorId");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_MembershipRegistrations_DeviceId"
+            ON "MembershipRegistrations" ("DeviceId");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_MembershipRegistrations_OrderCode"
+            ON "MembershipRegistrations" ("OrderCode");
+            """);
+    }
+
+    private static async Task EnsureRegistrationTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[RegistrationPlans]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [RegistrationPlans](
+                    [Id] int NOT NULL IDENTITY,
+                    [Code] nvarchar(50) NOT NULL,
+                    [Name] nvarchar(150) NOT NULL CONSTRAINT [DF_RegistrationPlans_Name] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_RegistrationPlans_Description] DEFAULT N'',
+                    [HighlightText] nvarchar(200) NOT NULL CONSTRAINT [DF_RegistrationPlans_HighlightText] DEFAULT N'',
+                    [Price] int NOT NULL CONSTRAINT [DF_RegistrationPlans_Price] DEFAULT 0,
+                    [DurationDays] int NOT NULL CONSTRAINT [DF_RegistrationPlans_DurationDays] DEFAULT 0,
+                    [Currency] nvarchar(10) NOT NULL CONSTRAINT [DF_RegistrationPlans_Currency] DEFAULT N'VND',
+                    [IsActive] bit NOT NULL CONSTRAINT [DF_RegistrationPlans_IsActive] DEFAULT 1,
+                    [SortOrder] int NOT NULL CONSTRAINT [DF_RegistrationPlans_SortOrder] DEFAULT 1,
+                    CONSTRAINT [PK_RegistrationPlans] PRIMARY KEY ([Id])
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[RegistrationPlans]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_RegistrationPlans_Code'
+                      AND object_id = OBJECT_ID(N'[RegistrationPlans]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_RegistrationPlans_Code] ON [RegistrationPlans]([Code]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[MembershipRegistrations]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [MembershipRegistrations](
+                    [Id] nvarchar(64) NOT NULL,
+                    [VisitorId] nvarchar(100) NOT NULL CONSTRAINT [DF_MembershipRegistrations_VisitorId] DEFAULT N'',
+                    [DeviceId] nvarchar(100) NOT NULL CONSTRAINT [DF_MembershipRegistrations_DeviceId] DEFAULT N'',
+                    [FullName] nvarchar(200) NOT NULL CONSTRAINT [DF_MembershipRegistrations_FullName] DEFAULT N'',
+                    [Phone] nvarchar(50) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Phone] DEFAULT N'',
+                    [Email] nvarchar(150) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Email] DEFAULT N'',
+                    [PreferredLanguage] nvarchar(20) NOT NULL CONSTRAINT [DF_MembershipRegistrations_PreferredLanguage] DEFAULT N'vi-VN',
+                    [Source] nvarchar(50) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Source] DEFAULT N'mobile',
+                    [Status] nvarchar(50) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Status] DEFAULT N'pending-form',
+                    [PaymentStatus] nvarchar(50) NOT NULL CONSTRAINT [DF_MembershipRegistrations_PaymentStatus] DEFAULT N'FORM_ONLY',
+                    [RegistrationPlanId] int NULL,
+                    [Amount] int NOT NULL CONSTRAINT [DF_MembershipRegistrations_Amount] DEFAULT 0,
+                    [Currency] nvarchar(10) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Currency] DEFAULT N'VND',
+                    [OrderCode] bigint NULL,
+                    [PaymentLinkId] nvarchar(100) NOT NULL CONSTRAINT [DF_MembershipRegistrations_PaymentLinkId] DEFAULT N'',
+                    [CheckoutUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_MembershipRegistrations_CheckoutUrl] DEFAULT N'',
+                    [QrCode] nvarchar(max) NOT NULL CONSTRAINT [DF_MembershipRegistrations_QrCode] DEFAULT N'',
+                    [ReturnToken] nvarchar(100) NOT NULL CONSTRAINT [DF_MembershipRegistrations_ReturnToken] DEFAULT N'',
+                    [Note] nvarchar(max) NOT NULL CONSTRAINT [DF_MembershipRegistrations_Note] DEFAULT N'',
+                    [AdminNote] nvarchar(max) NOT NULL CONSTRAINT [DF_MembershipRegistrations_AdminNote] DEFAULT N'',
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_MembershipRegistrations_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_MembershipRegistrations_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [FormSubmittedAt] datetime2 NULL,
+                    [PaymentStartedAt] datetime2 NULL,
+                    [PaidAt] datetime2 NULL,
+                    [CancelledAt] datetime2 NULL,
+                    [LastSyncedAt] datetime2 NULL,
+                    CONSTRAINT [PK_MembershipRegistrations] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_MembershipRegistrations_RegistrationPlans_RegistrationPlanId] FOREIGN KEY ([RegistrationPlanId]) REFERENCES [RegistrationPlans]([Id]) ON DELETE SET NULL
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[MembershipRegistrations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_MembershipRegistrations_VisitorId'
+                      AND object_id = OBJECT_ID(N'[MembershipRegistrations]')
+                )
+            BEGIN
+                CREATE INDEX [IX_MembershipRegistrations_VisitorId] ON [MembershipRegistrations]([VisitorId]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[MembershipRegistrations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_MembershipRegistrations_DeviceId'
+                      AND object_id = OBJECT_ID(N'[MembershipRegistrations]')
+                )
+            BEGIN
+                CREATE INDEX [IX_MembershipRegistrations_DeviceId] ON [MembershipRegistrations]([DeviceId]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[MembershipRegistrations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_MembershipRegistrations_OrderCode'
+                      AND object_id = OBJECT_ID(N'[MembershipRegistrations]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_MembershipRegistrations_OrderCode] ON [MembershipRegistrations]([OrderCode]) WHERE [OrderCode] IS NOT NULL;
+            END
+            """);
+    }
+
+    private static async Task SeedRegistrationPlansAsync(AppDbContext context)
+    {
+        var now = DateTime.UtcNow;
+        var seedPlans = new[]
+        {
+            new RegistrationPlan { Code = "starter-20k", Name = "Gói khởi động", Description = "Phù hợp để đăng ký nhanh và trải nghiệm đầy đủ nội dung cơ bản trên tuyến phố.", HighlightText = "Tối thiểu 20.000đ", Price = 20_000, DurationDays = 30, Currency = "VND", IsActive = true, SortOrder = 1 },
+            new RegistrationPlan { Code = "explorer-50k", Name = "Gói khám phá", Description = "Dành cho khách muốn nghe trọn bộ nội dung và sử dụng dài hơn trong nhiều lần quay lại.", HighlightText = "Phổ biến", Price = 50_000, DurationDays = 90, Currency = "VND", IsActive = true, SortOrder = 2 },
+            new RegistrationPlan { Code = "premium-100k", Name = "Gói đồng hành", Description = "Phù hợp cho doanh nghiệp hoặc khách muốn trải nghiệm lâu dài và ổn định.", HighlightText = "Giá trị cao", Price = 100_000, DurationDays = 365, Currency = "VND", IsActive = true, SortOrder = 3 }
+        };
+
+        var existingPlans = await context.RegistrationPlans.ToListAsync();
+        foreach (var seed in seedPlans)
+        {
+            var existing = existingPlans.FirstOrDefault(x => string.Equals(x.Code, seed.Code, StringComparison.OrdinalIgnoreCase));
+            if (existing == null)
+            {
+                context.RegistrationPlans.Add(seed);
+                continue;
+            }
+
+            existing.Name = seed.Name;
+            existing.Description = seed.Description;
+            existing.HighlightText = seed.HighlightText;
+            existing.Price = seed.Price;
+            existing.DurationDays = seed.DurationDays;
+            existing.Currency = seed.Currency;
+            existing.SortOrder = seed.SortOrder;
+            existing.IsActive = true;
+        }
+
+        foreach (var extra in existingPlans.Where(x => seedPlans.All(seed => !string.Equals(seed.Code, x.Code, StringComparison.OrdinalIgnoreCase))))
+        {
+            extra.IsActive = false;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
     }
 
     private static async Task SeedDemoContentAsync(AppDbContext context)

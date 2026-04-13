@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<Tour> Tours => Set<Tour>();
     public DbSet<TourStop> TourStops => Set<TourStop>();
     public DbSet<GeofenceTrigger> GeofenceTriggers => Set<GeofenceTrigger>();
+    public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
+    public DbSet<MembershipRegistration> MembershipRegistrations => Set<MembershipRegistration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -107,5 +109,29 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.PoiId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RegistrationPlan>()
+            .Property(x => x.Code)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<RegistrationPlan>()
+            .HasIndex(x => x.Code)
+            .IsUnique();
+
+        modelBuilder.Entity<MembershipRegistration>()
+            .HasIndex(x => x.VisitorId);
+
+        modelBuilder.Entity<MembershipRegistration>()
+            .HasIndex(x => x.DeviceId);
+
+        modelBuilder.Entity<MembershipRegistration>()
+            .HasIndex(x => x.OrderCode)
+            .IsUnique();
+
+        modelBuilder.Entity<MembershipRegistration>()
+            .HasOne(x => x.RegistrationPlan)
+            .WithMany(x => x.Registrations)
+            .HasForeignKey(x => x.RegistrationPlanId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -1,0 +1,88 @@
+@model AudioGuideAdmin.ViewModels.RegistrationDetailViewModel
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Chi tiết hồ sơ đăng ký</h2>
+        <p class="text-muted mb-0">Theo dõi đầy đủ thông tin form, gói đăng ký và trạng thái thanh toán của người dùng.</p>
+    </div>
+    <a href="/Registration" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <div class="text-muted">Người đăng ký</div>
+                    <h3 class="mb-1">@Model.Registration.FullName</h3>
+                    <div class="small text-muted"><code>@Model.Registration.Id</code></div>
+                </div>
+                <span class="badge @Model.StatusBadgeClass">@Model.StatusLabel</span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="text-muted small">Số điện thoại</div>
+                    <div class="fw-semibold">@Model.Registration.Phone</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Email</div>
+                    <div class="fw-semibold">@Model.Registration.Email</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Ngôn ngữ</div>
+                    <div class="fw-semibold">@Model.Registration.PreferredLanguage</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Nguồn đăng ký</div>
+                    <div class="fw-semibold text-uppercase">@Model.Registration.Source</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Gói đã chọn</div>
+                    <div class="fw-semibold">@Model.PlanName</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Số tiền</div>
+                    <div class="fw-semibold">@string.Format("{0:N0} {1}", Model.Registration.Amount, Model.Registration.Currency)</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">OrderCode</div>
+                    <div class="fw-semibold">@(Model.Registration.OrderCode?.ToString() ?? "--")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">PaymentLinkId</div>
+                    <div class="fw-semibold">@(!string.IsNullOrWhiteSpace(Model.Registration.PaymentLinkId) ? Model.Registration.PaymentLinkId : "--")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Tạo lúc</div>
+                    <div class="fw-semibold">@Model.Registration.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small">Thanh toán lúc</div>
+                    <div class="fw-semibold">@(Model.Registration.PaidAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "--")</div>
+                </div>
+                <div class="col-12">
+                    <div class="text-muted small">Ghi chú người dùng</div>
+                    <div class="fw-semibold">@(!string.IsNullOrWhiteSpace(Model.Registration.Note) ? Model.Registration.Note : "Không có")</div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.Registration.CheckoutUrl))
+                {
+                    <div class="col-12">
+                        <a href="@Model.Registration.CheckoutUrl" target="_blank" rel="noreferrer" class="btn btn-outline-primary">Mở link thanh toán</a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h4 class="mb-3">Ghi chú quản trị</h4>
+            <form method="post" action="/Registration/UpdateNote">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Registration.Id" />
+                <textarea class="form-control" rows="8" name="adminNote">@Model.Registration.AdminNote</textarea>
+                <button type="submit" class="btn btn-primary mt-3">Lưu ghi chú</button>
+            </form>
+        </div>
+    </div>
+</div>
