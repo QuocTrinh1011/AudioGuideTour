@@ -7,6 +7,7 @@ public class SubmitRegistrationFormRequest
     public string FullName { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Email { get; set; } = "";
+    public string Password { get; set; } = "";
     public string PreferredLanguage { get; set; } = "vi-VN";
     public string Source { get; set; } = "mobile";
     public string Note { get; set; } = "";

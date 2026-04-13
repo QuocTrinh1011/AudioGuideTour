@@ -85,6 +85,16 @@ public class HomePage : ContentPage
         await Navigation.PushAsync(new SettingsPage(_viewModel));
     }
 
+    private async void OnOpenRegistrationClicked()
+    {
+        await Navigation.PushAsync(new RegistrationPage(_viewModel));
+    }
+
+    private void OnOpenRegistrationButtonClicked(object? sender, EventArgs e)
+    {
+        OnOpenRegistrationClicked();
+    }
+
     private async void OnOpenQrTabClicked(object? sender, EventArgs e)
     {
         if (Shell.Current != null)

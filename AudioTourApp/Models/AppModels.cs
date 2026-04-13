@@ -212,6 +212,7 @@ public class SubmitRegistrationFormPayload
     public string FullName { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Email { get; set; } = "";
+    public string Password { get; set; } = "";
     public string PreferredLanguage { get; set; } = "vi-VN";
     public string Source { get; set; } = "mobile";
     public string Note { get; set; } = "";
@@ -221,4 +222,31 @@ public class CreateRegistrationPaymentPayload
 {
     public int PlanId { get; set; }
     public string CallbackBaseUrl { get; set; } = "";
+}
+
+public class CustomerLoginPayload
+{
+    public string Identifier { get; set; } = "";
+    public string Password { get; set; } = "";
+}
+
+public class CustomerLogoutPayload
+{
+    public string AccountId { get; set; } = "";
+    public string SessionToken { get; set; } = "";
+}
+
+public class CustomerSessionItem
+{
+    public string AccountId { get; set; } = "";
+    public string RegistrationId { get; set; } = "";
+    public string FullName { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string PreferredLanguage { get; set; } = "vi-VN";
+    public string SessionToken { get; set; } = "";
+    public DateTime? SessionExpiresAt { get; set; }
+    public bool IsPaid { get; set; }
+    public bool IsActive { get; set; }
+    public string Status { get; set; } = "";
 }

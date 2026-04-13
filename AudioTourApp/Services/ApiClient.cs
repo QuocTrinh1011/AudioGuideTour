@@ -96,6 +96,39 @@ public class ApiClient
         return await response.Content.ReadFromJsonAsync<VisitorProfile>(_jsonOptions, cancellationToken) ?? visitor;
     }
 
+    public async Task<CustomerSessionItem> LoginCustomerAsync(CustomerLoginPayload payload, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/customerauth/login", payload, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CustomerSessionItem>(_jsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException("API không trả về phiên đăng nhập hợp lệ.");
+    }
+
+    public async Task<CustomerSessionItem?> ValidateCustomerSessionAsync(string accountId, string sessionToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accountId) || string.IsNullOrWhiteSpace(sessionToken))
+        {
+            return null;
+        }
+
+        var response = await _httpClient.GetAsync(
+            $"{BaseUrl.TrimEnd('/')}/api/customerauth/session?accountId={Uri.EscapeDataString(accountId)}&token={Uri.EscapeDataString(sessionToken)}",
+            cancellationToken);
+
+        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CustomerSessionItem>(_jsonOptions, cancellationToken);
+    }
+
+    public async Task LogoutCustomerAsync(CustomerLogoutPayload payload, CancellationToken cancellationToken = default)
+    {
+        await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/customerauth/logout", payload, cancellationToken);
+    }
+
     public async Task<RegistrationBootstrapItem> GetRegistrationBootstrapAsync(string visitorId, string deviceId, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.GetAsync(

@@ -305,6 +305,55 @@ public static class AppDataInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_MembershipRegistrations_OrderCode"
             ON "MembershipRegistrations" ("OrderCode");
             """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "CustomerAccounts" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_CustomerAccounts" PRIMARY KEY,
+                "RegistrationId" TEXT NOT NULL DEFAULT '',
+                "FullName" TEXT NOT NULL DEFAULT '',
+                "Phone" TEXT NOT NULL DEFAULT '',
+                "Email" TEXT NOT NULL DEFAULT '',
+                "PreferredLanguage" TEXT NOT NULL DEFAULT 'vi-VN',
+                "PasswordHash" TEXT NOT NULL DEFAULT '',
+                "PasswordSalt" TEXT NOT NULL DEFAULT '',
+                "IsActive" INTEGER NOT NULL DEFAULT 0,
+                "IsPaid" INTEGER NOT NULL DEFAULT 0,
+                "Status" TEXT NOT NULL DEFAULT 'pending-payment',
+                "SessionToken" TEXT NOT NULL DEFAULT '',
+                "SessionExpiresAt" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "PaidAt" TEXT NULL,
+                "LastLoginAt" TEXT NULL,
+                CONSTRAINT "FK_CustomerAccounts_MembershipRegistrations_RegistrationId"
+                    FOREIGN KEY ("RegistrationId") REFERENCES "MembershipRegistrations" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CustomerAccounts_RegistrationId"
+            ON "CustomerAccounts" ("RegistrationId");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CustomerAccounts_Phone"
+            ON "CustomerAccounts" ("Phone");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CustomerAccounts_Email"
+            ON "CustomerAccounts" ("Email");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_CustomerAccounts_SessionToken"
+            ON "CustomerAccounts" ("SessionToken");
+            """);
     }
 
     private static async Task EnsureRegistrationTablesAsync(AppDbContext context)
@@ -420,6 +469,90 @@ public static class AppDataInitializer
                 )
             BEGIN
                 CREATE UNIQUE INDEX [IX_MembershipRegistrations_OrderCode] ON [MembershipRegistrations]([OrderCode]) WHERE [OrderCode] IS NOT NULL;
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[CustomerAccounts]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [CustomerAccounts](
+                    [Id] nvarchar(64) NOT NULL,
+                    [RegistrationId] nvarchar(64) NOT NULL CONSTRAINT [DF_CustomerAccounts_RegistrationId] DEFAULT N'',
+                    [FullName] nvarchar(200) NOT NULL CONSTRAINT [DF_CustomerAccounts_FullName] DEFAULT N'',
+                    [Phone] nvarchar(50) NOT NULL CONSTRAINT [DF_CustomerAccounts_Phone] DEFAULT N'',
+                    [Email] nvarchar(150) NOT NULL CONSTRAINT [DF_CustomerAccounts_Email] DEFAULT N'',
+                    [PreferredLanguage] nvarchar(20) NOT NULL CONSTRAINT [DF_CustomerAccounts_PreferredLanguage] DEFAULT N'vi-VN',
+                    [PasswordHash] nvarchar(max) NOT NULL CONSTRAINT [DF_CustomerAccounts_PasswordHash] DEFAULT N'',
+                    [PasswordSalt] nvarchar(max) NOT NULL CONSTRAINT [DF_CustomerAccounts_PasswordSalt] DEFAULT N'',
+                    [IsActive] bit NOT NULL CONSTRAINT [DF_CustomerAccounts_IsActive] DEFAULT 0,
+                    [IsPaid] bit NOT NULL CONSTRAINT [DF_CustomerAccounts_IsPaid] DEFAULT 0,
+                    [Status] nvarchar(50) NOT NULL CONSTRAINT [DF_CustomerAccounts_Status] DEFAULT N'pending-payment',
+                    [SessionToken] nvarchar(100) NOT NULL CONSTRAINT [DF_CustomerAccounts_SessionToken] DEFAULT N'',
+                    [SessionExpiresAt] datetime2 NULL,
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_CustomerAccounts_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_CustomerAccounts_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [PaidAt] datetime2 NULL,
+                    [LastLoginAt] datetime2 NULL,
+                    CONSTRAINT [PK_CustomerAccounts] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_CustomerAccounts_MembershipRegistrations_RegistrationId] FOREIGN KEY ([RegistrationId]) REFERENCES [MembershipRegistrations]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[CustomerAccounts]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_CustomerAccounts_RegistrationId'
+                      AND object_id = OBJECT_ID(N'[CustomerAccounts]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_CustomerAccounts_RegistrationId] ON [CustomerAccounts]([RegistrationId]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[CustomerAccounts]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_CustomerAccounts_Phone'
+                      AND object_id = OBJECT_ID(N'[CustomerAccounts]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_CustomerAccounts_Phone] ON [CustomerAccounts]([Phone]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[CustomerAccounts]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_CustomerAccounts_Email'
+                      AND object_id = OBJECT_ID(N'[CustomerAccounts]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_CustomerAccounts_Email] ON [CustomerAccounts]([Email]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[CustomerAccounts]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sys.indexes
+                    WHERE name = 'IX_CustomerAccounts_SessionToken'
+                      AND object_id = OBJECT_ID(N'[CustomerAccounts]')
+                )
+            BEGIN
+                CREATE INDEX [IX_CustomerAccounts_SessionToken] ON [CustomerAccounts]([SessionToken]);
             END
             """);
     }

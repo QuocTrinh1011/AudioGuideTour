@@ -51,6 +51,11 @@ public class SettingsPage : ContentPage
         await _viewModel.OpenSystemSettingsAsync();
     }
 
+    private async void OnLogoutClicked(object? sender, EventArgs e)
+    {
+        await _viewModel.LogoutAsync();
+    }
+
     private View BuildContent()
     {
         var root = new VerticalStackLayout
@@ -161,6 +166,19 @@ public class SettingsPage : ContentPage
 
         permissionsCard.Content = permissionsLayout;
         root.Add(permissionsCard);
+
+        var accountCard = CreateCard();
+        accountCard.Content = new VerticalStackLayout
+        {
+            Spacing = 12,
+            Children =
+            {
+                new Label { Text = "Tài khoản", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentCustomerGreeting)),
+                CreateActionButton("Đăng xuất", OnLogoutClicked, "#D94F4F", "White")
+            }
+        };
+        root.Add(accountCard);
 
         return new ScrollView { Content = root };
     }

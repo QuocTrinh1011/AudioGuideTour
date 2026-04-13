@@ -67,6 +67,8 @@ public class RegistrationPage : ContentPage
         formLayout.Add(CreateEntry("Họ và tên", nameof(MainViewModel.RegistrationFullName), Keyboard.Text));
         formLayout.Add(CreateEntry("Số điện thoại", nameof(MainViewModel.RegistrationPhone), Keyboard.Telephone));
         formLayout.Add(CreateEntry("Email", nameof(MainViewModel.RegistrationEmail), Keyboard.Email));
+        formLayout.Add(CreatePasswordEntry("Tạo mật khẩu", nameof(MainViewModel.RegistrationPassword)));
+        formLayout.Add(CreatePasswordEntry("Nhập lại mật khẩu", nameof(MainViewModel.RegistrationConfirmPassword)));
         formLayout.Add(CreateEditor("Ghi chú thêm (nếu có)", nameof(MainViewModel.RegistrationNote)));
         formLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.RegistrationSummaryText)));
         formLayout.Add(new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
@@ -101,6 +103,19 @@ public class RegistrationPage : ContentPage
         {
             Placeholder = placeholder,
             Keyboard = keyboard,
+            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            TextColor = Color.FromArgb("#17324D")
+        };
+        entry.SetBinding(Entry.TextProperty, bindingPath, BindingMode.TwoWay);
+        return entry;
+    }
+
+    private static Entry CreatePasswordEntry(string placeholder, string bindingPath)
+    {
+        var entry = new Entry
+        {
+            Placeholder = placeholder,
+            IsPassword = true,
             BackgroundColor = Color.FromArgb("#F8FBFF"),
             TextColor = Color.FromArgb("#17324D")
         };

@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<GeofenceTrigger> GeofenceTriggers => Set<GeofenceTrigger>();
     public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
     public DbSet<MembershipRegistration> MembershipRegistrations => Set<MembershipRegistration>();
+    public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,5 +102,22 @@ public class AppDbContext : DbContext
             .WithMany(x => x.Registrations)
             .HasForeignKey(x => x.RegistrationPlanId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<CustomerAccount>()
+            .HasIndex(x => x.Phone)
+            .IsUnique();
+
+        modelBuilder.Entity<CustomerAccount>()
+            .HasIndex(x => x.Email)
+            .IsUnique();
+
+        modelBuilder.Entity<CustomerAccount>()
+            .HasIndex(x => x.SessionToken);
+
+        modelBuilder.Entity<CustomerAccount>()
+            .HasOne(x => x.Registration)
+            .WithOne()
+            .HasForeignKey<CustomerAccount>(x => x.RegistrationId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

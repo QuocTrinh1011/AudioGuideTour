@@ -31,6 +31,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AudioQueueService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<AppShell>();
+        builder.Services.AddTransient<LoginPage>();
         builder.Services.AddSingleton<HomePage>();
         builder.Services.AddSingleton<PoiPage>();
         builder.Services.AddSingleton<QrPage>();

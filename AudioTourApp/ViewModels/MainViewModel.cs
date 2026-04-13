@@ -27,6 +27,9 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceRegistrationPhone = "audio-tour-registration-phone";
     private const string PreferenceRegistrationEmail = "audio-tour-registration-email";
     private const string PreferenceRegistrationNote = "audio-tour-registration-note";
+    private const string PreferenceCustomerAccountId = "audio-tour-customer-account-id";
+    private const string PreferenceCustomerSessionToken = "audio-tour-customer-session-token";
+    private const string PreferenceLoginIdentifier = "audio-tour-login-identifier";
     private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
     private static readonly HashSet<string> SupportedLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -77,8 +80,14 @@ public class MainViewModel : INotifyPropertyChanged
     private string _registrationPhone;
     private string _registrationEmail;
     private string _registrationNote;
+    private string _registrationPassword = "";
+    private string _registrationConfirmPassword = "";
     private RegistrationStatusItem? _currentRegistration;
     private RegistrationPlanItem? _selectedRegistrationPlan;
+    private string _loginIdentifier;
+    private string _loginPassword = "";
+    private CustomerSessionItem? _currentCustomerSession;
+    private string _pendingUserNotice = "";
 
     public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService, AppPermissionService permissionService, NarrationService narrationService)
     {
@@ -97,6 +106,7 @@ public class MainViewModel : INotifyPropertyChanged
         _registrationPhone = Preferences.Default.Get(PreferenceRegistrationPhone, string.Empty);
         _registrationEmail = Preferences.Default.Get(PreferenceRegistrationEmail, string.Empty);
         _registrationNote = Preferences.Default.Get(PreferenceRegistrationNote, string.Empty);
+        _loginIdentifier = Preferences.Default.Get(PreferenceLoginIdentifier, string.Empty);
         var savedLanguage = NormalizeSupportedLanguage(Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN"));
         _selectedLanguage = new LanguageItem { Code = savedLanguage, NativeName = savedLanguage, Name = savedLanguage, Locale = savedLanguage };
         _isTracking = _locationService.IsRunning;
@@ -111,6 +121,7 @@ public class MainViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event EventHandler? FlowStateChanged;
 
     public ObservableCollection<PoiItem> NearbyPois { get; } = new();
     public ObservableCollection<PoiItem> AllPois { get; } = new();
@@ -310,6 +321,36 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public string RegistrationPassword
+    {
+        get => _registrationPassword;
+        set => SetField(ref _registrationPassword, value);
+    }
+
+    public string RegistrationConfirmPassword
+    {
+        get => _registrationConfirmPassword;
+        set => SetField(ref _registrationConfirmPassword, value);
+    }
+
+    public string LoginIdentifier
+    {
+        get => _loginIdentifier;
+        set
+        {
+            if (SetField(ref _loginIdentifier, value))
+            {
+                Preferences.Default.Set(PreferenceLoginIdentifier, value ?? string.Empty);
+            }
+        }
+    }
+
+    public string LoginPassword
+    {
+        get => _loginPassword;
+        set => SetField(ref _loginPassword, value);
+    }
+
     public string VisitorDisplayName
     {
         get => _visitorDisplayName;
@@ -418,6 +459,19 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public CustomerSessionItem? CurrentCustomerSession
+    {
+        get => _currentCustomerSession;
+        private set
+        {
+            if (SetField(ref _currentCustomerSession, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAuthenticated)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentCustomerGreeting)));
+            }
+        }
+    }
+
     public RegistrationPlanItem? SelectedRegistrationPlan
     {
         get => _selectedRegistrationPlan;
@@ -434,9 +488,13 @@ public class MainViewModel : INotifyPropertyChanged
     public bool HasCurrentRegistration => CurrentRegistration != null;
     public bool HasSelectedRegistrationPlan => SelectedRegistrationPlan != null;
     public bool IsRegisteredSuccessfully => CurrentRegistration?.IsSuccessful == true;
+    public bool IsAuthenticated => CurrentCustomerSession?.IsActive == true && CurrentCustomerSession?.IsPaid == true;
     public string SelectedLanguageDisplayText => SelectedLanguage == null
         ? "Chưa chọn ngôn ngữ"
         : $"{SelectedLanguage.NativeName} ({SelectedLanguage.Code})";
+    public string CurrentCustomerGreeting => CurrentCustomerSession == null
+        ? "Chưa đăng nhập"
+        : $"Xin chào, {CurrentCustomerSession.FullName}";
     public string TrackingStatusText => IsTracking ? "Đang bật" : "Đang tắt";
     public string TrackingActionText => IsTracking ? "Tắt tracking" : "Bật tracking";
     public string PlaybackStatusText => _audioQueueService.CurrentItem == null
@@ -579,8 +637,104 @@ public class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public async Task<bool> RestoreCustomerSessionAsync(CancellationToken cancellationToken = default)
+    {
+        var accountId = Preferences.Default.Get(PreferenceCustomerAccountId, string.Empty);
+        var sessionToken = Preferences.Default.Get(PreferenceCustomerSessionToken, string.Empty);
+        if (string.IsNullOrWhiteSpace(accountId) || string.IsNullOrWhiteSpace(sessionToken))
+        {
+            ClearAuthenticatedSession(raiseFlowEvent: false);
+            return false;
+        }
+
+        try
+        {
+            _apiClient.BaseUrl = ApiBaseUrl;
+            var session = await _apiClient.ValidateCustomerSessionAsync(accountId, sessionToken, cancellationToken);
+            if (session == null)
+            {
+                ClearAuthenticatedSession(raiseFlowEvent: false);
+                return false;
+            }
+
+            ApplyAuthenticatedSession(session, raiseFlowEvent: false);
+            return true;
+        }
+        catch
+        {
+            ClearAuthenticatedSession(raiseFlowEvent: false);
+            return false;
+        }
+    }
+
+    public async Task LoginAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(LoginIdentifier))
+        {
+            Status = "Vui lòng nhập số điện thoại hoặc email.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(LoginPassword))
+        {
+            Status = "Vui lòng nhập mật khẩu.";
+            return;
+        }
+
+        _apiClient.BaseUrl = ApiBaseUrl;
+        var session = await _apiClient.LoginCustomerAsync(new CustomerLoginPayload
+        {
+            Identifier = LoginIdentifier.Trim(),
+            Password = LoginPassword
+        }, cancellationToken);
+
+        ApplyAuthenticatedSession(session, raiseFlowEvent: false);
+        LoginPassword = string.Empty;
+        await BootstrapAsync(cancellationToken);
+        RaiseFlowStateChanged();
+        Status = $"Đăng nhập thành công. Xin chào {session.FullName}.";
+    }
+
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        var accountId = CurrentCustomerSession?.AccountId ?? Preferences.Default.Get(PreferenceCustomerAccountId, string.Empty);
+        var sessionToken = CurrentCustomerSession?.SessionToken ?? Preferences.Default.Get(PreferenceCustomerSessionToken, string.Empty);
+
+        try
+        {
+            _apiClient.BaseUrl = ApiBaseUrl;
+            if (!string.IsNullOrWhiteSpace(accountId) && !string.IsNullOrWhiteSpace(sessionToken))
+            {
+                await _apiClient.LogoutCustomerAsync(new CustomerLogoutPayload
+                {
+                    AccountId = accountId,
+                    SessionToken = sessionToken
+                }, cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ignore logout network failures and clear local session anyway.
+        }
+
+        if (IsTracking || _locationService.IsRunning)
+        {
+            await StopTrackingAsync("Đã dừng tracking sau khi đăng xuất.", clearPreference: true);
+        }
+
+        await _audioQueueService.StopAsync();
+        ClearAuthenticatedSession(raiseFlowEvent: true);
+        Status = "Đã đăng xuất. Vui lòng đăng nhập để tiếp tục sử dụng app.";
+    }
+
     public async Task BootstrapAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsAuthenticated)
+        {
+            Status = "Vui lòng đăng nhập trước khi dùng ứng dụng.";
+            return;
+        }
+
         if (IsBusy)
         {
             return;
@@ -700,6 +854,12 @@ public class MainViewModel : INotifyPropertyChanged
             Preferences.Default.Set(PreferenceVisitorLanguage, SelectedLanguage.Code);
         }
 
+        if (!IsAuthenticated)
+        {
+            Status = "Đã lưu ngôn ngữ. Hãy đăng nhập để tải nội dung theo ngôn ngữ này.";
+            return;
+        }
+
         await BootstrapAsync();
     }
 
@@ -743,6 +903,18 @@ public class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(RegistrationPassword) || RegistrationPassword.Trim().Length < 6)
+        {
+            Status = "Vui lòng tạo mật khẩu tối thiểu 6 ký tự.";
+            return;
+        }
+
+        if (!string.Equals(RegistrationPassword, RegistrationConfirmPassword, StringComparison.Ordinal))
+        {
+            Status = "Mật khẩu xác nhận chưa khớp.";
+            return;
+        }
+
         _apiClient.BaseUrl = ApiBaseUrl;
         var result = await _apiClient.SubmitRegistrationFormAsync(new SubmitRegistrationFormPayload
         {
@@ -751,13 +923,15 @@ public class MainViewModel : INotifyPropertyChanged
             FullName = RegistrationFullName.Trim(),
             Phone = RegistrationPhone.Trim(),
             Email = RegistrationEmail.Trim(),
+            Password = RegistrationPassword,
             PreferredLanguage = SelectedLanguage?.Code ?? "vi-VN",
             Source = "mobile",
             Note = RegistrationNote?.Trim() ?? string.Empty
         }, cancellationToken);
 
         ApplyRegistrationState(result);
-        Status = "Đã lưu form đăng ký. Hãy chọn gói và tiến hành thanh toán.";
+        LoginIdentifier = RegistrationPhone.Trim();
+        Status = "Đã lưu form đăng ký. Hãy chọn gói và thanh toán để kích hoạt tài khoản.";
     }
 
     public async Task CreateRegistrationPaymentAsync(CancellationToken cancellationToken = default)
@@ -825,9 +999,11 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (CurrentRegistration?.IsSuccessful == true)
         {
-            Status = "Đăng ký gói đã được xác nhận thành công.";
-            await MainThread.InvokeOnMainThreadAsync(() =>
-                Shell.Current?.CurrentPage?.DisplayAlert("Đăng ký thành công", "Hệ thống đã xác nhận gói đăng ký của bạn.", "OK") ?? Task.CompletedTask);
+            RegistrationPassword = string.Empty;
+            RegistrationConfirmPassword = string.Empty;
+            QueueUserNotice("Đăng ký và thanh toán đã được xác nhận. Bây giờ bạn có thể đăng nhập để sử dụng ứng dụng.");
+            Status = "Thanh toán thành công. Vui lòng đăng nhập để bắt đầu sử dụng app.";
+            RaiseFlowStateChanged();
             return;
         }
 
@@ -847,6 +1023,12 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task ToggleTrackingAsync()
     {
+        if (!IsAuthenticated)
+        {
+            Status = "Vui lòng đăng nhập trước khi bật GPS tracking.";
+            return;
+        }
+
         if (IsTracking)
         {
             await StopTrackingAsync("Đã dừng tracking.", clearPreference: true);
@@ -1034,6 +1216,11 @@ public class MainViewModel : INotifyPropertyChanged
     {
         _appIsForeground = isForeground;
         _locationService.SetForegroundState(isForeground);
+        if (!IsAuthenticated)
+        {
+            return;
+        }
+
         if (isForeground)
         {
             if (Preferences.Default.Get(PreferenceTrackingEnabled, false) && !IsTracking)
@@ -1055,6 +1242,11 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task TryRestoreTrackingAsync(CancellationToken cancellationToken = default)
     {
+        if (!IsAuthenticated)
+        {
+            return;
+        }
+
         if (_isRestoringTracking)
         {
             return;
@@ -1918,6 +2110,67 @@ public class MainViewModel : INotifyPropertyChanged
             var matchedPlan = RegistrationPlans.FirstOrDefault(x => x.Id == registration.Plan.Id);
             SelectedRegistrationPlan = matchedPlan ?? registration.Plan;
         }
+    }
+
+    public string TakePendingUserNotice()
+    {
+        var notice = _pendingUserNotice;
+        _pendingUserNotice = string.Empty;
+        return notice;
+    }
+
+    private void ApplyAuthenticatedSession(CustomerSessionItem session, bool raiseFlowEvent)
+    {
+        CurrentCustomerSession = session;
+        Preferences.Default.Set(PreferenceCustomerAccountId, session.AccountId ?? string.Empty);
+        Preferences.Default.Set(PreferenceCustomerSessionToken, session.SessionToken ?? string.Empty);
+
+        LoginIdentifier = !string.IsNullOrWhiteSpace(session.Phone)
+            ? session.Phone
+            : session.Email;
+
+        if (!string.IsNullOrWhiteSpace(session.FullName))
+        {
+            VisitorDisplayName = session.FullName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.PreferredLanguage))
+        {
+            var normalizedLanguage = NormalizeSupportedLanguage(session.PreferredLanguage);
+            Preferences.Default.Set(PreferenceVisitorLanguage, normalizedLanguage);
+            if (Languages.Count > 0)
+            {
+                SelectedLanguage = Languages.FirstOrDefault(x => x.Code == normalizedLanguage) ?? SelectedLanguage;
+            }
+        }
+
+        if (raiseFlowEvent)
+        {
+            RaiseFlowStateChanged();
+        }
+    }
+
+    private void ClearAuthenticatedSession(bool raiseFlowEvent)
+    {
+        CurrentCustomerSession = null;
+        Preferences.Default.Remove(PreferenceCustomerAccountId);
+        Preferences.Default.Remove(PreferenceCustomerSessionToken);
+        LoginPassword = string.Empty;
+
+        if (raiseFlowEvent)
+        {
+            RaiseFlowStateChanged();
+        }
+    }
+
+    private void QueueUserNotice(string message)
+    {
+        _pendingUserNotice = message ?? string.Empty;
+    }
+
+    private void RaiseFlowStateChanged()
+    {
+        FlowStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IEnumerable<T> items)

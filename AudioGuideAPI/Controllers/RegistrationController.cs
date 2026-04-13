@@ -84,8 +84,15 @@ public class RegistrationController : ControllerBase
             return BadRequest("Vui lòng nhập email.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Trim().Length < 6)
+        {
+            return BadRequest("Vui lòng nhập mật khẩu tối thiểu 6 ký tự.");
+        }
+
         var visitorId = request.VisitorId?.Trim() ?? string.Empty;
         var deviceId = request.DeviceId?.Trim() ?? string.Empty;
+        var normalizedPhone = request.Phone?.Trim() ?? string.Empty;
+        var normalizedEmail = request.Email?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(visitorId) && string.IsNullOrWhiteSpace(deviceId))
         {
             return BadRequest("Thiếu thông tin visitor để tạo hồ sơ đăng ký.");
@@ -103,11 +110,21 @@ public class RegistrationController : ControllerBase
             _context.MembershipRegistrations.Add(registration);
         }
 
+        var duplicateIdentityError = await ValidateUniqueCustomerIdentityAsync(
+            registration.Id,
+            normalizedPhone,
+            normalizedEmail,
+            cancellationToken);
+        if (!string.IsNullOrWhiteSpace(duplicateIdentityError))
+        {
+            return BadRequest(duplicateIdentityError);
+        }
+
         registration.VisitorId = string.IsNullOrWhiteSpace(visitorId) ? registration.VisitorId : visitorId;
         registration.DeviceId = string.IsNullOrWhiteSpace(deviceId) ? registration.DeviceId : deviceId;
         registration.FullName = request.FullName.Trim();
-        registration.Phone = request.Phone.Trim();
-        registration.Email = request.Email.Trim();
+        registration.Phone = normalizedPhone;
+        registration.Email = normalizedEmail;
         registration.PreferredLanguage = NormalizeLanguage(request.PreferredLanguage);
         registration.Source = string.IsNullOrWhiteSpace(request.Source) ? "mobile" : request.Source.Trim().ToLowerInvariant();
         registration.Note = request.Note?.Trim() ?? string.Empty;
@@ -124,6 +141,8 @@ public class RegistrationController : ControllerBase
             registration.PaymentStatus = "FORM_ONLY";
         }
 
+        await _context.SaveChangesAsync(cancellationToken);
+        await UpsertCustomerAccountAsync(registration, request.Password.Trim(), cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         registration = await LoadRegistrationAsync(registration.Id, cancellationToken) ?? registration;
@@ -196,6 +215,7 @@ public class RegistrationController : ControllerBase
         registration.UpdatedAt = DateTime.UtcNow;
         registration.LastSyncedAt = DateTime.UtcNow;
         ApplyPaymentState(registration, payment.Status);
+        await SyncCustomerAccountStateAsync(registration, cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -259,6 +279,7 @@ public class RegistrationController : ControllerBase
         ApplyPaymentState(registration, webhookStatus);
         registration.UpdatedAt = DateTime.UtcNow;
         registration.LastSyncedAt = DateTime.UtcNow;
+        await SyncCustomerAccountStateAsync(registration, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Ok(new { code = "00", desc = "success" });
@@ -296,6 +317,8 @@ public class RegistrationController : ControllerBase
         }
 
         await RefreshPaymentStatusInternalAsync(registration, cancellationToken, swallowErrors: true);
+        await SyncCustomerAccountStateAsync(registration, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
 
         var success = string.Equals(registration.PaymentStatus, "PAID", StringComparison.OrdinalIgnoreCase);
         var title = success ? "Đăng ký thành công" : "Đang chờ xác nhận thanh toán";
@@ -322,6 +345,7 @@ public class RegistrationController : ControllerBase
         ApplyPaymentState(registration, string.IsNullOrWhiteSpace(status) ? "CANCELLED" : status);
         registration.UpdatedAt = DateTime.UtcNow;
         registration.CancelledAt ??= DateTime.UtcNow;
+        await SyncCustomerAccountStateAsync(registration, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Content(
@@ -360,6 +384,7 @@ public class RegistrationController : ControllerBase
             registration.LastSyncedAt = DateTime.UtcNow;
             registration.UpdatedAt = DateTime.UtcNow;
             ApplyPaymentState(registration, paymentInfo.Status);
+            await SyncCustomerAccountStateAsync(registration, cancellationToken);
 
             await _context.SaveChangesAsync(cancellationToken);
         }
@@ -407,6 +432,107 @@ public class RegistrationController : ControllerBase
                 (!string.IsNullOrWhiteSpace(deviceId) && x.DeviceId == deviceId))
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(x => x.Status != "paid", cancellationToken);
+    }
+
+    private async Task<string?> ValidateUniqueCustomerIdentityAsync(string registrationId, string? phone, string? email, CancellationToken cancellationToken)
+    {
+        var normalizedPhone = phone?.Trim() ?? string.Empty;
+        var normalizedEmail = email?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedPhone) && string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            return "Vui lòng nhập số điện thoại hoặc email để tạo tài khoản.";
+        }
+
+        var existingAccounts = await _context.CustomerAccounts
+            .AsNoTracking()
+            .Where(x => x.RegistrationId != registrationId)
+            .ToListAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(normalizedPhone) &&
+            existingAccounts.Any(x => string.Equals(x.Phone, normalizedPhone, StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Số điện thoại này đã được dùng cho một tài khoản khác.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedEmail) &&
+            existingAccounts.Any(x => string.Equals(x.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+        {
+            return "Email này đã được dùng cho một tài khoản khác.";
+        }
+
+        return null;
+    }
+
+    private async Task UpsertCustomerAccountAsync(MembershipRegistration registration, string rawPassword, CancellationToken cancellationToken)
+    {
+        var account = await _context.CustomerAccounts
+            .FirstOrDefaultAsync(x => x.RegistrationId == registration.Id, cancellationToken);
+
+        if (account == null)
+        {
+            account = new CustomerAccount
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                RegistrationId = registration.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.CustomerAccounts.Add(account);
+        }
+
+        account.FullName = registration.FullName;
+        account.Phone = registration.Phone.Trim();
+        account.Email = registration.Email.Trim().ToLowerInvariant();
+        account.PreferredLanguage = NormalizeLanguage(registration.PreferredLanguage);
+
+        if (!string.IsNullOrWhiteSpace(rawPassword))
+        {
+            var password = PasswordHashHelper.HashPassword(rawPassword);
+            account.PasswordHash = password.Hash;
+            account.PasswordSalt = password.Salt;
+        }
+
+        ApplyCustomerAccountState(account, registration);
+        account.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task SyncCustomerAccountStateAsync(MembershipRegistration registration, CancellationToken cancellationToken)
+    {
+        var account = await _context.CustomerAccounts
+            .FirstOrDefaultAsync(x => x.RegistrationId == registration.Id, cancellationToken);
+        if (account == null)
+        {
+            return;
+        }
+
+        account.FullName = registration.FullName;
+        account.Phone = registration.Phone.Trim();
+        account.Email = registration.Email.Trim().ToLowerInvariant();
+        account.PreferredLanguage = NormalizeLanguage(registration.PreferredLanguage);
+        ApplyCustomerAccountState(account, registration);
+        account.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void ApplyCustomerAccountState(CustomerAccount account, MembershipRegistration registration)
+    {
+        if (string.Equals(registration.PaymentStatus, "PAID", StringComparison.OrdinalIgnoreCase))
+        {
+            account.IsPaid = true;
+            account.IsActive = true;
+            account.Status = "active";
+            account.PaidAt ??= registration.PaidAt ?? DateTime.UtcNow;
+            return;
+        }
+
+        account.IsPaid = false;
+        account.IsActive = false;
+        account.PaidAt = null;
+        account.Status = registration.Status switch
+        {
+            "cancelled" => "cancelled",
+            "pending-plan" => "pending-plan",
+            _ => "pending-payment"
+        };
     }
 
     private async Task<long> GenerateUniqueOrderCodeAsync(CancellationToken cancellationToken)
