@@ -130,6 +130,7 @@ public class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<LanguageItem> Languages { get; } = new();
     public ObservableCollection<CategoryItem> Categories { get; } = new();
     public ObservableCollection<string> CategoryFilterOptions { get; } = new();
+    public ObservableCollection<QrDirectoryItem> QrDirectoryItems { get; } = new();
     public ObservableCollection<QrLookupHistoryItem> RecentQrLookups { get; } = new();
     public ObservableCollection<string> AudioDiagnostics { get; } = new();
     public ObservableCollection<RegistrationPlanItem> RegistrationPlans { get; } = new();
@@ -574,6 +575,9 @@ public class MainViewModel : INotifyPropertyChanged
     public string RecentQrSummary => RecentQrLookups.Count == 0
         ? "Chưa có QR nào được mở trong phiên này."
         : $"Đã mở {RecentQrLookups.Count} QR gần đây.";
+    public string QrDirectorySummary => QrDirectoryItems.Count == 0
+        ? "Chưa có điểm mở bằng QR."
+        : $"Có {QrDirectoryItems.Count} điểm mở bằng QR.";
     public string AudioDiagnosticsSummary => AudioDiagnostics.Count == 0
         ? "Chưa có log chẩn đoán audio."
         : string.Join(Environment.NewLine, AudioDiagnostics.Take(6));
@@ -729,12 +733,6 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task BootstrapAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsAuthenticated)
-        {
-            Status = "Vui lòng đăng nhập trước khi dùng ứng dụng.";
-            return;
-        }
-
         if (IsBusy)
         {
             return;
@@ -757,10 +755,12 @@ public class MainViewModel : INotifyPropertyChanged
                     var visitor = await SyncVisitorProfileAsync(requestedLanguage, cancellationToken, suppressError: true);
                     var effectiveLanguage = string.IsNullOrWhiteSpace(visitor?.Language) ? requestedLanguage : visitor.Language;
                     var bootstrap = await _apiClient.BootstrapAsync(effectiveLanguage, cancellationToken);
+                    var qrDirectory = await _apiClient.GetQrDirectoryAsync(effectiveLanguage, cancellationToken);
 
                     ApiBaseUrl = candidateUrl;
                     ReplaceCollection(Languages, bootstrap.Languages);
                     ReplaceCollection(Categories, bootstrap.Categories);
+                    ReplaceCollection(QrDirectoryItems, qrDirectory);
                     NormalizePoiCategories(bootstrap.Pois);
                     NormalizeTourCategories(bootstrap.Tours);
                     ReplaceCollection(Tours, bootstrap.Tours);
@@ -797,7 +797,7 @@ public class MainViewModel : INotifyPropertyChanged
                     RefreshMap();
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisiblePoisSummary)));
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NearestPoiSummaryText)));
-                    await RefreshRegistrationBootstrapAsync(cancellationToken);
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QrDirectorySummary)));
                     Status = $"Đã tải {bootstrap.Pois.Count} POI, {bootstrap.Tours.Count} tour và {bootstrap.Languages.Count} ngôn ngữ. Visitor: {VisitorDisplayName}.";
                     await RefreshPermissionStatusAsync();
                     await TryRestoreTrackingAsync(cancellationToken);
@@ -852,12 +852,6 @@ public class MainViewModel : INotifyPropertyChanged
         if (SelectedLanguage != null)
         {
             Preferences.Default.Set(PreferenceVisitorLanguage, SelectedLanguage.Code);
-        }
-
-        if (!IsAuthenticated)
-        {
-            Status = "Đã lưu ngôn ngữ. Hãy đăng nhập để tải nội dung theo ngôn ngữ này.";
-            return;
         }
 
         await BootstrapAsync();
@@ -1023,12 +1017,6 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task ToggleTrackingAsync()
     {
-        if (!IsAuthenticated)
-        {
-            Status = "Vui lòng đăng nhập trước khi bật GPS tracking.";
-            return;
-        }
-
         if (IsTracking)
         {
             await StopTrackingAsync("Đã dừng tracking.", clearPreference: true);
@@ -1075,6 +1063,17 @@ public class MainViewModel : INotifyPropertyChanged
         {
             Status = $"Không mở được QR: {ex.Message}";
         }
+    }
+
+    public async Task OpenQrDirectoryItemAsync(QrDirectoryItem? item, CancellationToken cancellationToken = default)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(item.Code))
+        {
+            Status = "Điểm QR không hợp lệ.";
+            return;
+        }
+
+        await LookupQrAsync(item.Code, cancellationToken);
     }
 
     public async Task PlaySelectedAsync(CancellationToken cancellationToken = default)
@@ -1216,10 +1215,6 @@ public class MainViewModel : INotifyPropertyChanged
     {
         _appIsForeground = isForeground;
         _locationService.SetForegroundState(isForeground);
-        if (!IsAuthenticated)
-        {
-            return;
-        }
 
         if (isForeground)
         {
@@ -1242,11 +1237,6 @@ public class MainViewModel : INotifyPropertyChanged
 
     public async Task TryRestoreTrackingAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsAuthenticated)
-        {
-            return;
-        }
-
         if (_isRestoringTracking)
         {
             return;

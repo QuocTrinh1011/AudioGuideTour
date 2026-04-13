@@ -31,7 +31,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<AudioQueueService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<AppShell>();
-        builder.Services.AddTransient<LoginPage>();
         builder.Services.AddSingleton<HomePage>();
         builder.Services.AddSingleton<PoiPage>();
         builder.Services.AddSingleton<QrPage>();
@@ -39,8 +38,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<MapPage>();
         builder.Services.AddSingleton<ToursPage>();
         builder.Services.AddSingleton<SettingsPage>();
-        builder.Services.AddTransient<RegistrationPage>();
-        builder.Services.AddTransient<RegistrationPlanPage>();
         builder.Services.AddTransient<PoiDetailPage>();
         builder.Services.AddTransient<NarrationPage>();
 

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 
 namespace AudioGuideAdmin.Controllers;
 
@@ -14,11 +15,13 @@ public class QRCodeController : Controller
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
-    public QRCodeController(AppDbContext context, IConfiguration configuration)
+    public QRCodeController(AppDbContext context, IConfiguration configuration, IWebHostEnvironment environment)
     {
         _context = context;
         _configuration = configuration;
+        _environment = environment;
     }
 
     public async Task<IActionResult> Index()
@@ -64,7 +67,7 @@ public class QRCodeController : Controller
 
         _context.QRCodes.Add(model);
         await _context.SaveChangesAsync();
-        TempData["Success"] = "Đã tạo QR mới cho mobile app.";
+        TempData["Success"] = "Đã tạo QR mới.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -155,7 +158,7 @@ public class QRCodeController : Controller
         return View(model);
     }
 
-    [HttpGet("RenderSvg/{id:int}")]
+    [HttpGet("/QRCode/RenderSvg/{id:int}")]
     public async Task<IActionResult> RenderSvg(int id)
     {
         var qr = await _context.QRCodes
@@ -170,7 +173,7 @@ public class QRCodeController : Controller
         return BuildQrSvgResult(qr.Code, BuildQrPayloadUrl(qr.Code));
     }
 
-    [HttpGet("RenderSvgByCode")]
+    [HttpGet("/QRCode/RenderSvgByCode")]
     public IActionResult RenderSvgByCode([FromQuery] string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -182,7 +185,7 @@ public class QRCodeController : Controller
         return BuildQrSvgResult(normalizedCode, BuildQrPayloadUrl(normalizedCode));
     }
 
-    [HttpGet("DownloadSvg/{id:int}")]
+    [HttpGet("/QRCode/DownloadSvg/{id:int}")]
     public async Task<IActionResult> DownloadSvg(int id)
     {
         var qr = await _context.QRCodes
@@ -197,7 +200,7 @@ public class QRCodeController : Controller
         return BuildQrSvgResult(qr.Code, BuildQrPayloadUrl(qr.Code), download: true);
     }
 
-    [HttpGet("RenderPng/{id:int}")]
+    [HttpGet("/QRCode/RenderPng/{id:int}")]
     public async Task<IActionResult> RenderPng(int id)
     {
         var qr = await _context.QRCodes
@@ -212,7 +215,7 @@ public class QRCodeController : Controller
         return BuildQrPngResult(qr.Code, BuildQrPayloadUrl(qr.Code));
     }
 
-    [HttpGet("RenderPngByCode")]
+    [HttpGet("/QRCode/RenderPngByCode")]
     public IActionResult RenderPngByCode([FromQuery] string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -224,7 +227,7 @@ public class QRCodeController : Controller
         return BuildQrPngResult(normalizedCode, BuildQrPayloadUrl(normalizedCode));
     }
 
-    [HttpGet("DownloadPng/{id:int}")]
+    [HttpGet("/QRCode/DownloadPng/{id:int}")]
     public async Task<IActionResult> DownloadPng(int id)
     {
         var qr = await _context.QRCodes
@@ -303,12 +306,12 @@ public class QRCodeController : Controller
 
         if (created > 0)
         {
-            TempData["Success"] = $"Đã tạo/cập nhật bộ QR xe buýt cho mobile app. Tạo mới: {created}.";
+            TempData["Success"] = $"Đã tạo/cập nhật bộ QR xe buýt. Tạo mới: {created}.";
         }
 
         if (missing.Count > 0)
         {
-            TempData["Error"] = $"Chưa tìm thấy POI thực tế cho: {string.Join(", ", missing)}. Hãy tạo POI thật rồi bấm lại.";
+            TempData["Error"] = $"Chưa tìm thấy POI cho: {string.Join(", ", missing)}. Hãy tạo POI thật rồi bấm lại.";
         }
 
         return RedirectToAction(nameof(Index));
@@ -382,43 +385,112 @@ public class QRCodeController : Controller
         var configured = _configuration["Qr:PublicBaseUrl"]?.Trim();
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            return configured.TrimEnd('/');
+            return NormalizeConfiguredPublicBaseUrl(configured).TrimEnd('/');
         }
 
-        var requestBaseUrl = $"{Request.Scheme}://{Request.Host.Value}".TrimEnd('/');
-        if (Request.Host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-            Request.Host.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        var useHttpsRedirection = _configuration.GetValue("Networking:UseHttpsRedirection", false);
+        var requestHost = Request.Host.Host;
+        var requestPort = Request.Host.Port;
+        var resolvedHost = IsLoopbackHost(requestHost)
+            ? TryResolveLanAddress() ?? requestHost
+            : requestHost;
+
+        if (!useHttpsRedirection)
         {
-            var lanBaseUrl = TryResolveLanBaseUrl(Request.Scheme, Request.Host.Port);
-            if (!string.IsNullOrWhiteSpace(lanBaseUrl))
-            {
-                return lanBaseUrl;
-            }
+            var httpPort = ResolveHttpPortFromLaunchSettings() ?? requestPort ?? 5038;
+            return $"http://{resolvedHost}:{httpPort}";
         }
 
-        return requestBaseUrl;
+        return requestPort.HasValue
+            ? $"{Request.Scheme}://{resolvedHost}:{requestPort.Value}"
+            : $"{Request.Scheme}://{resolvedHost}";
     }
 
-    private static string? TryResolveLanBaseUrl(string scheme, int? port)
+    private string NormalizeConfiguredPublicBaseUrl(string configured)
+    {
+        if (!Uri.TryCreate(configured, UriKind.Absolute, out var uri))
+        {
+            return configured;
+        }
+
+        var useHttpsRedirection = _configuration.GetValue("Networking:UseHttpsRedirection", false);
+        if (useHttpsRedirection || !string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+        {
+            return configured;
+        }
+
+        if (!IsLoopbackHost(uri.Host) && !IsPrivateIpHost(uri.Host))
+        {
+            return configured;
+        }
+
+        var host = IsLoopbackHost(uri.Host)
+            ? TryResolveLanAddress() ?? uri.Host
+            : uri.Host;
+        var port = ResolveHttpPortFromLaunchSettings() ?? 5038;
+        return $"http://{host}:{port}";
+    }
+
+    private string? TryResolveLanAddress()
     {
         try
         {
             var address = Dns.GetHostAddresses(Dns.GetHostName())
                 .FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !IPAddress.IsLoopback(ip));
 
-            if (address == null)
-            {
-                return null;
-            }
-
-            return port.HasValue
-                ? $"{scheme}://{address}:{port.Value}"
-                : $"{scheme}://{address}";
+            return address?.ToString();
         }
         catch
         {
             return null;
         }
+    }
+
+    private int? ResolveHttpPortFromLaunchSettings()
+    {
+        try
+        {
+            var launchSettingsPath = Path.Combine(_environment.ContentRootPath, "Properties", "launchSettings.json");
+            if (!System.IO.File.Exists(launchSettingsPath))
+            {
+                return null;
+            }
+
+            using var stream = System.IO.File.OpenRead(launchSettingsPath);
+            using var document = JsonDocument.Parse(stream);
+            if (!document.RootElement.TryGetProperty("profiles", out var profiles))
+            {
+                return null;
+            }
+
+            foreach (var profile in profiles.EnumerateObject())
+            {
+                if (!profile.Value.TryGetProperty("applicationUrl", out var applicationUrlElement))
+                {
+                    continue;
+                }
+
+                var applicationUrl = applicationUrlElement.GetString();
+                if (string.IsNullOrWhiteSpace(applicationUrl))
+                {
+                    continue;
+                }
+
+                foreach (var candidate in applicationUrl.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (Uri.TryCreate(candidate, UriKind.Absolute, out var uri) &&
+                        string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return uri.Port;
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static PoiTranslation? SelectTranslation(IEnumerable<PoiTranslation> translations, string language)
@@ -461,9 +533,9 @@ public class QRCodeController : Controller
     {
         var keywords = label.ToLowerInvariant() switch
         {
-            "khanh hoi" => new[] { "khanh hoi", "khánh hội" },
-            "vinh hoi" => new[] { "vinh hoi", "vĩnh hội" },
-            "xuan chieu" => new[] { "xuan chieu", "xuân chiếu", "xom chieu", "xóm chiếu" },
+            "khánh hội" => new[] { "khanh hoi", "khánh hội" },
+            "vĩnh hội" => new[] { "vinh hoi", "vĩnh hội" },
+            "xuân chiếu" => new[] { "xuan chieu", "xuân chiếu", "xom chieu", "xóm chiếu" },
             _ => new[] { label.ToLowerInvariant() }
         };
 
@@ -472,5 +544,25 @@ public class QRCodeController : Controller
             var name = $"{p.Name} {p.Address}".ToLowerInvariant();
             return keywords.Any(name.Contains);
         });
+    }
+
+    private static bool IsLoopbackHost(string host)
+    {
+        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPrivateIpHost(string host)
+    {
+        if (!IPAddress.TryParse(host, out var address))
+        {
+            return false;
+        }
+
+        var bytes = address.GetAddressBytes();
+        return bytes.Length == 4 && (
+            bytes[0] == 10 ||
+            (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+            (bytes[0] == 192 && bytes[1] == 168));
     }
 }

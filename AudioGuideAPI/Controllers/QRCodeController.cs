@@ -16,6 +16,60 @@ public class QRCodeController : ControllerBase
         _context = context;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] string language = "vi-VN")
+    {
+        var items = await _context.QRCodes
+            .AsNoTracking()
+            .Include(x => x.Poi)
+            .ThenInclude(x => x!.Translations)
+            .OrderBy(x => x.Code)
+            .ToListAsync();
+
+        var result = items
+            .Where(x => x.Poi != null)
+            .Select(x =>
+            {
+                var poi = x.Poi!;
+                var translation = PoiTranslationSelector.Select(poi.Translations, language);
+
+                return new
+                {
+                    x.Id,
+                    x.Code,
+                    x.Note,
+                    Poi = new
+                    {
+                        poi.Id,
+                        poi.Name,
+                        poi.Category,
+                        title = translation?.Title ?? poi.Name,
+                        summary = translation?.Summary ?? poi.Summary,
+                        description = translation?.Description ?? poi.Description,
+                        poi.Address,
+                        ttsScript = string.IsNullOrWhiteSpace(translation?.TtsScript) ? poi.TtsScript : translation?.TtsScript,
+                        audioUrl = string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation?.AudioUrl,
+                        poi.AudioMode,
+                        voiceName = translation?.VoiceName ?? string.Empty,
+                        language = translation?.Language ?? poi.DefaultLanguage,
+                        poi.ImageUrl,
+                        poi.MapUrl,
+                        poi.TriggerMode,
+                        poi.Priority,
+                        poi.Radius,
+                        poi.ApproachRadiusMeters,
+                        poi.CooldownSeconds,
+                        poi.DebounceSeconds,
+                        poi.EstimatedDurationSeconds,
+                        poi.Latitude,
+                        poi.Longitude
+                    }
+                };
+            });
+
+        return Ok(result);
+    }
+
     [HttpGet("{code}")]
     public async Task<IActionResult> GetByCode(string code, [FromQuery] string language = "vi-VN")
     {

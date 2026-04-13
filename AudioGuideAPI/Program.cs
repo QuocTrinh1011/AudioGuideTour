@@ -1,6 +1,5 @@
 ﻿using AudioGuideAPI.Helpers;
 using AudioGuideAPI.Data;
-using AudioGuideAPI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 
@@ -21,7 +20,6 @@ builder.Logging.AddDebug();
 #endif
 
 builder.Services.AddControllers();
-builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection("PayOS"));
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (string.Equals(databaseProvider, "Sqlite", StringComparison.OrdinalIgnoreCase))
@@ -33,10 +31,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sqlOptions => sqlOptions.EnableRetryOnFailure());
-});
-builder.Services.AddHttpClient<PayOsClient>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(25);
 });
 builder.Services.AddSingleton(new AudioStorageOptions(sharedAudioRoot));
 builder.Services.AddSingleton(new ImageStorageOptions(sharedImageRoot));

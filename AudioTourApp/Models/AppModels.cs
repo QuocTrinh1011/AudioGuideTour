@@ -101,6 +101,18 @@ public class QrLookupResponse
     public PoiItem? Poi { get; set; }
 }
 
+public class QrDirectoryItem
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Note { get; set; } = "";
+    public PoiItem? Poi { get; set; }
+    public string PoiTitle => Poi?.Title ?? Poi?.Name ?? Code;
+    public string PoiSummary => Poi?.Summary ?? Note;
+    public string ImageUrl => Poi?.ImageUrl ?? string.Empty;
+    public string Language => Poi?.Language ?? "vi-VN";
+}
+
 public class QrLookupHistoryItem
 {
     public string Code { get; set; } = "";

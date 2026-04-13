@@ -89,6 +89,25 @@ public class ApiClient
         return result;
     }
 
+    public async Task<List<QrDirectoryItem>> GetQrDirectoryAsync(string language, CancellationToken cancellationToken = default)
+    {
+        BumpAssetVersion();
+        var response = await _httpClient.GetAsync($"{BaseUrl.TrimEnd('/')}/api/qrcode?language={Uri.EscapeDataString(language)}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<List<QrDirectoryItem>>(_jsonOptions, cancellationToken) ?? new();
+
+        foreach (var item in result)
+        {
+            if (item.Poi != null)
+            {
+                item.Poi = NormalizePoi(item.Poi);
+            }
+        }
+
+        await PreparePoiAssetsAsync(result.Where(x => x.Poi != null).Select(x => x.Poi!), cancellationToken);
+        return result;
+    }
+
     public async Task<VisitorProfile> UpsertVisitorAsync(VisitorProfile visitor, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync($"{BaseUrl.TrimEnd('/')}/api/user", visitor, cancellationToken);

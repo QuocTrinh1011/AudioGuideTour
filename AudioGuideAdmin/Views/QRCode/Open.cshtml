@@ -1,6 +1,7 @@
 @model AudioGuideAdmin.ViewModels.QrPublicPageViewModel
 @{
     Layout = "_Layout";
+    var narrationText = $"{Model.Summary} {Model.Description}".Trim();
 }
 
 <style>
@@ -47,6 +48,12 @@
         background: #f7fafc;
         border: 1px solid #e3ebf3;
         padding: 14px 16px;
+    }
+
+    .qr-public-play-status {
+        font-size: 0.9rem;
+        color: #5f7286;
+        margin-top: 12px;
     }
 </style>
 
@@ -101,17 +108,18 @@
                         <div class="fw-semibold mb-2">Nghe ngay</div>
                         @if (!string.IsNullOrWhiteSpace(Model.AudioUrl))
                         {
-                            <audio id="poi-audio" controls preload="metadata" style="width:100%;">
+                            <audio id="poi-audio" controls preload="metadata" playsinline style="width:100%;">
                                 <source src="@Model.AudioUrl" />
                             </audio>
-                            <button type="button" class="btn btn-primary w-100 mt-3" onclick="document.getElementById('poi-audio').play()">Phát thuyết minh</button>
-                            <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-2">Đọc bằng giọng máy</button>
+                            <button type="button" id="play-audio-button" class="btn btn-primary w-100 mt-3">Phát thuyết minh</button>
+                            <div id="play-status" class="qr-public-play-status">Trang sẽ thử phát tự động. Nếu trình duyệt chặn, hãy bấm nút phát.</div>
                         }
                         else
                         {
-                            <div class="text-muted">POI này chưa có file audio công khai. Hãy mở trong app để dùng TTS hoặc bổ sung audio trong hệ quản trị.</div>
-                            <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-3">Đọc bằng giọng máy</button>
+                            <div class="text-muted">POI này chưa có file audio công khai. Bạn vẫn có thể mở trong app để nghe bằng TTS.</div>
                         }
+
+                        <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-3">Đọc bằng giọng máy</button>
 
                         <div class="small text-muted mt-3">Mã QR: <code>@Model.Code</code></div>
                         <div class="small text-muted">Ngôn ngữ: <code>@Model.Language</code></div>
@@ -123,9 +131,43 @@
 </div>
 
 <script>
+    const audio = document.getElementById('poi-audio');
+    const playButton = document.getElementById('play-audio-button');
+    const playStatus = document.getElementById('play-status');
     const browserSpeakButton = document.getElementById('speak-browser-button');
-    const speechText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize($"{Model.Summary} {Model.Description}".Trim()));
+    const speechText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(narrationText));
     const speechLanguage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Language));
+
+    async function tryPlayAudio(auto) {
+        if (!audio) {
+            return;
+        }
+
+        try {
+            await audio.play();
+            if (playStatus) {
+                playStatus.textContent = auto
+                    ? 'Âm thanh đã tự phát sau khi mở trang.'
+                    : 'Đang phát thuyết minh.';
+            }
+        } catch (error) {
+            if (playStatus) {
+                playStatus.textContent = auto
+                    ? 'Trình duyệt yêu cầu bạn bấm nút phát để nghe.'
+                    : 'Không thể phát tự động. Hãy thử lại hoặc mở trong app.';
+            }
+        }
+    }
+
+    if (playButton) {
+        playButton.addEventListener('click', () => tryPlayAudio(false));
+    }
+
+    if (audio) {
+        window.addEventListener('load', () => {
+            setTimeout(() => tryPlayAudio(true), 300);
+        }, { once: true });
+    }
 
     if (browserSpeakButton) {
         browserSpeakButton.addEventListener('click', () => {

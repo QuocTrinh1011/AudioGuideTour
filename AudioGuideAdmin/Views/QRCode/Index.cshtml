@@ -9,7 +9,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h2 class="mb-1">Quản lý QR</h2>
-        <p class="text-muted mb-0">QR được tạo để khách quét bằng app hoặc camera điện thoại thông thường và mở nội dung ngay.</p>
+        <p class="text-muted mb-0">QR này là QR nội dung thật. Khách có thể quét bằng app hoặc camera điện thoại thông thường để mở trang nghe ngay.</p>
     </div>
     <div class="d-flex gap-2">
         <form method="post" action="/QRCode/CreateBusStopSet">
@@ -21,8 +21,8 @@
 </div>
 
 <div class="card p-3 mb-3">
-    <div class="fw-semibold mb-1">Bộ QR đề xuất cho mobile</div>
-    <div class="text-muted small">Web sẽ cố gắng tạo 3 QR cho các điểm dừng xe buýt Khánh Hội, Vĩnh Hội, Xuân Chiếu/Xóm Chiếu nếu trong hệ thống đã có POI thật tương ứng.</div>
+    <div class="fw-semibold mb-1">Bộ QR đề xuất cho 3 điểm dừng xe buýt</div>
+    <div class="text-muted small">Hệ thống sẽ tạo hoặc cập nhật 3 mã chuẩn cho Khánh Hội, Vĩnh Hội, Xuân Chiếu/Xóm Chiếu nếu đã có POI tương ứng.</div>
     <div class="mt-2 d-flex flex-wrap gap-2">
         <span class="badge badge-soft">BUS-KH-001</span>
         <span class="badge badge-soft">BUS-VH-002</span>
@@ -33,7 +33,7 @@
         <code>@publicQrBaseUrl</code>
         @if (isLocalHost)
         {
-            <div class="text-danger mt-2">Base URL đang là localhost. Muốn khách quét bằng điện thoại bên ngoài thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
+            <div class="text-danger mt-2">Base URL hiện là localhost. Muốn khách quét bằng điện thoại ngoài app thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
         }
     </div>
 </div>
@@ -74,10 +74,10 @@
                         <a href="/QRCode/DownloadPng/@item.Id" class="btn btn-sm btn-outline-primary">Tải PNG</a>
                         <a href="/QRCode/DownloadSvg/@item.Id" class="btn btn-sm btn-outline-dark">Tải SVG</a>
                         <a href="/QRCode/Open/@item.Code" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Mở link</a>
-                        <a href="/QRCode/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/QRCode/Edit/@item.Id" class="btn btn-sm btn-warning">Sửa</a>
                         <form method="post" action="/QRCode/Delete/@item.Id" class="d-inline">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa QR này?')">Xóa</button>
                         </form>
                     </td>
                 </tr>

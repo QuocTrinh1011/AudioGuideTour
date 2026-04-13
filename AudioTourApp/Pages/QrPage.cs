@@ -1,6 +1,5 @@
-﻿using AudioTourApp.Models;
+using AudioTourApp.Models;
 using AudioTourApp.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -9,61 +8,33 @@ namespace AudioTourApp.Pages;
 public class QrPage : ContentPage
 {
     private readonly MainViewModel _viewModel;
-    private readonly IServiceProvider _serviceProvider;
 
     public QrPage(MainViewModel viewModel, IServiceProvider serviceProvider)
     {
         BindingContext = _viewModel = viewModel;
-        _serviceProvider = serviceProvider;
         Title = "QR";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
     }
 
-    private async void OnLookupQrClicked(object? sender, EventArgs e)
+    private async void OnOpenQrCardClicked(object? sender, EventArgs e)
     {
-        await _viewModel.LookupQrAsync();
-    }
-
-    private async void OnPasteQrClicked(object? sender, EventArgs e)
-    {
-        await _viewModel.PasteQrFromClipboardAsync();
-    }
-
-    private async void OnRequestCameraPermissionClicked(object? sender, EventArgs e)
-    {
-        await _viewModel.RequestCameraPermissionAsync();
-    }
-
-    private async void OnOpenScannerClicked(object? sender, EventArgs e)
-    {
-        if (!_viewModel.CanUseCamera)
+        if (sender is not Button button || button.CommandParameter is not QrDirectoryItem item)
         {
-            await _viewModel.RequestCameraPermissionAsync();
-            await _viewModel.RefreshPermissionStatusAsync();
-        }
-
-        if (!_viewModel.CanUseCamera)
-        {
-            await DisplayAlert("Camera", "App chưa có quyền camera để quét QR.", "OK");
             return;
         }
 
-        var scannerPage = _serviceProvider.GetRequiredService<QrScannerPage>();
-        await Navigation.PushModalAsync(new NavigationPage(scannerPage));
+        await Navigation.PushAsync(new QrDisplayPage(item, BuildQrImageUrl(item.Code), BuildQrPublicUrl(item.Code)));
     }
 
-    private async void OnRefreshPermissionsClicked(object? sender, EventArgs e)
+    private async void OnOpenQrPreviewClicked(object? sender, EventArgs e)
     {
-        await _viewModel.RefreshPermissionStatusAsync();
-    }
-
-    private async void OnQuickQrClicked(object? sender, EventArgs e)
-    {
-        if (sender is Button button && button.CommandParameter is string code)
+        if (sender is not Button button || button.CommandParameter is not QrDirectoryItem item)
         {
-            await _viewModel.LookupQrAsync(code);
+            return;
         }
+
+        await Navigation.PushAsync(new QrContentPreviewPage(item));
     }
 
     private void OnRecentQrSelected(object? sender, SelectionChangedEventArgs e)
@@ -104,62 +75,111 @@ public class QrPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Quét QR để nghe ngay", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Dùng camera để mở nội dung tại điểm dừng. Nếu cần, bạn vẫn có thể nhập mã thủ công.", TextColor = Color.FromArgb("#E8F0F7") }
+                    new Label { Text = "Mở QR để điện thoại khác quét", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                    new Label { Text = "Trong app chỉ hiển thị danh sách điểm và mã QR. Muốn mở đầy đủ, hãy lấy điện thoại khác quét mã đang hiển thị trên màn hình.", TextColor = Color.FromArgb("#E8F0F7") }
                 }
             }
         });
 
-        var cameraCard = CreateCard();
-        var cameraLayout = new VerticalStackLayout { Spacing = 12 };
-        cameraLayout.Add(new Label { Text = "Quét bằng camera", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        cameraLayout.Add(new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CameraPermissionText)));
-        cameraLayout.Add(new Label
+        var directoryCard = CreateCard();
+        var directoryLayout = new VerticalStackLayout { Spacing = 12 };
+        directoryLayout.Add(new Label { Text = "Điểm mở bằng QR", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        directoryLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.QrDirectorySummary)));
+
+        var directoryCollection = new CollectionView
         {
-            Text = "Hãy đưa mã QR vào khung camera để app mở nội dung ngay tại điểm dừng.",
-            TextColor = Color.FromArgb("#667C92"),
-            FontSize = 12
+            SelectionMode = SelectionMode.None,
+            EmptyView = "Chưa có điểm QR nào được tải về."
+        };
+        directoryCollection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.QrDirectoryItems));
+        directoryCollection.ItemTemplate = new DataTemplate(() =>
+        {
+            var card = new Border
+            {
+                Stroke = Color.FromArgb("#E3EAF2"),
+                BackgroundColor = Color.FromArgb("#FBFCFE"),
+                StrokeShape = new RoundRectangle { CornerRadius = 20 },
+                Padding = 12,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            var grid = new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(92),
+                    new ColumnDefinition(GridLength.Star)
+                },
+                ColumnSpacing = 12
+            };
+
+            grid.Add(new Image
+            {
+                HeightRequest = 88,
+                WidthRequest = 92,
+                Aspect = Aspect.AspectFill,
+                BackgroundColor = Color.FromArgb("#E8EDF3")
+            }.Bind(Image.SourceProperty, nameof(QrDirectoryItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+
+            var details = new VerticalStackLayout { Spacing = 4 };
+            details.Add(new Label
+            {
+                FontAttributes = FontAttributes.Bold,
+                FontSize = 17,
+                TextColor = Color.FromArgb("#17324D")
+            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiTitle)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#5D7287"),
+                MaxLines = 2,
+                LineBreakMode = LineBreakMode.TailTruncation
+            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiSummary)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#73869A"),
+                FontSize = 12
+            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"));
+
+            var actions = new Grid
+            {
+                ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
+                ColumnSpacing = 10,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var qrButton = CreateActionButton("Mở QR", OnOpenQrCardClicked, "#E4B43C", "#17324D");
+            qrButton.SetBinding(Button.CommandParameterProperty, new Binding("."));
+            actions.Add(qrButton);
+
+            var previewButton = CreateActionButton("Mở nội dung", OnOpenQrPreviewClicked, "#17324D", "White");
+            previewButton.SetBinding(Button.CommandParameterProperty, new Binding("."));
+            Grid.SetColumn(previewButton, 1);
+            actions.Add(previewButton);
+
+            details.Add(actions);
+            Grid.SetColumn(details, 1);
+            grid.Add(details);
+
+            card.Content = grid;
+            return card;
         });
+        directoryLayout.Add(directoryCollection);
+        directoryCard.Content = directoryLayout;
+        root.Add(directoryCard);
 
-        var cameraActions = new Grid
+        var noteCard = CreateCard();
+        noteCard.Content = new VerticalStackLayout
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
-            ColumnSpacing = 10
+            Spacing = 8,
+            Children =
+            {
+                new Label { Text = "Cách dùng", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
+                new Label { Text = "1. Bấm Mở QR để app hiển thị mã vuông đen trắng toàn màn hình.", TextColor = Color.FromArgb("#445D75") },
+                new Label { Text = "2. Dùng điện thoại khác quét mã này để mở trang nội dung đầy đủ.", TextColor = Color.FromArgb("#445D75") },
+                new Label { Text = "3. Nếu chỉ muốn xem nhanh trong app, bấm Mở nội dung.", TextColor = Color.FromArgb("#445D75") }
+            }
         };
-        cameraActions.Add(CreateActionButton("Quét bằng camera", OnOpenScannerClicked, "#17324D", "White"));
-        var requestButton = CreateActionButton("Xin quyền", OnRequestCameraPermissionClicked, "#E4B43C", "#17324D");
-        Grid.SetColumn(requestButton, 1);
-        cameraActions.Add(requestButton);
-        var refreshButton = CreateActionButton("Kiểm tra lại", OnRefreshPermissionsClicked, "#EEF3F8", "#17324D");
-        Grid.SetColumn(refreshButton, 2);
-        cameraActions.Add(refreshButton);
-        cameraLayout.Add(cameraActions);
-        cameraCard.Content = cameraLayout;
-        root.Add(cameraCard);
-
-        var qrCard = CreateCard();
-        var qrLayout = new VerticalStackLayout { Spacing = 12 };
-        qrLayout.Add(new Label { Text = "Nhập mã thủ công", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        qrLayout.Add(new Entry
-        {
-            Placeholder = "Ví dụ: BUS-KH-001",
-            BackgroundColor = Color.FromArgb("#F8FAFD"),
-            TextColor = Color.FromArgb("#17324D")
-        }.Bind(Entry.TextProperty, nameof(MainViewModel.QrCodeInput), BindingMode.TwoWay));
-
-        var qrActions = new Grid
-        {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
-            ColumnSpacing = 10
-        };
-        qrActions.Add(CreateActionButton("Mở nội dung", OnLookupQrClicked, "#17324D", "White"));
-        var pasteButton = CreateActionButton("Dán mã", OnPasteQrClicked, "#E4B43C", "#17324D");
-        Grid.SetColumn(pasteButton, 1);
-        qrActions.Add(pasteButton);
-        qrLayout.Add(qrActions);
-        qrLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
-        qrCard.Content = qrLayout;
-        root.Add(qrCard);
+        root.Add(noteCard);
 
         var historyCard = CreateCard();
         var historyLayout = new VerticalStackLayout { Spacing = 12 };
@@ -211,6 +231,35 @@ public class QrPage : ContentPage
         return new ScrollView { Content = root };
     }
 
+    private string BuildQrImageUrl(string code)
+    {
+        var baseUrl = BuildAdminBaseUrl();
+        return $"{baseUrl}/QRCode/RenderPngByCode?code={Uri.EscapeDataString(code)}";
+    }
+
+    private string BuildQrPublicUrl(string code)
+    {
+        var baseUrl = BuildAdminBaseUrl();
+        return $"{baseUrl}/QRCode/Open/{Uri.EscapeDataString(code)}";
+    }
+
+    private string BuildAdminBaseUrl()
+    {
+        if (!Uri.TryCreate(_viewModel.ApiBaseUrl, UriKind.Absolute, out var apiUri))
+        {
+            return "http://10.0.2.2:5038";
+        }
+
+        var host = apiUri.Host;
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        {
+            host = "10.0.2.2";
+        }
+
+        return $"http://{host}:5038";
+    }
+
     private static Border CreateCard() => new()
     {
         Stroke = Color.FromArgb("#D9E3EE"),
@@ -219,15 +268,14 @@ public class QrPage : ContentPage
         StrokeShape = new RoundRectangle { CornerRadius = 24 }
     };
 
-    private static Button CreateActionButton(string text, EventHandler handler, string backgroundColor, string textColor, object? commandParameter = null)
+    private static Button CreateActionButton(string text, EventHandler handler, string backgroundColor, string textColor)
     {
         var button = new Button
         {
             Text = text,
-            BackgroundColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Color.FromArgb(backgroundColor) : Color.FromArgb(backgroundColor),
+            BackgroundColor = Color.FromArgb(backgroundColor),
             TextColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Colors.White : Color.FromArgb(textColor),
-            CornerRadius = 18,
-            CommandParameter = commandParameter
+            CornerRadius = 18
         };
         button.Clicked += handler;
         return button;

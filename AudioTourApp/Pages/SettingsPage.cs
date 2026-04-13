@@ -51,11 +51,6 @@ public class SettingsPage : ContentPage
         await _viewModel.OpenSystemSettingsAsync();
     }
 
-    private async void OnLogoutClicked(object? sender, EventArgs e)
-    {
-        await _viewModel.LogoutAsync();
-    }
-
     private View BuildContent()
     {
         var root = new VerticalStackLayout
@@ -83,7 +78,7 @@ public class SettingsPage : ContentPage
                 Children =
                 {
                     new Label { Text = "Cài đặt trải nghiệm", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Chọn ngôn ngữ, bật quyền cần thiết và đồng bộ lại trải nghiệm nếu cần.", TextColor = Color.FromArgb("#E6EDF3") }
+                    new Label { Text = "Chọn ngôn ngữ, bật các quyền cần thiết và làm mới nội dung khi cần.", TextColor = Color.FromArgb("#E6EDF3") }
                 }
             }
         });
@@ -167,19 +162,6 @@ public class SettingsPage : ContentPage
         permissionsCard.Content = permissionsLayout;
         root.Add(permissionsCard);
 
-        var accountCard = CreateCard();
-        accountCard.Content = new VerticalStackLayout
-        {
-            Spacing = 12,
-            Children =
-            {
-                new Label { Text = "Tài khoản", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") },
-                new Label { TextColor = Color.FromArgb("#445D75") }.Bind(Label.TextProperty, nameof(MainViewModel.CurrentCustomerGreeting)),
-                CreateActionButton("Đăng xuất", OnLogoutClicked, "#D94F4F", "White")
-            }
-        };
-        root.Add(accountCard);
-
         return new ScrollView { Content = root };
     }
 
@@ -231,7 +213,7 @@ public class SettingsPage : ContentPage
         var button = new Button
         {
             Text = text,
-            BackgroundColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Color.FromArgb(backgroundColor) : Color.FromArgb(backgroundColor),
+            BackgroundColor = Color.FromArgb(backgroundColor),
             TextColor = textColor.Equals("White", StringComparison.OrdinalIgnoreCase) ? Colors.White : Color.FromArgb(textColor),
             CornerRadius = 18
         };

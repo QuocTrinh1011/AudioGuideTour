@@ -22,12 +22,12 @@
     </div>
     <div class="col-md-6">
         <label class="form-label">Mã QR</label>
-        <input asp-for="Code" class="form-control" placeholder="VD: BUS-VK-001" />
+        <input asp-for="Code" class="form-control" placeholder="Ví dụ: BUS-KH-001" />
         <span asp-validation-for="Code" class="text-danger"></span>
     </div>
     <div class="col-12">
         <label class="form-label">Ghi chú</label>
-        <textarea asp-for="Note" class="form-control" rows="3" placeholder="VD: Trạm xe buýt phường Khánh Hội"></textarea>
+        <textarea asp-for="Note" class="form-control" rows="3" placeholder="Ví dụ: Trạm xe buýt phường Khánh Hội"></textarea>
     </div>
     <div class="col-lg-6">
         <div class="card border-0 bg-light-subtle p-3 h-100">
@@ -50,7 +50,7 @@
                 @if (isLocalHost)
                 {
                     <div class="text-danger mt-2">
-                        `Qr:PublicBaseUrl` đang là localhost. Điện thoại bên ngoài sẽ không mở được mã này cho tới khi bạn đổi sang IP LAN hoặc domain public.
+                        `Qr:PublicBaseUrl` hiện là localhost. Điện thoại bên ngoài sẽ không mở được mã này cho tới khi bạn đổi sang IP LAN hoặc domain public.
                     </div>
                 }
             </div>
