@@ -1,4 +1,5 @@
 using AudioTourApp.Models;
+using AudioTourApp.Services;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 
@@ -6,11 +7,45 @@ namespace AudioTourApp.Pages;
 
 public class QrDisplayPage : ContentPage
 {
-    public QrDisplayPage(QrDirectoryItem item, string qrImageUrl, string qrPublicUrl)
+    private readonly ApiClient _apiClient;
+    private readonly string _qrImageUrl;
+    private readonly Image _qrImage;
+    private readonly ActivityIndicator _loadingIndicator;
+    private readonly Label _imageStatusLabel;
+    private bool _hasLoadedImage;
+
+    public QrDisplayPage(QrDirectoryItem item, string qrImageUrl, string qrPublicUrl, ApiClient apiClient)
     {
+        _apiClient = apiClient;
+        _qrImageUrl = qrImageUrl;
+
         Title = "Mở QR";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         BindingContext = item;
+
+        _loadingIndicator = new ActivityIndicator
+        {
+            IsRunning = true,
+            IsVisible = true,
+            Color = Color.FromArgb("#17324D"),
+            HorizontalOptions = LayoutOptions.Center
+        };
+
+        _qrImage = new Image
+        {
+            HeightRequest = 320,
+            WidthRequest = 320,
+            Aspect = Aspect.AspectFit,
+            BackgroundColor = Colors.White,
+            IsVisible = false
+        };
+
+        _imageStatusLabel = new Label
+        {
+            Text = "Đang tải mã QR...",
+            TextColor = Color.FromArgb("#667C92"),
+            HorizontalTextAlignment = TextAlignment.Center
+        };
 
         Content = new ScrollView
         {
@@ -76,13 +111,16 @@ public class QrDisplayPage : ContentPage
                                 Padding = 18,
                                 HorizontalOptions = LayoutOptions.Center,
                                 StrokeShape = new RoundRectangle { CornerRadius = 24 },
-                                Content = new Image
+                                Content = new VerticalStackLayout
                                 {
-                                    HeightRequest = 320,
-                                    WidthRequest = 320,
-                                    Aspect = Aspect.AspectFit,
-                                    BackgroundColor = Colors.White,
-                                    Source = AppImageSourceConverter.Instance.Convert(qrImageUrl, typeof(ImageSource), null, System.Globalization.CultureInfo.CurrentCulture) as ImageSource
+                                    Spacing = 10,
+                                    HorizontalOptions = LayoutOptions.Center,
+                                    Children =
+                                    {
+                                        _loadingIndicator,
+                                        _qrImage,
+                                        _imageStatusLabel
+                                    }
                                 }
                             },
                             new Label
@@ -93,16 +131,48 @@ public class QrDisplayPage : ContentPage
                             },
                             new Label
                             {
-                                Text = qrPublicUrl,
+                                Text = "Nội dung đầy đủ sẽ mở trên điện thoại quét mã, không cần GPS.",
                                 TextColor = Color.FromArgb("#17324D"),
-                                FontSize = 12,
-                                LineBreakMode = LineBreakMode.CharacterWrap
+                                FontSize = 12
                             }
                         }
                     })
                 }
             }
         };
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        if (_hasLoadedImage)
+        {
+            return;
+        }
+
+        _hasLoadedImage = true;
+        await LoadQrImageAsync();
+    }
+
+    private async Task LoadQrImageAsync()
+    {
+        try
+        {
+            var downloaded = await _apiClient.DownloadFileToCacheAsync(_qrImageUrl, "qr");
+            _qrImage.Source = ImageSource.FromFile(downloaded.LocalPath);
+            _qrImage.IsVisible = true;
+            _imageStatusLabel.Text = "Đưa điện thoại khác lại gần để quét mã.";
+        }
+        catch (Exception ex)
+        {
+            _imageStatusLabel.Text = $"Không tải được mã QR: {ex.Message}";
+        }
+        finally
+        {
+            _loadingIndicator.IsRunning = false;
+            _loadingIndicator.IsVisible = false;
+        }
     }
 
     private static Border CreateCard(View content) => new()

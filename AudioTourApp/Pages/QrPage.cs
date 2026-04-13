@@ -1,4 +1,5 @@
 using AudioTourApp.Models;
+using AudioTourApp.Services;
 using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
@@ -8,10 +9,12 @@ namespace AudioTourApp.Pages;
 public class QrPage : ContentPage
 {
     private readonly MainViewModel _viewModel;
+    private readonly ApiClient _apiClient;
 
     public QrPage(MainViewModel viewModel, IServiceProvider serviceProvider)
     {
         BindingContext = _viewModel = viewModel;
+        _apiClient = serviceProvider.GetRequiredService<ApiClient>();
         Title = "QR";
         BackgroundColor = Color.FromArgb("#F3F6FA");
         Content = BuildContent();
@@ -24,7 +27,7 @@ public class QrPage : ContentPage
             return;
         }
 
-        await Navigation.PushAsync(new QrDisplayPage(item, BuildQrImageUrl(item.Code), BuildQrPublicUrl(item.Code)));
+        await Navigation.PushAsync(new QrDisplayPage(item, BuildQrImageUrl(item.Code), BuildQrPublicUrl(item.Code), _apiClient));
     }
 
     private async void OnOpenQrPreviewClicked(object? sender, EventArgs e)

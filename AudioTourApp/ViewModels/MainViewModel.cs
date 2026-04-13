@@ -1979,33 +1979,14 @@ public class MainViewModel : INotifyPropertyChanged
                     }
                 }
 
-                if (current.Contains("10.0.2.2", StringComparison.OrdinalIgnoreCase) && current.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                {
-                    var emulatorHttps = current.Replace("http://", "https://", StringComparison.OrdinalIgnoreCase)
-                        .Replace(":5297", ":7114", StringComparison.OrdinalIgnoreCase);
-                    if (seen.Add(emulatorHttps))
-                    {
-                        yield return emulatorHttps;
-                    }
-                }
-            }
+              }
 
-            if (seen.Add("http://10.0.2.2:5297"))
-            {
-                yield return DefaultApiUrl;
-            }
-
-            if (seen.Add("https://10.0.2.2:7114"))
-            {
-                yield return "https://10.0.2.2:7114";
-            }
-
-            if (seen.Add("http://192.168.1.10:5297"))
-            {
-                yield return "http://192.168.1.10:5297";
-            }
-        }
-    }
+              if (seen.Add("http://10.0.2.2:5297"))
+              {
+                  yield return DefaultApiUrl;
+              }
+          }
+      }
 
     private static string BuildConnectionHelpMessage(Exception ex)
     {

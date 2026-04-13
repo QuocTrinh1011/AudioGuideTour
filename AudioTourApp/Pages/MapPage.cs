@@ -103,8 +103,18 @@ public class MapPage : ContentPage
                 Spacing = 6,
                 Children =
                 {
-                    new Label { Text = "Google Maps và geofence", FontSize = 26, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                    new Label { Text = "Hiển thị vị trí của bạn, tất cả POI, điểm gần nhất và chạm marker để xem chi tiết nhanh.", TextColor = Color.FromArgb("#E4EEF7") }
+                    new Label
+                    {
+                        Text = "Google Maps và geofence",
+                        FontSize = 26,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Colors.White
+                    },
+                    new Label
+                    {
+                        Text = "Hiển thị vị trí của bạn, tất cả POI, điểm gần nhất và chạm marker để xem chi tiết nhanh.",
+                        TextColor = Color.FromArgb("#E4EEF7")
+                    }
                 }
             }
         });
@@ -136,6 +146,7 @@ public class MapPage : ContentPage
                 new Label { FontSize = 12, TextColor = Color.FromArgb("#8AA0B6") }.Bind(Label.TextProperty, nameof(MainViewModel.MapPoisSummary))
             }
         });
+
         var headerActions = new VerticalStackLayout
         {
             Spacing = 8,
@@ -189,14 +200,33 @@ public class MapPage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var selectedLayout = new VerticalStackLayout { Spacing = 12 };
-        selectedLayout.Add(new Label { Text = "POI đang được chọn trên bản đồ", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
-        selectedLayout.Add(new Image { HeightRequest = 200, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-            .Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
-        selectedLayout.Add(new Label { FontSize = 22, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") }
-            .Bind(Label.TextProperty, "SelectedPoi.Title"));
+        selectedLayout.Add(new Label
+        {
+            Text = "POI đang được chọn trên bản đồ",
+            FontSize = 20,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        });
+        selectedLayout.Add(new Image
+        {
+            HeightRequest = 200,
+            Aspect = Aspect.AspectFill,
+            BackgroundColor = Color.FromArgb("#E8EDF3")
+        }.Bind(Image.SourceProperty, "SelectedPoi.ImageUrl", converter: AppImageSourceConverter.Instance));
+        selectedLayout.Add(new Label
+        {
+            FontSize = 22,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        }.Bind(Label.TextProperty, "SelectedPoi.Title"));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#667C92") }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiMetaText)));
         selectedLayout.Add(new Label { TextColor = Color.FromArgb("#8AA0B6"), FontSize = 12 }.Bind(Label.TextProperty, nameof(MainViewModel.SelectedPoiCoordinateText)));
-        selectedLayout.Add(new Label { Text = "Bản thuyết minh", FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        selectedLayout.Add(new Label
+        {
+            Text = "Bản thuyết minh",
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        });
         selectedLayout.Add(new Label
         {
             TextColor = Color.FromArgb("#31485F"),
@@ -238,8 +268,11 @@ public class MapPage : ContentPage
         Grid.SetColumn(nearestButton, 1);
         bottomSelectedActions.Add(nearestButton);
         selectedLayout.Add(bottomSelectedActions);
-        selectedLayout.Add(new Label { TextColor = Color.FromArgb("#35526B"), FontAttributes = FontAttributes.Bold }
-            .Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
+        selectedLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#35526B"),
+            FontAttributes = FontAttributes.Bold
+        }.Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
         selectedCard.Content = selectedLayout;
         root.Add(selectedCard);
 
@@ -251,7 +284,13 @@ public class MapPage : ContentPage
             StrokeShape = new RoundRectangle { CornerRadius = 24 }
         };
         var poisLayout = new VerticalStackLayout { Spacing = 12 };
-        poisLayout.Add(new Label { Text = "Tất cả điểm thuyết minh", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Color.FromArgb("#17324D") });
+        poisLayout.Add(new Label
+        {
+            Text = "Tất cả điểm thuyết minh",
+            FontSize = 20,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#17324D")
+        });
         poisLayout.Add(new Entry
         {
             Placeholder = "Tìm theo tên, tóm tắt, địa chỉ...",
@@ -268,8 +307,11 @@ public class MapPage : ContentPage
         categoryPicker.SetBinding(Picker.ItemsSourceProperty, nameof(MainViewModel.CategoryFilterOptions));
         categoryPicker.SetBinding(Picker.SelectedItemProperty, nameof(MainViewModel.SelectedCategoryFilter), BindingMode.TwoWay);
         poisLayout.Add(categoryPicker);
-        poisLayout.Add(new Label { TextColor = Color.FromArgb("#667C92"), FontSize = 12 }
-            .Bind(Label.TextProperty, nameof(MainViewModel.VisiblePoisSummary)));
+        poisLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#667C92"),
+            FontSize = 12
+        }.Bind(Label.TextProperty, nameof(MainViewModel.VisiblePoisSummary)));
 
         var collection = new CollectionView { SelectionMode = SelectionMode.Single };
         collection.SetBinding(ItemsView.ItemsSourceProperty, nameof(MainViewModel.VisiblePois));
@@ -284,6 +326,7 @@ public class MapPage : ContentPage
                 Padding = 12,
                 Margin = new Thickness(0, 0, 0, 10)
             };
+
             var grid = new Grid
             {
                 ColumnDefinitions =
@@ -293,19 +336,42 @@ public class MapPage : ContentPage
                 },
                 ColumnSpacing = 12
             };
-            grid.Add(new Image { HeightRequest = 90, WidthRequest = 100, Aspect = Aspect.AspectFill, BackgroundColor = Color.FromArgb("#E8EDF3") }
-                .Bind(Image.SourceProperty, nameof(PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+
+            grid.Add(new Image
+            {
+                HeightRequest = 90,
+                WidthRequest = 100,
+                Aspect = Aspect.AspectFill,
+                BackgroundColor = Color.FromArgb("#E8EDF3")
+            }.Bind(Image.SourceProperty, nameof(PoiItem.ImageUrl), converter: AppImageSourceConverter.Instance));
+
             var details = new VerticalStackLayout { Spacing = 4 };
-            details.Add(new Label { FontAttributes = FontAttributes.Bold, FontSize = 17, TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(PoiItem.Title)));
-            details.Add(new Label { TextColor = Color.FromArgb("#5D7287"), MaxLines = 2, LineBreakMode = LineBreakMode.TailTruncation }
-                .Bind(Label.TextProperty, nameof(PoiItem.Summary)));
-            details.Add(new Label { TextColor = Color.FromArgb("#17324D") }
-                .Bind(Label.TextProperty, nameof(PoiItem.DistanceMeters), stringFormat: "Khoảng cách: {0:F0}m"));
-            details.Add(new Label { TextColor = Color.FromArgb("#73869A") }
-                .Bind(Label.TextProperty, nameof(PoiItem.TriggerMode), stringFormat: "Kích hoạt: {0}"));
-            details.Add(new Label { TextColor = Color.FromArgb("#8A9BAA"), FontSize = 12 }
-                .Bind(Label.TextProperty, nameof(PoiItem.Category), stringFormat: "Danh mục: {0}"));
+            details.Add(new Label
+            {
+                FontAttributes = FontAttributes.Bold,
+                FontSize = 17,
+                TextColor = Color.FromArgb("#17324D")
+            }.Bind(Label.TextProperty, nameof(PoiItem.Title)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#5D7287"),
+                MaxLines = 2,
+                LineBreakMode = LineBreakMode.TailTruncation
+            }.Bind(Label.TextProperty, nameof(PoiItem.Summary)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#17324D")
+            }.Bind(Label.TextProperty, nameof(PoiItem.DistanceLabel)));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#73869A")
+            }.Bind(Label.TextProperty, nameof(PoiItem.TriggerMode), stringFormat: "Kích hoạt: {0}"));
+            details.Add(new Label
+            {
+                TextColor = Color.FromArgb("#8A9BAA"),
+                FontSize = 12
+            }.Bind(Label.TextProperty, nameof(PoiItem.Category), stringFormat: "Danh mục: {0}"));
+
             Grid.SetColumn(details, 1);
             grid.Add(details);
             card.Content = grid;
@@ -368,6 +434,8 @@ public class MapPage : ContentPage
             _nativeMap.Pins.Clear();
             _nativeMap.MapElements.Clear();
             _nativeMap.IsShowingUser = _viewModel.LatestLocation != null;
+
+            AddUserLocationElements(_viewModel.LatestLocation);
 
             var selectedPoi = _viewModel.SelectedPoi;
             var nearestPoi = _viewModel.CurrentNearestPoi;
@@ -473,6 +541,34 @@ public class MapPage : ContentPage
         }
     }
 
+    private void AddUserLocationElements(Location? userLocation)
+    {
+        if (userLocation == null)
+        {
+            return;
+        }
+
+        var accuracy = userLocation.Accuracy.GetValueOrDefault();
+        var safeAccuracy = Math.Max(1d, accuracy);
+
+        _nativeMap.Pins.Add(new Pin
+        {
+            Label = "Vị trí của bạn",
+            Address = $"Độ chính xác khoảng {safeAccuracy:F0}m",
+            Location = new Location(userLocation.Latitude, userLocation.Longitude),
+            Type = PinType.Generic
+        });
+
+        _nativeMap.MapElements.Add(new Circle
+        {
+            Center = new Location(userLocation.Latitude, userLocation.Longitude),
+            Radius = Distance.FromMeters(Math.Max(8d, safeAccuracy)),
+            StrokeColor = Color.FromArgb("#0D6EFD"),
+            StrokeWidth = 3,
+            FillColor = Color.FromArgb("#1A0D6EFD")
+        });
+    }
+
     private void MoveToPoi(PoiItem poi, double radiusMeters)
     {
         _nativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
@@ -534,9 +630,9 @@ public class MapPage : ContentPage
             parts.Add(poi.Category);
         }
 
-        if (poi.DistanceMeters > 0)
+        if (poi.HasKnownDistance)
         {
-            parts.Add($"{poi.DistanceMeters:F0}m");
+            parts.Add(poi.DistanceDisplay);
         }
 
         if (!string.IsNullOrWhiteSpace(poi.Summary))

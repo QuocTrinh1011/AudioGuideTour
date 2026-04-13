@@ -391,7 +391,7 @@ public class QRCodeController : Controller
         var useHttpsRedirection = _configuration.GetValue("Networking:UseHttpsRedirection", false);
         var requestHost = Request.Host.Host;
         var requestPort = Request.Host.Port;
-        var resolvedHost = IsLoopbackHost(requestHost)
+        var resolvedHost = IsLoopbackHost(requestHost) || IsEmulatorAliasHost(requestHost)
             ? TryResolveLanAddress() ?? requestHost
             : requestHost;
 
@@ -424,7 +424,7 @@ public class QRCodeController : Controller
             return configured;
         }
 
-        var host = IsLoopbackHost(uri.Host)
+        var host = IsLoopbackHost(uri.Host) || IsEmulatorAliasHost(uri.Host)
             ? TryResolveLanAddress() ?? uri.Host
             : uri.Host;
         var port = ResolveHttpPortFromLaunchSettings() ?? 5038;
@@ -550,6 +550,12 @@ public class QRCodeController : Controller
     {
         return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
             || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsEmulatorAliasHost(string host)
+    {
+        return string.Equals(host, "10.0.2.2", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "10.0.3.2", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsPrivateIpHost(string host)

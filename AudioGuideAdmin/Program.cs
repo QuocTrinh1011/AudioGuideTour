@@ -75,7 +75,12 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
 
-    if (path.StartsWith("/auth") || path.StartsWith("/qrcode/open/"))
+    if (path.StartsWith("/auth") ||
+        path.StartsWith("/qrcode/open/") ||
+        path.StartsWith("/qrcode/renderpng/") ||
+        path.StartsWith("/qrcode/renderpngbycode") ||
+        path.StartsWith("/qrcode/rendersvg/") ||
+        path.StartsWith("/qrcode/rendersvgbycode"))
     {
         await next();
         return;
