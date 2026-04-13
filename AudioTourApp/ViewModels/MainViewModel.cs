@@ -1486,6 +1486,48 @@ public class MainViewModel : INotifyPropertyChanged
 
     private async void OnLocationChanged(object? sender, Location location)
     {
+        await ApplyLiveLocationAsync(location);
+    }
+
+    public async Task EnsureCurrentLocationAsync(CancellationToken cancellationToken = default)
+    {
+        if (_latestLocation != null)
+        {
+            RefreshMap();
+            return;
+        }
+
+        try
+        {
+            var location = await _locationService.GetCurrentLocationAsync(cancellationToken);
+            if (location == null)
+            {
+                CurrentLocation = "Chưa lấy được vị trí hiện tại. Nếu đang dùng máy ảo, hãy đặt GPS giả lập tại Việt Nam.";
+                RefreshMap();
+                return;
+            }
+
+            await ApplyLocationSnapshotAsync(location, runTrackingLog: false, runGeofence: false, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            CurrentLocation = "Không lấy được vị trí hiện tại.";
+            Status = $"Không thể lấy GPS hiện tại: {BuildConnectionHelpMessage(ex)}";
+            RefreshMap();
+        }
+    }
+
+    private async Task ApplyLiveLocationAsync(Location location, CancellationToken cancellationToken = default)
+    {
+        await ApplyLocationSnapshotAsync(location, runTrackingLog: true, runGeofence: true, cancellationToken);
+    }
+
+    private async Task ApplyLocationSnapshotAsync(
+        Location location,
+        bool runTrackingLog,
+        bool runGeofence,
+        CancellationToken cancellationToken = default)
+    {
         _latestLocation = location;
         CurrentLocation = $"{location.Latitude:F6}, {location.Longitude:F6} | acc {location.Accuracy:F1}m";
 
@@ -1505,7 +1547,10 @@ public class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            await _apiClient.TrackAsync(request);
+            if (runTrackingLog)
+            {
+                await _apiClient.TrackAsync(request, cancellationToken);
+            }
 
             var nearby = await _apiClient.GetNearbyAsync(request);
             NormalizePoiCategories(nearby);
@@ -1517,41 +1562,44 @@ public class MainViewModel : INotifyPropertyChanged
                 SelectedPoi = nearest ?? NearbyPois.FirstOrDefault();
             }
 
-            var geofence = await _apiClient.CheckGeofenceAsync(request);
-            NormalizePoiCategories(geofence.NearbyPois);
-            if (geofence.TriggeredPoi != null)
+            if (runGeofence)
             {
-                NormalizePoiCategory(geofence.TriggeredPoi);
-            }
-            if (geofence.ShouldPlay && geofence.TriggeredPoi != null)
-            {
-                if (CanAutoPlay(geofence.TriggeredPoi) && ShouldAutoPlayForTriggerMode(geofence.TriggeredPoi))
+                var geofence = await _apiClient.CheckGeofenceAsync(request);
+                NormalizePoiCategories(geofence.NearbyPois);
+                if (geofence.TriggeredPoi != null)
                 {
-                    SelectedPoi = geofence.TriggeredPoi;
-                    var activeTourStop = FindActiveTourStop(geofence.TriggeredPoi.Id);
-                    if (activeTourStop != null && !activeTourStop.AutoPlay)
+                    NormalizePoiCategory(geofence.TriggeredPoi);
+                }
+                if (geofence.ShouldPlay && geofence.TriggeredPoi != null)
+                {
+                    if (CanAutoPlay(geofence.TriggeredPoi) && ShouldAutoPlayForTriggerMode(geofence.TriggeredPoi))
                     {
-                        Status = $"Đã tới {geofence.TriggeredPoi.Title}, nhưng điểm dừng tour này đang tắt tự phát.";
-                        _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        await _audioQueueService.EnqueueAsync(
-                            CreatePlaybackRequest(
-                                geofence.TriggeredPoi,
-                                string.IsNullOrWhiteSpace(geofence.Reason) ? "geofence" : geofence.Reason,
-                                true));
-                        _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
-                    }
+                        SelectedPoi = geofence.TriggeredPoi;
+                        var activeTourStop = FindActiveTourStop(geofence.TriggeredPoi.Id);
+                        if (activeTourStop != null && !activeTourStop.AutoPlay)
+                        {
+                            Status = $"Đã tới {geofence.TriggeredPoi.Title}, nhưng điểm dừng tour này đang tắt tự phát.";
+                            _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            await _audioQueueService.EnqueueAsync(
+                                CreatePlaybackRequest(
+                                    geofence.TriggeredPoi,
+                                    string.IsNullOrWhiteSpace(geofence.Reason) ? "geofence" : geofence.Reason,
+                                    true));
+                            _recentAutoTriggers[geofence.TriggeredPoi.Id] = DateTime.UtcNow;
+                        }
 
-                    if (ActiveTour != null)
-                    {
-                        TryAdvanceActiveTour(geofence.TriggeredPoi.Id);
+                        if (ActiveTour != null)
+                        {
+                            TryAdvanceActiveTour(geofence.TriggeredPoi.Id);
+                        }
                     }
                 }
-            }
 
-            SeedLocalGeofenceStates(nearby, geofence.TriggeredPoi?.Id);
+                SeedLocalGeofenceStates(nearby, geofence.TriggeredPoi?.Id);
+            }
 
             RefreshMap();
         }

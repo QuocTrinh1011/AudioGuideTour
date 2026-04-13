@@ -31,6 +31,7 @@ public class MapPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _ = _viewModel.EnsureCurrentLocationAsync();
         RefreshNativeMap(forceRegion: !_hasInitializedRegion);
     }
 

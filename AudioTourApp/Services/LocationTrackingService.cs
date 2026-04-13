@@ -5,6 +5,9 @@ namespace AudioTourApp.Services;
 
 public class LocationTrackingService
 {
+    private static readonly TimeSpan MaxLastKnownAge = TimeSpan.FromMinutes(15);
+    private const double MaxLastKnownAccuracyMeters = 1000d;
+    private const double MaxTrackedAccuracyMeters = 2000d;
     private readonly TrackingForegroundBridge _trackingForegroundBridge;
     private CancellationTokenSource? _cts;
     private Task? _trackingLoopTask;
@@ -79,6 +82,20 @@ public class LocationTrackingService
             "GPS, geofence và tour đang sẵn sàng.");
         await TryPublishLastKnownLocationAsync(_cts.Token);
         _trackingLoopTask = Task.Run(async () => await RunTrackingLoopAsync(_cts.Token));
+    }
+
+    public async Task<Location?> GetCurrentLocationAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await EnsurePermissionsAsync())
+        {
+            return null;
+        }
+
+        var request = new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(10));
+        var location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
+        return IsReliableLocation(location, TimeSpan.FromMinutes(5), MaxTrackedAccuracyMeters)
+            ? location
+            : null;
     }
 
     public Task StopAsync()
@@ -161,7 +178,7 @@ public class LocationTrackingService
                     var accuracy = _isForeground ? GeolocationAccuracy.Best : GeolocationAccuracy.Medium;
                     var request = new GeolocationRequest(accuracy, currentInterval);
                     var location = await Geolocation.Default.GetLocationAsync(request, cancellationToken);
-                    if (location != null)
+                    if (location != null && IsReliableLocation(location, TimeSpan.FromMinutes(5), MaxTrackedAccuracyMeters))
                     {
                         _consecutiveFailures = 0;
                         _adaptiveInterval = ComputeNextInterval(location);
@@ -199,7 +216,9 @@ public class LocationTrackingService
         try
         {
             var location = await Geolocation.Default.GetLastKnownLocationAsync();
-            if (location == null || cancellationToken.IsCancellationRequested)
+            if (location == null ||
+                cancellationToken.IsCancellationRequested ||
+                !IsReliableLocation(location, MaxLastKnownAge, MaxLastKnownAccuracyMeters))
             {
                 return;
             }
@@ -210,5 +229,36 @@ public class LocationTrackingService
         catch
         {
         }
+    }
+
+    private static bool IsReliableLocation(Location? location, TimeSpan maxAge, double maxAccuracyMeters)
+    {
+        if (location == null)
+        {
+            return false;
+        }
+
+        if (location.Latitude is < -90 or > 90 || location.Longitude is < -180 or > 180)
+        {
+            return false;
+        }
+
+        var accuracy = location.Accuracy ?? 0;
+        if (accuracy > 0 && accuracy > maxAccuracyMeters)
+        {
+            return false;
+        }
+
+        var timestamp = location.Timestamp;
+        if (timestamp != default)
+        {
+            var age = DateTimeOffset.UtcNow - timestamp.ToUniversalTime();
+            if (age > maxAge)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
