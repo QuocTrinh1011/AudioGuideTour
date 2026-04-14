@@ -1,7 +1,10 @@
 @model AudioGuideAdmin.ViewModels.QrPublicPageViewModel
 @{
     Layout = "_Layout";
-    var narrationText = $"{Model.Summary} {Model.Description}".Trim();
+    var narrationText = string.IsNullOrWhiteSpace(Model.NarrationText)
+        ? $"{Model.Summary} {Model.Description}".Trim()
+        : Model.NarrationText;
+    var preferBrowserNarrationOnly = string.Equals(Model.Language, "vi-VN", System.StringComparison.OrdinalIgnoreCase);
 }
 
 <style>
@@ -35,6 +38,29 @@
         padding: 24px;
     }
 
+    .qr-public-language-switch {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .qr-public-language-pill {
+        border-radius: 999px;
+        border: 1px solid #d2dfec;
+        padding: 8px 14px;
+        text-decoration: none;
+        color: #17324d;
+        background: #f7fafc;
+        font-weight: 600;
+    }
+
+    .qr-public-language-pill.active {
+        background: #17324d;
+        color: #ffffff;
+        border-color: #17324d;
+    }
+
     .qr-public-image {
         width: 100%;
         aspect-ratio: 16 / 9;
@@ -66,6 +92,16 @@
         </div>
 
         <div class="qr-public-content">
+            @if (Model.AvailableLanguages.Count > 1)
+            {
+                <div class="qr-public-language-switch">
+                    @foreach (var language in Model.AvailableLanguages)
+                    {
+                        <a class="qr-public-language-pill @(language.IsSelected ? "active" : "")" href="@language.Url">@language.Label</a>
+                    }
+                </div>
+            }
+
             @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
             {
                 <img class="qr-public-image mb-4" src="@Model.ImageUrl" alt="@Model.Title" />
@@ -83,6 +119,15 @@
                         <div class="qr-public-note mb-3">
                             <div class="fw-semibold mb-2">Giới thiệu</div>
                             <div>@Model.Description</div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(narrationText))
+                    {
+                        <div class="qr-public-note mb-3">
+                            <div class="fw-semibold mb-2">Bản thuyết minh</div>
+                            <div class="mb-2">@narrationText</div>
+                            <div class="small text-muted">Nguồn: @Model.NarrationSource</div>
                         </div>
                     }
 
@@ -106,7 +151,7 @@
                 <div class="col-lg-5">
                     <div class="qr-public-note h-100">
                         <div class="fw-semibold mb-2">Nghe ngay</div>
-                        @if (!string.IsNullOrWhiteSpace(Model.AudioUrl))
+                        @if (!preferBrowserNarrationOnly && !string.IsNullOrWhiteSpace(Model.AudioUrl))
                         {
                             <audio id="poi-audio" controls preload="metadata" playsinline style="width:100%;">
                                 <source src="@Model.AudioUrl" />
@@ -116,13 +161,22 @@
                         }
                         else
                         {
-                            <div class="text-muted">POI này chưa có file audio công khai. Bạn vẫn có thể mở trong app để nghe bằng TTS.</div>
+                            <div class="text-muted">
+                                @if (preferBrowserNarrationOnly)
+                                {
+                                    <text>Tiếng Việt trên trang công khai đang ưu tiên đọc bằng giọng máy để giữ chất lượng thuyết minh ổn định.</text>
+                                }
+                                else
+                                {
+                                    <text>Ngôn ngữ này chưa có file audio công khai. Bạn vẫn có thể bấm nút đọc bằng giọng máy để nghe nội dung TTS ngay trên trình duyệt.</text>
+                                }
+                            </div>
                         }
 
                         <button type="button" id="speak-browser-button" class="btn btn-outline-dark w-100 mt-3">Đọc bằng giọng máy</button>
 
                         <div class="small text-muted mt-3">Mã QR: <code>@Model.Code</code></div>
-                        <div class="small text-muted">Ngôn ngữ: <code>@Model.Language</code></div>
+                        <div class="small text-muted">Ngôn ngữ: <code>@Model.LanguageDisplayName (@Model.Language)</code></div>
                     </div>
                 </div>
             </div>
@@ -154,7 +208,7 @@
             if (playStatus) {
                 playStatus.textContent = auto
                     ? 'Trình duyệt yêu cầu bạn bấm nút phát để nghe.'
-                    : 'Không thể phát tự động. Hãy thử lại hoặc mở trong app.';
+                    : 'Không thể phát tự động. Hãy thử lại hoặc dùng nút đọc bằng giọng máy.';
             }
         }
     }

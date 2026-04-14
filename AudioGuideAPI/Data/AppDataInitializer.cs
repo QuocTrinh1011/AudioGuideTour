@@ -966,9 +966,9 @@ public static class AppDataInitializer
                 poi.UpdatedAt = now;
             }
 
-            if (!string.Equals(poi.AudioMode, "audio-priority", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(poi.AudioMode, "tts-fallback", StringComparison.OrdinalIgnoreCase))
             {
-                poi.AudioMode = "audio-priority";
+                poi.AudioMode = "tts-fallback";
                 poi.UpdatedAt = now;
             }
         }

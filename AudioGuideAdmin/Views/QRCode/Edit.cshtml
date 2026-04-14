@@ -6,7 +6,7 @@
 </div>
 
 <div class="card p-4">
-    <form method="post">
+    <form asp-action="Edit" asp-controller="QRCode" method="post">
         <input asp-for="Id" type="hidden" />
         <partial name="_Form" model="Model" />
     </form>

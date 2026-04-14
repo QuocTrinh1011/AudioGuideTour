@@ -131,6 +131,17 @@ public class QrDirectoryItem
     public PoiItem? Poi { get; set; }
     public string PoiTitle => Poi?.Title ?? Poi?.Name ?? Code;
     public string PoiSummary => Poi?.Summary ?? Note;
+    public string PoiDescription => Poi?.Description ?? string.Empty;
+    public string PoiNarrationText => !string.IsNullOrWhiteSpace(Poi?.TtsScript)
+        ? Poi.TtsScript
+        : !string.IsNullOrWhiteSpace(Poi?.Description)
+            ? Poi.Description
+            : Poi?.Summary ?? Note;
+    public string PoiNarrationSource => !string.IsNullOrWhiteSpace(Poi?.TtsScript)
+        ? "TTS Script"
+        : !string.IsNullOrWhiteSpace(Poi?.Description)
+            ? "Mô tả POI"
+            : "Tóm tắt POI";
     public string ImageUrl => Poi?.ImageUrl ?? string.Empty;
     public string Language => Poi?.Language ?? "vi-VN";
 }

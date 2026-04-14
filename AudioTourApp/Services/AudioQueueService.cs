@@ -5,6 +5,16 @@ namespace AudioTourApp.Services;
 
 public class AudioQueueService
 {
+    private static readonly HashSet<string> BrokenVietnameseDemoAudioPaths = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/audio/poi-vinh-khanh-food-street-vi.wav",
+        "/audio/poi-vinh-khanh-seafood-cluster-vi.wav",
+        "/audio/poi-khanh-hoi-bus-stop-vi.wav",
+        "/audio/poi-vinh-hoi-bus-stop-vi.wav",
+        "/audio/poi-xuan-chieu-bus-stop-vi.wav",
+        "/audio/poi-vinh-khanh-street-life-vi.wav"
+    };
+
     private readonly ApiClient _apiClient;
     private readonly AudioFallbackPlayer _audioFallbackPlayer;
     private readonly AudioInterruptionService _audioInterruptionService;
@@ -100,7 +110,7 @@ public class AudioQueueService
                 var failureReasons = new List<string>();
                 var playbackStartedAt = DateTime.UtcNow;
                 var hasFocus = await _audioInterruptionService.BeginPlaybackAsync();
-                var hasAudio = !string.IsNullOrWhiteSpace(poi.AudioUrl);
+                var hasAudio = HasUsableAudioFallback(poi);
                 var audioMode = poi.AudioMode?.Trim() ?? string.Empty;
                 var audioOnly = string.Equals(audioMode, "audio", StringComparison.OrdinalIgnoreCase);
                 var preferTtsFirst = !audioOnly &&
@@ -113,10 +123,7 @@ public class AudioQueueService
 
                 if (!hasFocus)
                 {
-                    _currentRequest = null;
-                    RaiseQueueChanged();
-                    StatusChanged?.Invoke(this, $"Không lấy được audio focus để phát {poi.Title}.");
-                    continue;
+                    StatusChanged?.Invoke(this, $"Không lấy được audio focus cho {poi.Title}, app sẽ thử phát tiếp trên thiết bị hiện tại.");
                 }
 
                 try
@@ -124,6 +131,11 @@ public class AudioQueueService
                     if (preferTtsFirst)
                     {
                         StatusChanged?.Invoke(this, $"Thiết bị có voice {poi.Language} phù hợp, ưu tiên TTS cho {poi.Title}.");
+                    }
+
+                    if (!hasAudio && IsBrokenVietnameseDemoAudio(poi))
+                    {
+                        StatusChanged?.Invoke(this, $"Bỏ qua audio mẫu tiếng Việt của {poi.Title}, app sẽ đọc trực tiếp từ nội dung TTS.");
                     }
 
                     if (preferAudioFirst)
@@ -161,7 +173,7 @@ public class AudioQueueService
                         }
                     }
 
-                    if (!played && !preferAudioFirst && !string.IsNullOrWhiteSpace(poi.AudioUrl))
+                    if (!played && !preferAudioFirst && hasAudio && !string.IsNullOrWhiteSpace(poi.AudioUrl))
                     {
                         var result = await _audioFallbackPlayer.TryPlayAsync(poi.AudioUrl, _playbackCts.Token);
                         played = result.Played;
@@ -212,6 +224,68 @@ public class AudioQueueService
     private void RaiseQueueChanged()
     {
         QueueChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool HasUsableAudioFallback(PoiItem poi)
+    {
+        if (string.IsNullOrWhiteSpace(poi.AudioUrl))
+        {
+            return false;
+        }
+
+        return !IsBrokenVietnameseDemoAudio(poi) && !IsCrossLanguageAudioFallback(poi);
+    }
+
+    private static bool IsBrokenVietnameseDemoAudio(PoiItem poi)
+    {
+        if (string.IsNullOrWhiteSpace(poi.AudioUrl) ||
+            string.IsNullOrWhiteSpace(poi.Language) ||
+            !poi.Language.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var normalized = poi.AudioUrl.Trim();
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out var absolute))
+        {
+            normalized = absolute.AbsolutePath;
+        }
+
+        return BrokenVietnameseDemoAudioPaths.Contains(normalized);
+    }
+
+    private static bool IsCrossLanguageAudioFallback(PoiItem poi)
+    {
+        if (string.IsNullOrWhiteSpace(poi.AudioUrl) || string.IsNullOrWhiteSpace(poi.Language))
+        {
+            return false;
+        }
+
+        var normalized = poi.AudioUrl.Trim().ToLowerInvariant();
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out var absolute))
+        {
+            normalized = absolute.AbsolutePath.ToLowerInvariant();
+        }
+
+        if (poi.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized.EndsWith("-vi.wav", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.EndsWith("-en.wav", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (poi.Language.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized.EndsWith("-en.wav", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.EndsWith("-zh.wav", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (poi.Language.StartsWith("en", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized.EndsWith("-vi.wav", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.EndsWith("-zh.wav", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     private static bool ShouldRespectCooldown(AudioPlaybackRequest request)
