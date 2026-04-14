@@ -647,6 +647,9 @@
             <li><a href="#data">Dữ liệu</a></li>
             <li><a href="#api">API</a></li>
             <li><a href="#sequences">Sequence</a></li>
+            <li><a href="#activity-diagrams">Activity</a></li>
+            <li><a href="#class-diagrams">Class</a></li>
+            <li><a href="#state-diagrams">State</a></li>
             <li><a href="#gaps">Khoảng trống</a></li>
         </ul>
     </nav>
@@ -683,6 +686,9 @@
         <section id="section-data"></section>
         <section id="section-api"></section>
         <section id="section-sequences"></section>
+        <section id="section-activity"></section>
+        <section id="section-class"></section>
+        <section id="section-state"></section>
         <section id="section-gaps"></section>
 
         <div class="footer">
@@ -2336,7 +2342,7 @@
             document.getElementById("section-gaps").innerHTML = `
                 <div class="section-shell" id="gaps">
                     <div class="section-head">
-                        <div class="section-num">Section 08</div>
+                        <div class="section-num">Section 11</div>
                         <h2>Khoảng trống, rủi ro và roadmap đề xuất</h2>
                         <p>PRD mới không chỉ ghi cái đang có mà còn chỉ ra rõ đâu là chỗ hệ thống cần hoàn thiện để đi xa hơn pilot.</p>
                     </div>
@@ -2373,6 +2379,51 @@
                             <div class="callout"><strong>Khuyến nghị sản phẩm</strong><br>Nếu mục tiêu là pilot thực địa, ưu tiên số 1 nên là chất lượng dữ liệu POI + tuning geofence + quan sát analytics thực địa. Nếu mục tiêu là productization, ưu tiên số 1 nên là API security, offline strategy và multi-site content architecture.</div>
                             <div class="callout danger"><strong>Điểm cần chốt với stakeholder</strong><br>Cần quyết định rõ app ưu tiên chế độ auto-play hoàn toàn hay semi-manual, mức lưu giữ dữ liệu tracking, và liệu có cần tách tenant/khu vực ngay ở phase kế tiếp hay chưa.</div>
                         </div>
+                    </div>
+                </div>
+            `;
+
+            // === ACTIVITY DIAGRAM SECTION ===
+            document.getElementById("section-activity").innerHTML = `
+                <div class="section-shell" id="activity-diagrams">
+                    <div class="section-head">
+                        <div class="section-num">Section 08</div>
+                        <h2>Activity Diagram (UML)</h2>
+                        <p>6 luồng hoạt động chính — suy ra từ PRD, Sequence Diagrams (J01-J03, F01-F11) & Database</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="sequence-toolbar" id="activityTabBar"></div>
+                        <div id="activityContent"></div>
+                    </div>
+                </div>
+            `;
+
+            // === CLASS DIAGRAM SECTION ===
+            document.getElementById("section-class").innerHTML = `
+                <div class="section-shell" id="class-diagrams">
+                    <div class="section-head">
+                        <div class="section-num">Section 09</div>
+                        <h2>Class Diagram (UML)</h2>
+                        <p>Thiết kế class dựa trên PRD, 14 Sequence Diagrams và kiến trúc 3 ứng dụng</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="sequence-toolbar" id="classTabBar"></div>
+                        <div id="classContent"></div>
+                    </div>
+                </div>
+            `;
+
+            // === STATE DIAGRAM SECTION ===
+            document.getElementById("section-state").innerHTML = `
+                <div class="section-shell" id="state-diagrams">
+                    <div class="section-head">
+                        <div class="section-num">Section 10</div>
+                        <h2>State Diagram (UML)</h2>
+                        <p>Biểu đồ trạng thái cho 8 đối tượng nghiệp vụ — suy ra từ PRD, Sequence Diagrams & Database</p>
+                    </div>
+                    <div class="section-body">
+                        <div class="sequence-toolbar" id="stateTabBar"></div>
+                        <div id="stateContent"></div>
                     </div>
                 </div>
             `;
@@ -2545,6 +2596,939 @@
                 }
             });
         }
+        // =============================================
+        // ACTIVITY DIAGRAM DATA
+        // =============================================
+        const activityDiagrams = [
+            {
+                id: 'bootstrap',
+                title: 'A01 — Visitor Bootstrap & Bắt đầu tham quan',
+                desc: 'Toàn bộ luồng từ lúc Visitor mở app, nhập API URL, bootstrap dữ liệu, cấp quyền GPS, bật tracking cho đến khi bắt đầu nhận audio tự động.',
+                sequences: 'J01, F05, F07',
+                actors: 'Visitor, Mobile App, Backend API, SQL Server',
+                meta: [
+                    { title: 'User Actions', items: ['Mở ứng dụng AudioTourApp','Nhập hoặc giữ nguyên API Base URL','Bấm nút Bootstrap / Bật Tracking','Cấp quyền vị trí khi OS hỏi'] },
+                    { title: 'System Processing', items: ['<code>POST /api/user</code> — Sync visitor profile','<code>GET /api/bootstrap?lang=</code> — Tải POI + Tour','Khởi động Foreground Service GPS','<code>POST /api/tracking</code> — Gửi batch GPS định kỳ'] },
+                    { title: 'Database Operations', items: ['<code>SELECT/INSERT Visitors</code> — Upsert visitor','<code>SELECT Pois WHERE IsActive=true</code>','<code>SELECT Tours WHERE IsActive=true</code>','<code>INSERT UserTrackings</code> — Lưu GPS points'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> A1["🧑 Visitor mở AudioTourApp"]
+    A1 --> A2["🧑 Nhập API Base URL\\nhoặc giữ mặc định"]
+    A2 --> A3["📱 POST /api/user\\nSync visitor profile"]
+    A3 --> DB1[("💾 UPSERT Visitors\\ntheo userId hoặc deviceId")]
+    DB1 --> D1{"Visitor mới\\nhay đã tồn tại?"}
+    D1 -- Mới --> A4["📱 Tạo profile mới\\nAllowAutoPlay = true"]
+    D1 -- Đã có --> A5["📱 Cập nhật LastSeenAt\\nLấy Language từ server"]
+    A4 --> A6["🧑 Bấm nút Bootstrap"]
+    A5 --> A6
+    A6 --> A7["📱 GET /api/bootstrap?lang=vi"]
+    A7 --> DB2[("💾 SELECT Pois\\nWHERE IsActive = true")]
+    DB2 --> DB3[("💾 SELECT Tours\\nWHERE IsActive = true")]
+    DB3 --> DB4[("💾 SELECT PoiTranslations\\nWHERE IsPublished = true")]
+    DB4 --> A8["📱 Parse & cache\\nPOI + Tour + Category"]
+    A8 --> A9["📱 Hiển thị Map + Danh sách POI"]
+    A9 --> A10["🧑 Bấm Bật Tracking"]
+    A10 --> D2{"OS Location\\nPermission?"}
+    D2 -- Granted --> A11["📱 StartForegroundService\\nGPS interval = 10s"]
+    D2 -- Denied --> A12["📱 Hiện thông báo\\nyêu cầu cấp quyền"]
+    A12 --> D3{"Visitor vào\\nSettings cấp quyền?"}
+    D3 -- Có --> A11
+    D3 -- Không --> A13["📱 Chạy không tracking\\nChỉ xem POI thủ công"]
+    A11 --> A14["📱 Timer GPS callback\\nmỗi 10 giây"]
+    A14 --> A15["📱 POST /api/tracking\\nbatch GPS data"]
+    A15 --> DB5[("💾 INSERT UserTrackings\\nlat, lng, speed, bearing")]
+    DB5 --> A16["📱 Đồng thời gọi\\nPOST /api/geofence"]
+    A16 --> ENDOK(("✅ Tracking Active\\nSẵn sàng nhận trigger"))
+    A13 --> ENDMANUAL(("📖 Chế độ thủ công"))`
+            },
+            {
+                id: 'geofence',
+                title: 'A02 — Geofence Check & Auto-Play Audio',
+                desc: 'Luồng xử lý khi app gửi toạ độ GPS lên server, backend đánh giá geofence, kiểm tra anti-spam, trả kết quả và mobile phát audio tự động.',
+                sequences: 'J02, F06, F08',
+                actors: 'Mobile App, Backend API, SQL Server, Audio Engine',
+                meta: [
+                    { title: 'Decision Points', items: ['Distance <= Radius hay ApproachRadius?','TriggerMode = enter / nearby / manual / both?','CooldownUntil <= now? (hết cooldown chưa)','Debounce check: trigger gần nhất > debounceSeconds?','AudioUrl hay TtsScript để phát?'] },
+                    { title: 'Parallel Flows', items: ['Fork: App vừa phát audio, vừa tiếp tục tracking GPS','Fork: Phát audio xong, POST /api/visit song song với PlayNext()','Audio queue xử lý tuần tự nhưng tracking chạy song song'] },
+                    { title: 'Database Operations', items: ['<code>SELECT Pois WHERE IsActive</code> — Load POI gần','<code>SELECT GeofenceTriggers</code> — Check cooldown','<code>INSERT GeofenceTriggers</code> — Ghi trigger mới','<code>INSERT VisitHistories</code> — Ghi lượt nghe'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> A1["📱 Location update callback\\nlat, lng, accuracy"]
+    A1 --> A2["📱 POST /api/geofence\\nuserId, lat, lng, language"]
+    A2 --> DB1[("💾 SELECT Pois\\nWHERE IsActive = true")]
+    DB1 --> A3["⚙️ Tính khoảng cách Haversine\\ntới từng Active POI"]
+    A3 --> D1{"distance <= radius?"}
+    D1 -- Không --> D2{"distance <= approachRadius?"}
+    D2 -- Không --> RES1["⚙️ Response: ShouldPlay = false\\nStatus = out_of_range"]
+    D2 -- Có --> RES2["⚙️ Response: ShouldPlay = false\\nStatus = approaching\\nNearbyPois list"]
+    D1 -- Có --> A4["⚙️ Tìm POI gần nhất\\ntrong Radius"]
+    A4 --> D3{"TriggerMode?"}
+    D3 -- "manual" --> RES3["⚙️ ShouldPlay = false\\nReason = manual_mode"]
+    D3 -- "enter / nearby / both" --> A5["⚙️ Kiểm tra Anti-Spam"]
+    A5 --> DB2[("💾 SELECT GeofenceTriggers\\nWHERE userId + poiId\\nORDER BY RecordedAt DESC")]
+    DB2 --> D4{"CooldownUntil > now?"}
+    D4 -- Có --> RES4["⚙️ ShouldPlay = false\\nReason = cooldown_active\\nNextEligibleAt = CooldownUntil"]
+    D4 -- Không --> D5{"Thời gian từ trigger cuối\\n< debounceSeconds?"}
+    D5 -- Có --> RES5["⚙️ ShouldPlay = false\\nReason = debounce"]
+    D5 -- Không --> A6["⚙️ TRIGGER THÀNH CÔNG"]
+    A6 --> DB3[("💾 INSERT GeofenceTriggers\\nStatus = triggered\\nCooldownUntil = now + cooldownSec")]
+    DB3 --> A7["⚙️ Response: ShouldPlay = true\\nTriggeredPoi = POI data"]
+    A7 --> A8["📱 Nhận response\\nShouldPlay = true"]
+    A8 --> D6{"Có AudioUrl?"}
+    D6 -- Có --> A9["🔊 Enqueue AudioUrl\\nMediaPlayer.Start"]
+    D6 -- Không --> D7{"Có TtsScript?"}
+    D7 -- Có --> A10["🔊 TTS.Speak(script)"]
+    D7 -- Không --> A11["📱 Hiển thị nội dung text"]
+    A9 --> A12["🔊 Phát audio xong"]
+    A10 --> A12
+    A12 --> A13["📱 POST /api/visit\\nstartTime, endTime, duration"]
+    A13 --> DB4[("💾 INSERT VisitHistories\\nnormalize duration")]
+    DB4 --> D8{"Queue còn bài?"}
+    D8 -- Có --> A9
+    D8 -- Không --> ENDOK(("✅ Chờ location\\nupdate tiếp theo"))
+    RES1 --> ENDOK
+    RES2 --> ENDOK
+    RES3 --> ENDOK
+    RES4 --> ENDOK
+    RES5 --> ENDOK
+    A11 --> ENDOK`
+            },
+            {
+                id: 'auth',
+                title: 'A03 — Admin Authentication',
+                desc: 'Luồng đăng nhập, đăng ký Admin đầu tiên, kiểm tra session, timeout 8 giờ và đăng xuất.',
+                sequences: 'F11, J03 Pha 1',
+                actors: 'Admin, Browser, ASP.NET MVC, SQL Server',
+                meta: [
+                    { title: 'User Actions', items: ['Truy cập URL Admin site','Nhập Username + Password','Bấm Login hoặc Register','Bấm Logout khi muốn thoát'] },
+                    { title: 'System Processing', items: ['SessionMiddleware kiểm tra Cookie','SHA-256 hash password và so sánh','Tạo HttpOnly Session Cookie (8h)','Redirect về Login khi hết phiên'] },
+                    { title: 'Database Operations', items: ['<code>SELECT COUNT(*) FROM AdminUsers</code> — Check first boot','<code>SELECT AdminUsers WHERE Username</code> — Verify login','<code>INSERT AdminUsers</code> — Register admin đầu tiên'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> A1["🧑 Admin truy cập\\nAdmin Site URL"]
+    A1 --> A2["⚙️ SessionMiddleware\\nkiểm tra Cookie"]
+    A2 --> D1{"Session Cookie\\nhợp lệ?"}
+    D1 -- Có --> D2{"Session hết hạn\\n> 8 giờ?"}
+    D2 -- Chưa --> DASH(("✅ Redirect\\nvào Dashboard"))
+    D2 -- Rồi --> A3["⚙️ Destroy session\\nXoá cookie"]
+    A3 --> A4["📄 Hiển thị trang Login"]
+    D1 -- Không --> DB1[("💾 SELECT COUNT(*)\\nFROM AdminUsers")]
+    DB1 --> D3{"AdminUsers\\ncount = 0?"}
+    D3 -- Có --> A5["📄 Hiển thị form\\nĐăng Ký Admin đầu tiên"]
+    D3 -- Không --> A4
+    A5 --> A6["🧑 Nhập Username\\n+ Password + Confirm"]
+    A6 --> D4{"Password\\nkhớp confirm?"}
+    D4 -- Không --> A7["⚠️ Hiển thị lỗi\\nPassword không khớp"]
+    A7 --> A5
+    D4 -- Có --> A8["⚙️ Hash SHA-256(password)"]
+    A8 --> DB2[("💾 INSERT AdminUsers\\nUsername, PasswordHash")]
+    DB2 --> A9["⚙️ CreateSession()\\nSet HttpOnly Cookie 8h"]
+    A9 --> DASH
+    A4 --> A10["🧑 Nhập Username\\n+ Password"]
+    A10 --> A11["⚙️ Hash SHA-256(input)"]
+    A11 --> DB3[("💾 SELECT AdminUsers\\nWHERE Username = input")]
+    DB3 --> D5{"Tìm thấy user\\nvà hash khớp?"}
+    D5 -- Không --> A12["⚠️ 401 Error\\nSai tên hoặc mật khẩu"]
+    A12 --> A4
+    D5 -- Có --> A9`
+            },
+            {
+                id: 'poi',
+                title: 'A04 — Quản lý POI & Content',
+                desc: 'Luồng Admin tạo / chỉnh sửa / xoá POI bao gồm validation toạ độ, upload audio, gán translation đa ngôn ngữ và toggle hiển thị.',
+                sequences: 'F01, F02, F04, J03 Pha 2',
+                actors: 'Admin, Browser, ASP.NET MVC, SQL Server, Shared Storage',
+                meta: [
+                    { title: 'Decision Points', items: ['Tạo mới hay chỉnh sửa POI?','Toạ độ hợp lệ? Radius > 0?','Translation: UNIQUE(PoiId + Language)?','Audio: File hợp lệ (format + size)?','Xoá POI: Có Tour đang tham chiếu?'] },
+                    { title: 'Parallel / Sub-flows', items: ['Tạo POI → sau đó tạo Translation (sub-flow)','Upload Audio → gán vào POI hoặc Translation','Toggle IsActive ảnh hưởng Bootstrap runtime'] },
+                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Pois</code>','<code>INSERT/UPDATE PoiTranslations</code> + UNIQUE check','File lưu vào <code>SharedStorage/audio/</code>','<code>SELECT Categories, Languages</code> — populate dropdowns'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> A1["🧑 Admin vào trang\\nQuản lý POI"]
+    A1 --> DB0[("💾 SELECT Pois\\n+ Category + TranslationCount")]
+    DB0 --> A2["📄 Hiển thị danh sách POI\\n+ bộ lọc + nút tạo mới"]
+    A2 --> D1{"Thao tác?"}
+    D1 -- "Tạo mới" --> A3["🧑 Điền form POI\\nName, Address, Lat, Lng"]
+    D1 -- "Chỉnh sửa" --> A4["🧑 Click POI cần sửa\\nLoad form với data"]
+    D1 -- "Toggle Active" --> A12["⚙️ Toggle IsActive"]
+    D1 -- "Xoá" --> D5{"POI có trong\\nTourStop nào?"}
+    A3 --> A5["🧑 Nhập Geofence config\\nRadius, TriggerMode, Cooldown"]
+    A4 --> A5
+    A5 --> A6["🧑 Chọn AudioMode\\n+ Upload audio (optional)"]
+    A6 --> D2{"Có upload\\naudio file?"}
+    D2 -- Có --> A7["⚙️ Validate file\\nformat + size < 50MB"]
+    A7 --> D3{"File hợp lệ?"}
+    D3 -- Không --> A8["⚠️ Lỗi định dạng\\nhoặc quá lớn"]
+    A8 --> A6
+    D3 -- Có --> A9["⚙️ Lưu file vào\\nSharedStorage/audio/"]
+    A9 --> A10["⚙️ Set AudioUrl = path"]
+    D2 -- Không --> A10
+    A10 --> A11["⚙️ Validate toạ độ\\nLat, Lng, Radius > 0"]
+    A11 --> D4{"Dữ liệu\\nhợp lệ?"}
+    D4 -- Không --> A8B["⚠️ Lỗi validation\\ntoạ độ hoặc radius"]
+    A8B --> A3
+    D4 -- Có --> DB1[("💾 INSERT/UPDATE Pois")]
+    DB1 --> SUCC1["✅ POI đã lưu thành công"]
+    SUCC1 --> D6{"Tạo Translation\\nngay?"}
+    D6 -- Có --> TRANS["🧑 Chọn Language\\nNhập Title, Summary, Audio"]
+    D6 -- Không --> ENDOK
+    TRANS --> DB2[("💾 CHECK UNIQUE\\nPoiId + Language")]
+    DB2 --> D7{"Unique OK?"}
+    D7 -- Không --> A13["⚠️ Translation ngôn ngữ\\nnày đã tồn tại"]
+    A13 --> TRANS
+    D7 -- Có --> DB3[("💾 INSERT PoiTranslations\\nIsPublished = false")]
+    DB3 --> D8{"Publish luôn?"}
+    D8 -- Có --> DB4[("💾 SET IsPublished = true")]
+    D8 -- Không --> SKIP1["📄 Lưu bản nháp"]
+    DB4 --> ENDOK(("✅ Hoàn tất"))
+    SKIP1 --> ENDOK
+    A12 --> DB5[("💾 UPDATE Pois\\nSET IsActive = toggle")]
+    DB5 --> ENDOK
+    D5 -- Có --> A14["⚠️ Không thể xoá\\nPOI đang trong Tour"]
+    D5 -- Không --> DB6[("💾 DELETE Pois\\nCASCADE Translation, QR")]
+    A14 --> ENDOK
+    DB6 --> ENDOK`
+            },
+            {
+                id: 'tour',
+                title: 'A05 — Quản lý Tour & TourStop',
+                desc: 'Luồng Admin tạo tuyến tham quan, gán danh sách POI theo thứ tự, bật/tắt tour cho Visitor sử dụng.',
+                sequences: 'F03, J03 Pha 2',
+                actors: 'Admin, Browser, ASP.NET MVC, SQL Server',
+                meta: [
+                    { title: 'User Actions', items: ['Tạo Tour mới với tên, mô tả, ngôn ngữ','Chọn POI từ danh sách để thêm vào Tour','Sắp xếp thứ tự TourStop bằng SortOrder','Bật / tắt Tour cho Visitor'] },
+                    { title: 'Decision Points', items: ['Tour phải có ít nhất 1 Stop để publish','SortOrder phải unique trong cùng Tour','POI được chọn phải IsActive = true','Xoá Tour sẽ cascade xoá toàn bộ Stop'] },
+                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Tours</code>','<code>INSERT/UPDATE/DELETE TourStops</code>','<code>SELECT Pois WHERE IsActive</code> — cho dropdown','CHECK UNIQUE (<code>TourId + SortOrder</code>)'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> A1["🧑 Admin vào trang\\nQuản lý Tour"]
+    A1 --> DB0[("💾 SELECT Tours\\n+ StopCount")]
+    DB0 --> A2["📄 Hiển thị danh sách Tour"]
+    A2 --> D1{"Thao tác?"}
+    D1 -- "Tạo Tour" --> A3["🧑 Nhập Name, Description\\nLanguage, CoverImage"]
+    D1 -- "Sửa Tour" --> A3B["🧑 Load Tour hiện tại\\nchỉnh sửa thông tin"]
+    D1 -- "Quản lý Stop" --> A7
+    D1 -- "Toggle Active" --> D5
+    D1 -- "Xoá Tour" --> DB6
+    A3 --> DB1[("💾 INSERT Tours\\nIsActive = false")]
+    A3B --> DB1B[("💾 UPDATE Tours")]
+    DB1 --> A4["✅ Tour đã tạo"]
+    DB1B --> A4
+    A4 --> A7["🧑 Vào màn hình\\nQuản lý TourStop"]
+    A7 --> DB2[("💾 SELECT Pois\\nWHERE IsActive = true")]
+    DB2 --> A8["📄 Hiển thị POI\\ncó thể chọn + thứ tự hiện tại"]
+    A8 --> A9["🧑 Chọn POI + nhập SortOrder\\nAutoPlay, Note"]
+    A9 --> DB3[("💾 CHECK UNIQUE\\nTourId + SortOrder")]
+    DB3 --> D2{"SortOrder\\ntrùng?"}
+    D2 -- Có --> A10["⚠️ SortOrder đã tồn tại\\nchọn số khác"]
+    A10 --> A9
+    D2 -- Không --> DB4[("💾 INSERT TourStops")]
+    DB4 --> D3{"Thêm Stop\\nnữa?"}
+    D3 -- Có --> A9
+    D3 -- Không --> A11["📄 Xem preview\\ndanh sách Stop theo thứ tự"]
+    A11 --> D5{"Publish Tour?\\n(Bật IsActive)"}
+    D5 --> D4{"Tour có\\n>= 1 Stop?"}
+    D4 -- Không --> A12["⚠️ Tour phải có\\nít nhất 1 Stop"]
+    A12 --> A7
+    D4 -- Có --> DB5[("💾 UPDATE Tours\\nSET IsActive = true")]
+    DB5 --> ENDOK(("✅ Tour published\\nhiện trong Bootstrap"))
+    DB6[("💾 DELETE Tours\\nCASCADE TourStops")] --> ENDOK`
+            },
+            {
+                id: 'qr',
+                title: 'A06 — QR Lookup & Analytics Dashboard',
+                desc: 'Luồng Visitor quét QR để vào POI cụ thể và luồng Admin xem Dashboard / Analytics để đo hiệu quả vận hành.',
+                sequences: 'F09, F10, J03 Pha 3',
+                actors: 'Visitor, Admin, Mobile App, Browser, Backend API, SQL Server',
+                meta: [
+                    { title: 'QR Lookup Flow', items: ['Visitor quét QR hoặc nhập mã thủ công','<code>GET /api/qrcode/{code}</code> tra cứu','Trả về POI + Translation + AudioUrl','App phát audio hoặc hiển thị bài đọc'] },
+                    { title: 'Analytics Flow', items: ['Admin vào Dashboard xem KPI tổng quan','<code>GET /api/analytics/overview</code>','<code>GET /api/analytics/top-poi</code> — Top POI','<code>GET /api/heatmap</code> — Heatmap tracking'] },
+                    { title: 'Database Queries', items: ['<code>SELECT QRCodes WHERE Code</code> → <code>JOIN Pois</code>','<code>COUNT(*) VisitHistories, UserTrackings</code>','<code>GROUP BY PoiId</code> → Top POI lượt nghe','<code>AVG(Duration)</code> → Thời lượng nghe TB'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> D0{"Ai đang dùng?"}
+    D0 -- Visitor --> V1["🧑 Mở tab QR\\ntrên Mobile App"]
+    D0 -- Admin --> AD1["🧑 Mở Dashboard\\ntrên Admin site"]
+    V1 --> D1{"Phương thức\\nnhập QR?"}
+    D1 -- "Quét Camera" --> V2["📱 Mở camera scan\\nđọc QR code"]
+    D1 -- "Nhập thủ công" --> V3["🧑 Gõ mã QR\\nvào ô input"]
+    D1 -- "Dán clipboard" --> V4["📱 Paste từ clipboard"]
+    V2 --> V5["📱 GET /api/qrcode/{code}"]
+    V3 --> V5
+    V4 --> V5
+    V5 --> DB1[("💾 SELECT QRCodes\\nWHERE Code = input")]
+    DB1 --> D2{"Tìm thấy\\nQR code?"}
+    D2 -- Không --> V6["⚠️ Mã QR không hợp lệ\\nhoặc không tồn tại"]
+    V6 --> V1
+    D2 -- Có --> DB2[("💾 SELECT Pois\\nJOIN PoiTranslations\\nWHERE PoiId = qr.PoiId")]
+    DB2 --> V7["📱 Hiển thị chi tiết POI\\nTitle, Summary, Map"]
+    V7 --> D3{"Có Audio\\nhoặc TTS?"}
+    D3 -- Có --> V8["🔊 Phát Audio\\nhoặc đọc TTS"]
+    D3 -- Không --> V9["📱 Hiển thị\\nnội dung text"]
+    V8 --> ENDV(("✅ Visitor\\nxem xong POI"))
+    V9 --> ENDV
+    AD1 --> AD2["⚙️ GET /api/analytics/overview"]
+    AD2 --> DB3[("💾 COUNT Pois, Visits\\nTrackings, Tours, UniqueVisitors")]
+    DB3 --> AD3["📄 Hiển thị KPI Cards\\nTổng POI, Visits, Visitors"]
+    AD3 --> AD4["⚙️ GET /api/analytics/top-poi"]
+    AD4 --> DB4[("💾 SELECT PoiId, COUNT(*)\\nFROM VisitHistories\\nGROUP BY PoiId\\nORDER BY DESC")]
+    DB4 --> AD5["📄 Hiển thị bảng\\nTop POI theo lượt nghe"]
+    AD5 --> AD6["⚙️ GET /api/analytics/avg-listen-duration"]
+    AD6 --> DB5[("💾 SELECT AVG(Duration)\\nFROM VisitHistories")]
+    DB5 --> AD7["📄 Hiển thị chart\\nThời lượng nghe trung bình"]
+    AD7 --> AD8["⚙️ GET /api/heatmap"]
+    AD8 --> DB6[("💾 SELECT lat, lng, COUNT\\nFROM UserTrackings\\nGROUP BY grid cell")]
+    DB6 --> AD9["📄 Render Heatmap\\ntrên bản đồ Leaflet"]
+    AD9 --> ENDA(("✅ Admin\\nxem xong Analytics"))`
+            }
+        ];
+
+        // =============================================
+        // CLASS DIAGRAM DATA
+        // =============================================
+        const classDiagrams = {
+            all: `classDiagram
+    direction TB
+    class Poi {
+        +int Id
+        +string Name
+        +int CategoryId
+        +string Summary
+        +string Description
+        +string Address
+        +double Latitude
+        +double Longitude
+        +double Radius
+        +double ApproachRadiusMeters
+        +string TriggerMode
+        +int Priority
+        +int DebounceSeconds
+        +int CooldownSeconds
+        +string AudioMode
+        +string AudioUrl
+        +string TtsScript
+        +string ImageUrl
+        +string DefaultLanguage
+        +int EstimatedDurationSeconds
+        +bool IsActive
+        +DateTime CreatedAt
+    }
+    class PoiTranslation {
+        +int Id
+        +int PoiId
+        +string Language
+        +string Title
+        +string Summary
+        +string Description
+        +string AudioUrl
+        +string TtsScript
+        +string VoiceName
+        +bool IsPublished
+    }
+    class Tour {
+        +int Id
+        +string Name
+        +string Description
+        +string Language
+        +string CoverImageUrl
+        +int EstimatedDurationMinutes
+        +bool IsActive
+    }
+    class TourStop {
+        +int Id
+        +int TourId
+        +int PoiId
+        +int SortOrder
+        +bool AutoPlay
+        +string Note
+    }
+    class Visitor {
+        +Guid Id
+        +string DeviceId
+        +string DisplayName
+        +string Language
+        +bool AllowAutoPlay
+        +bool AllowBackgroundTracking
+        +DateTime CreatedAt
+        +DateTime LastSeenAt
+    }
+    class UserTracking {
+        +long Id
+        +Guid UserId
+        +double Latitude
+        +double Longitude
+        +double Accuracy
+        +double Speed
+        +double Bearing
+        +string Source
+        +bool IsForeground
+        +DateTime RecordedAt
+    }
+    class GeofenceTrigger {
+        +long Id
+        +Guid UserId
+        +int PoiId
+        +string Language
+        +string TriggerType
+        +string Status
+        +double DistanceMeters
+        +DateTime RecordedAt
+        +DateTime CooldownUntil
+    }
+    class VisitHistory {
+        +long Id
+        +Guid UserId
+        +int PoiId
+        +string Language
+        +DateTime StartTime
+        +DateTime EndTime
+        +int Duration
+        +string TriggerType
+        +string PlaybackMode
+        +bool WasAutoPlayed
+        +bool WasCompleted
+    }
+    class QRCode {
+        +int Id
+        +int PoiId
+        +string Code
+        +string Note
+    }
+    class Category {
+        +int Id
+        +string Slug
+        +string Name
+        +string Description
+        +string ThemeColor
+        +bool IsActive
+        +int SortOrder
+    }
+    class LanguageOption {
+        +int Id
+        +string Code
+        +string Name
+        +string NativeName
+        +bool IsActive
+        +int SortOrder
+    }
+    class AdminUser {
+        +int Id
+        +string Username
+        +string PasswordHash
+        +DateTime CreatedAt
+    }
+    Poi "1" *-- "0..*" PoiTranslation : has
+    Poi "1" *-- "0..*" QRCode : has
+    Poi "1" *-- "0..*" GeofenceTrigger : triggers
+    Poi "1" *-- "0..*" VisitHistory : visited
+    Category "1" o-- "0..*" Poi : categorizes
+    LanguageOption "1" o-- "0..*" PoiTranslation : used by
+    Tour "1" *-- "1..*" TourStop : contains
+    TourStop "0..*" --> "1" Poi : references
+    Visitor "1" *-- "0..*" UserTracking : positions
+    Visitor "1" *-- "0..*" GeofenceTrigger : history
+    Visitor "1" *-- "0..*" VisitHistory : records`,
+            entity: `classDiagram
+    direction LR
+    class Poi {
+        +int Id
+        +string Name
+        +int CategoryId
+        +double Latitude
+        +double Longitude
+        +double Radius
+        +string TriggerMode
+        +string AudioMode
+        +string AudioUrl
+        +bool IsActive
+    }
+    class PoiTranslation {
+        +int Id
+        +int PoiId
+        +string Language
+        +string Title
+        +string AudioUrl
+        +bool IsPublished
+    }
+    class Tour {
+        +int Id
+        +string Name
+        +string Language
+        +bool IsActive
+    }
+    class TourStop {
+        +int Id
+        +int TourId
+        +int PoiId
+        +int SortOrder
+    }
+    class Visitor {
+        +Guid Id
+        +string DeviceId
+        +string Language
+        +bool AllowAutoPlay
+    }
+    class UserTracking {
+        +long Id
+        +Guid UserId
+        +double Latitude
+        +double Longitude
+    }
+    class GeofenceTrigger {
+        +long Id
+        +Guid UserId
+        +int PoiId
+        +string Status
+        +DateTime CooldownUntil
+    }
+    class VisitHistory {
+        +long Id
+        +Guid UserId
+        +int PoiId
+        +int Duration
+    }
+    class QRCode {
+        +int Id
+        +int PoiId
+        +string Code
+    }
+    class Category {
+        +int Id
+        +string Slug
+        +string Name
+    }
+    class LanguageOption {
+        +int Id
+        +string Code
+        +string Name
+    }
+    class AdminUser {
+        +int Id
+        +string Username
+        +string PasswordHash
+    }
+    Poi "1" *-- "0..*" PoiTranslation : compositions
+    Poi "1" *-- "0..*" QRCode : compositions
+    Category "1" o-- "0..*" Poi : aggregation
+    Tour "1" *-- "1..*" TourStop : compositions
+    TourStop "0..*" --> "1" Poi : association
+    Visitor "1" *-- "0..*" UserTracking : compositions
+    Visitor "1" *-- "0..*" GeofenceTrigger : compositions
+    Visitor "1" *-- "0..*" VisitHistory : compositions`,
+            controller: `classDiagram
+    direction TB
+    class AuthController {
+        <<Admin MVC>>
+        +Login(username, password) ActionResult
+        +Register(username, password) ActionResult
+        +Logout() ActionResult
+    }
+    class PoiController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Create(poiData) ActionResult
+        +Edit(id, poiData) ActionResult
+        +Delete(id) ActionResult
+    }
+    class TourController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Create(tourData) ActionResult
+        +Edit(id, tourData) ActionResult
+        +Delete(id) ActionResult
+    }
+    class DashboardController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Analytics() ViewResult
+    }
+    class BootstrapApiController {
+        <<Web API>>
+        +GetBootstrap(language) BootstrapPayload
+        +PostNearby(lat, lng, radius) NearbyResult
+    }
+    class GeofenceApiController {
+        <<Web API>>
+        +PostGeofence(lat, lng, userId, lang) GeofenceResult
+        -calculateDistance() double
+        -checkCooldown() bool
+    }
+    class TrackingApiController {
+        <<Web API>>
+        +PostTracking(trackingData) StatusResult
+    }
+    class VisitApiController {
+        <<Web API>>
+        +PostVisit(visitData) StatusResult
+    }
+    class QRCodeApiController {
+        <<Web API>>
+        +Lookup(code) PoiPayload
+    }
+    AuthController --|> PoiController : same Admin area
+    AuthController --|> TourController : same Admin area
+    AuthController --|> DashboardController : same Admin area`,
+            service: `classDiagram
+    direction TB
+    class LocationService {
+        <<MAUI Foreground Service>>
+        +StartTracking() void
+        +StopTracking() void
+        +GetCurrentLocation() Location
+    }
+    class GeofenceClientService {
+        <<MAUI Service>>
+        +EvaluatePosition(lat, lng) GeofenceResult
+        +CheckLocalCooldown(poiId) bool
+    }
+    class AudioQueueService {
+        <<MAUI Service>>
+        +Enqueue(audioUrl, ttsScript) void
+        +PlayNext() Task
+        +Stop() void
+    }
+    class BootstrapService {
+        <<MAUI Service>>
+        +FetchBootstrap(lang) BootstrapData
+        +FetchNearby(lat, lng) NearbyData
+    }
+    class SessionMiddleware {
+        <<ASP NET Middleware>>
+        +Invoke(httpContext) Task
+        +ValidateSession(sessionId) bool
+    }
+    class DurationNormalizer {
+        <<Backend Utility>>
+        +Normalize(start, end, duration) NormalizedVisit
+    }
+    LocationService ..> GeofenceClientService : sends position
+    GeofenceClientService ..> AudioQueueService : triggers audio
+    BootstrapService ..> GeofenceClientService : provides POI list`
+        };
+        const classTabInfo = [
+            { key: 'all', label: 'Toàn bộ hệ thống' },
+            { key: 'entity', label: 'Entity Layer' },
+            { key: 'controller', label: 'Controller Layer' },
+            { key: 'service', label: 'Service & Utility' }
+        ];
+
+        // =============================================
+        // STATE DIAGRAM DATA
+        // =============================================
+        const stateDiagrams = [
+            {
+                id: 'poi', title: 'POI (Point of Interest)',
+                desc: 'Vòng đời nội dung điểm thuyết minh — từ lúc tạo bản nháp đến khi xuất bản và có thể bị ẩn hoặc xoá.',
+                dbField: 'Pois.IsActive', sequences: 'F01, J03',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Draft</code> — Vừa tạo, chưa đủ dữ liệu','<code>Active</code> — IsActive = true, xuất hiện trong Bootstrap','<code>Inactive</code> — Admin tắt IsActive','<code>Deleted</code> — Xoá vĩnh viễn'] },
+                    { title: 'Điều kiện chuyển', items: ['Draft → Active: Toạ độ hợp lệ, Radius > 0','Active → Inactive: Admin toggle IsActive = false','Inactive → Active: Admin toggle lại'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Draft : Admin tạo POI mới
+    Draft --> Active : Validate OK\\n[Toạ độ, Radius > 0]\\n/ INSERT IsActive=true
+    Draft --> Deleted : Admin xoá bản nháp
+    Active --> Inactive : Admin tắt hiển thị\\n/ SET IsActive=false
+    Active --> Active : Admin chỉnh sửa nội dung\\n/ UPDATE fields
+    Active --> Deleted : Admin xoá POI
+    Inactive --> Active : Admin bật lại\\n[Dữ liệu vẫn hợp lệ]\\n/ SET IsActive=true
+    Inactive --> Deleted : Admin xoá POI
+    Deleted --> [*]
+    state Active {
+        [*] --> Visible
+        Visible --> Triggered : Visitor vào vùng Geofence
+        Triggered --> Visible : Hết Cooldown
+    }`
+            },
+            {
+                id: 'translation', title: 'POI Translation',
+                desc: 'Vòng đời bản dịch đa ngôn ngữ — kiểm soát nội dung nào được phục vụ cho Visitor.',
+                dbField: 'PoiTranslations.IsPublished', sequences: 'F02, J03',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Unpublished</code> — Bản dịch đang soạn','<code>Published</code> — Sẵn sàng cho runtime','<code>Deleted</code> — Bị xoá'] },
+                    { title: 'Điều kiện chuyển', items: ['Unpublished → Published: Title không rỗng, UNIQUE OK','Published → Unpublished: Admin thu hồi'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Unpublished : Admin tạo Translation mới
+    Unpublished --> Published : Publish nội dung\\n[Title != null, UNIQUE OK]\\n/ SET IsPublished=true
+    Unpublished --> Unpublished : Admin chỉnh sửa bản nháp
+    Unpublished --> Deleted : Admin xoá bản dịch
+    Published --> Unpublished : Thu hồi để sửa\\n/ SET IsPublished=false
+    Published --> Published : Cập nhật nội dung trực tiếp
+    Published --> Deleted : Admin xoá bản dịch
+    Deleted --> [*]`
+            },
+            {
+                id: 'tour', title: 'Tour',
+                desc: 'Vòng đời tuyến tham quan — từ thiết kế, gán trạm dừng, đến công bố cho Visitor.',
+                dbField: 'Tours.IsActive', sequences: 'F03, J03',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Designing</code> — Chưa có Stop','<code>Ready</code> — Có ≥ 1 TourStop','<code>Published</code> — IsActive = true','<code>Archived</code> — Tắt hiển thị','<code>Deleted</code> — Xoá hoàn toàn'] },
+                    { title: 'Điều kiện chuyển', items: ['Designing → Ready: TourStops ≥ 1','Ready → Published: Admin bật IsActive','Published → Archived: Admin tắt'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Designing : Admin tạo Tour mới
+    Designing --> Ready : Gán TourStop\\n[Stops >= 1]
+    Designing --> Deleted : Xoá tour trống
+    Ready --> Published : Bật công bố\\n/ SET IsActive=true
+    Ready --> Designing : Xoá hết Stop
+    Ready --> Deleted : Xoá tour
+    Published --> Archived : Tắt hiển thị\\n/ SET IsActive=false
+    Published --> Published : Chỉnh sửa Stop
+    Archived --> Published : Bật lại\\n[Stops >= 1]
+    Archived --> Deleted : Xoá tour
+    Deleted --> [*]`
+            },
+            {
+                id: 'visitor', title: 'Visitor Session (Mobile App)',
+                desc: 'Vòng đời phiên tham quan của Visitor — từ mở app, cấp quyền, bootstrap đến tracking & audio.',
+                dbField: 'Visitors.LastSeenAt + AllowAutoPlay', sequences: 'J01, J02, F05, F06, F07',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>AppOpened</code> — Vừa mở app','<code>Bootstrapped</code> — Đã tải dữ liệu','<code>PermissionGranted</code> — Đã cấp quyền GPS','<code>Tracking</code> — GPS đang gửi toạ độ','<code>Exploring</code> — Đang nghe audio'] },
+                    { title: 'Actions', items: ['AppOpened → Bootstrapped: GET /api/bootstrap','Bootstrapped → PermissionGranted: OS.RequestPermission()','Tracking → Exploring: Geofence trigger'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> AppOpened : Visitor mở ứng dụng
+    AppOpened --> Bootstrapped : Bấm Bootstrap\\n/ GET /api/bootstrap
+    Bootstrapped --> PermissionGranted : OS cấp quyền vị trí
+    Bootstrapped --> PermissionDenied : OS từ chối
+    PermissionDenied --> Bootstrapped : Visitor vào Settings cấp quyền
+    PermissionDenied --> SessionEnded : Tắt app
+    PermissionGranted --> Tracking : Bấm Bật Tracking\\n/ StartForegroundService()
+    state Tracking {
+        [*] --> Sending
+        Sending --> Waiting : POST /tracking OK
+        Waiting --> Sending : Timer interval hết
+    }
+    Tracking --> Exploring : Geofence trigger kích hoạt
+    state Exploring {
+        [*] --> Listening
+        Listening --> MapViewing : Audio kết thúc
+        MapViewing --> Listening : Trigger POI mới
+    }
+    Exploring --> Tracking : Rời vùng POI
+    Tracking --> SessionEnded : Bấm Tắt Tracking
+    Exploring --> SessionEnded : Tắt app
+    SessionEnded --> [*]`
+            },
+            {
+                id: 'geofence', title: 'Geofence Trigger',
+                desc: 'Máy trạng thái đánh giá geofence — kiểm tra khoảng cách, mode, cooldown và debounce.',
+                dbField: 'GeofenceTriggers.Status + CooldownUntil', sequences: 'J02, F06',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Ngoài vùng geofence','<code>Approaching</code> — Trong ApproachRadius','<code>InsideZone</code> — Trong Radius','<code>Triggered</code> — Đã ghi trigger + phát audio','<code>Cooldown</code> — Đang chờ hết cooldown','<code>Skipped</code> — Bị chặn'] },
+                    { title: 'Guards', items: ['Approaching → InsideZone: distance ≤ Radius','InsideZone → Triggered: Cooldown hết + Debounce OK','InsideZone → Skipped: CooldownUntil > now'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Idle : Visitor mở tracking
+    Idle --> Approaching : Vào ApproachRadius
+    Idle --> InsideZone : Vào thẳng Radius
+    Approaching --> InsideZone : Tiến gần hơn
+    Approaching --> Idle : Đi xa ra
+    InsideZone --> Evaluating : Kiểm tra điều kiện Trigger
+    state Evaluating {
+        [*] --> CheckMode
+        CheckMode --> CheckCooldown : Mode != manual
+        CheckMode --> ManualOnly : Mode = manual
+        CheckCooldown --> CheckDebounce : CooldownUntil hết
+        CheckCooldown --> CooldownActive : CooldownUntil còn
+        CheckDebounce --> PassAll : Debounce OK
+        CheckDebounce --> DebounceActive : Quá nhanh
+    }
+    Evaluating --> Triggered : Thoả tất cả điều kiện
+    Evaluating --> Skipped : Vi phạm rule
+    Triggered --> Cooldown : Ghi CooldownUntil
+    Cooldown --> Idle : Hết cooldown
+    Skipped --> Idle : Location update tiếp theo`
+            },
+            {
+                id: 'audio', title: 'Audio Playback (Mobile)',
+                desc: 'Máy trạng thái điều khiển hàng đợi audio — quản lý phát tuần tự, TTS fallback và ghi visit history.',
+                dbField: 'VisitHistories (kết quả playback)', sequences: 'J02, F06, F08',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Không có audio trong queue','<code>Queued</code> — Có audio chờ phát','<code>Playing</code> — Đang phát audio file','<code>PlayingTTS</code> — Đang phát TTS','<code>Completed</code> — Phát xong, ghi visit'] },
+                    { title: 'Actions', items: ['Queued → Playing: MediaPlayer.Start(url)','Playing → Completed: POST /api/visit','Error → PlayingTTS: Fallback'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Idle : App khởi động
+    Idle --> Queued : Geofence trigger\\n/ Enqueue(audioUrl, tts)
+    Queued --> Playing : Có AudioUrl\\n/ MediaPlayer.Start(url)
+    Queued --> PlayingTTS : Không có AudioUrl\\n/ TTS.Speak(script)
+    Playing --> Paused : Interruption
+    Paused --> Playing : Resume
+    Playing --> Completed : Phát xong
+    Playing --> Error : Lỗi load
+    PlayingTTS --> Completed : TTS đọc xong
+    PlayingTTS --> Error : TTS engine lỗi
+    Error --> PlayingTTS : Fallback TTS
+    Error --> Completed : Không có fallback
+    Completed --> Queued : Queue còn bài\\n/ POST /api/visit
+    Completed --> Idle : Queue hết\\n/ POST /api/visit`
+            },
+            {
+                id: 'admin', title: 'Admin Session',
+                desc: 'Vòng đời phiên đăng nhập Admin — kiểm soát bảo mật và timeout session 8 giờ.',
+                dbField: 'AdminUsers + Session Cookie', sequences: 'F11, J03',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Anonymous</code> — Chưa đăng nhập','<code>FirstBoot</code> — Hệ thống rỗng','<code>Authenticated</code> — Đã login, session hợp lệ','<code>Expired</code> — Session hết hạn 8 giờ'] },
+                    { title: 'Guards', items: ['Anonymous → FirstBoot: AdminUsers.Count == 0','Anonymous → Authenticated: Hash(input) == PasswordHash','Authenticated → Expired: SessionAge > 8h'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Anonymous : Truy cập Admin site
+    Anonymous --> FirstBoot : DB Admin trống
+    Anonymous --> Authenticated : Login thành công\\n/ CreateSession()
+    Anonymous --> Anonymous : Sai mật khẩu
+    FirstBoot --> Authenticated : Đăng ký Admin đầu tiên\\n/ INSERT AdminUser
+    state Authenticated {
+        [*] --> Dashboard
+        Dashboard --> ContentManagement : Vào quản lý nội dung
+        ContentManagement --> Dashboard : Quay về dashboard
+        Dashboard --> Analytics : Xem báo cáo
+        Analytics --> Dashboard : Quay về
+    }
+    Authenticated --> Expired : Hết hạn 8 giờ
+    Authenticated --> LoggedOut : Bấm Đăng xuất
+    Expired --> Anonymous : Redirect về Login
+    LoggedOut --> Anonymous : Redirect về Login`
+            },
+            {
+                id: 'tracking', title: 'Tracking Service (GPS)',
+                desc: 'Máy trạng thái dịch vụ GPS Foreground Service — quản lý chu kỳ thu thập và gửi toạ độ.',
+                dbField: 'UserTrackings (batch records)', sequences: 'J01, F07',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Stopped</code> — Service chưa chạy','<code>Starting</code> — Đang khởi động','<code>Collecting</code> — Đang lấy GPS','<code>Sending</code> — Đang POST batch','<code>Retrying</code> — Gửi thất bại, retry','<code>Paused</code> — App ra background'] },
+                    { title: 'Actions', items: ['Starting → Collecting: OS.StartLocationUpdates(interval)','Collecting → Sending: POST /api/tracking','Sending fail → Retrying: SaveToLocalCache()'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Stopped : App khởi động
+    Stopped --> Starting : Bấm Bật Tracking\\n/ RequestPermission()
+    Starting --> Collecting : Permission OK\\n/ OS.StartLocationUpdates(10s)
+    Starting --> Stopped : Permission Denied
+    state Collecting {
+        [*] --> WaitingGPS
+        WaitingGPS --> GotSample : OS callback
+        GotSample --> Batching : Thêm vào buffer
+        Batching --> WaitingGPS : Buffer chưa đầy
+        Batching --> ReadyToSend : Buffer đủ hoặc timer
+    }
+    Collecting --> Sending : Batch sẵn sàng\\n/ POST /api/tracking
+    Sending --> Collecting : 200 OK
+    Sending --> Retrying : Timeout hoặc 503
+    Retrying --> Sending : Network recovery
+    Retrying --> Collecting : Retry thành công
+    Collecting --> Paused : App vào background
+    Paused --> Collecting : App quay lại foreground
+    Collecting --> Stopped : Bấm Tắt Tracking
+    Paused --> Stopped : Bấm Tắt Tracking
+    Stopped --> [*] : Tắt app`
+            }
+        ];
+
+        // =============================================
+        // RENDER FUNCTIONS FOR EMBEDDED DIAGRAMS
+        // =============================================
+
+        async function renderActivitySection() {
+            const navBar = document.getElementById('activityTabBar');
+            const contentEl = document.getElementById('activityContent');
+            if (!navBar || !contentEl) return;
+
+            // Shortcut buttons — scroll to diagram anchor
+            navBar.innerHTML = activityDiagrams.map(a =>
+                `<button class="toolbar-btn" onclick="document.getElementById('act-anchor-${a.id}').scrollIntoView({behavior:'smooth',block:'start'})">${a.title.split('\u2014')[0].trim()}</button>`
+            ).join('');
+
+            // Render ALL diagrams stacked vertically
+            contentEl.innerHTML = activityDiagrams.map(a => `
+                <div id="act-anchor-${a.id}" style="margin-top:2rem;">
+                    <div class="card">
+                        <h3 style="color:var(--primary-dark);margin:0 0 0.3rem;">${a.title}</h3>
+                        <p class="muted" style="margin-bottom:1rem;">${a.desc}</p>
+                        <div class="grid-3" style="margin-bottom:1rem;">
+                            ${a.meta.map(m => `
+                                <div class="card" style="background:#f8fafc;">
+                                    <h4 style="font-size:0.78rem;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;">${m.title}</h4>
+                                    <ul style="font-size:0.82rem;padding-left:1.1rem;">${m.items.map(it => `<li>${it}</li>`).join('')}</ul>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <p class="muted" style="font-size:0.82rem;"><strong>Actors:</strong> ${a.actors} &middot; <strong>Sequences:</strong> ${a.sequences}</p>
+                        <div class="diagram-panel" style="margin-top:0.8rem;"><div class="diagram-stage" id="act-stage-${a.id}"></div></div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Render all diagrams sequentially
+            for (const a of activityDiagrams) {
+                await renderDiagram(a.mermaid, document.getElementById(`act-stage-${a.id}`));
+            }
+        }
+
+        async function renderClassSection() {
+            const navBar = document.getElementById('classTabBar');
+            const contentEl = document.getElementById('classContent');
+            if (!navBar || !contentEl) return;
+
+            // Shortcut buttons — scroll to diagram anchor
+            navBar.innerHTML = classTabInfo.map(t =>
+                `<button class="toolbar-btn" onclick="document.getElementById('cls-anchor-${t.key}').scrollIntoView({behavior:'smooth',block:'start'})">${t.label}</button>`
+            ).join('');
+
+            // Render ALL class diagrams stacked vertically
+            contentEl.innerHTML = classTabInfo.map(t => `
+                <div id="cls-anchor-${t.key}" style="margin-top:2rem;">
+                    <div class="diagram-panel">
+                        <h4 style="margin:0 0 0.5rem;font-size:0.9rem;color:var(--accent);text-transform:uppercase;">${t.label}</h4>
+                        <div class="diagram-stage" id="cls-stage-${t.key}"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Render all class diagrams sequentially
+            for (const t of classTabInfo) {
+                await renderDiagram(classDiagrams[t.key], document.getElementById(`cls-stage-${t.key}`));
+            }
+        }
+
+        async function renderStateSection() {
+            const navBar = document.getElementById('stateTabBar');
+            const contentEl = document.getElementById('stateContent');
+            if (!navBar || !contentEl) return;
+
+            // Shortcut buttons — scroll to diagram anchor
+            navBar.innerHTML = stateDiagrams.map(s =>
+                `<button class="toolbar-btn" onclick="document.getElementById('st-anchor-${s.id}').scrollIntoView({behavior:'smooth',block:'start'})">${s.title}</button>`
+            ).join('');
+
+            // Render ALL state diagrams stacked vertically
+            contentEl.innerHTML = stateDiagrams.map(s => `
+                <div id="st-anchor-${s.id}" style="margin-top:2rem;">
+                    <div class="card">
+                        <h3 style="color:var(--primary-dark);margin:0 0 0.3rem;">${s.title}</h3>
+                        <p class="muted" style="margin-bottom:1rem;">${s.desc}</p>
+                        <div class="grid-3" style="margin-bottom:1rem;">
+                            ${s.meta.map(m => `
+                                <div class="card" style="background:#f8fafc;">
+                                    <h4 style="font-size:0.78rem;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;">${m.title}</h4>
+                                    <ul style="font-size:0.82rem;padding-left:1.1rem;">${m.items.map(it => `<li>${it}</li>`).join('')}</ul>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <p class="muted" style="font-size:0.82rem;"><strong>DB Field:</strong> <code>${s.dbField}</code> &middot; <strong>Sequences:</strong> ${s.sequences}</p>
+                        <div class="diagram-panel" style="margin-top:0.8rem;"><div class="diagram-stage" id="st-stage-${s.id}"></div></div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Render all state diagrams sequentially
+            for (const s of stateDiagrams) {
+                await renderDiagram(s.mermaid, document.getElementById(`st-stage-${s.id}`));
+            }
+        }
+
+        // =============================================
+        // INIT
+        // =============================================
         async function init() {
             renderStaticSections();
             document.getElementById("featureCount").textContent = String(features.length);
@@ -2552,7 +3536,11 @@
             renderToolbar("All");
             renderSequenceCards("All");
             wireModal();
+            // Render architecture first, then each diagram section sequentially
             await renderDiagram(architectureDefinition, document.getElementById("architectureDiagram"));
+            await renderActivitySection();
+            await renderClassSection();
+            await renderStateSection();
         }
 
         init();
