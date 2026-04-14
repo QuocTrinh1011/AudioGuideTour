@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,8 +24,13 @@
             --radius: 18px;
         }
 
-        * { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
             margin: 0;
@@ -37,7 +43,9 @@
             line-height: 1.65;
         }
 
-        a { color: inherit; }
+        a {
+            color: inherit;
+        }
 
         nav {
             position: sticky;
@@ -166,7 +174,9 @@
             padding: 0 1.4rem 4rem;
         }
 
-        section { margin-bottom: 2rem; }
+        section {
+            margin-bottom: 2rem;
+        }
 
         .section-shell {
             background: rgba(255, 255, 255, 0.88);
@@ -203,7 +213,9 @@
             max-width: 940px;
         }
 
-        .section-body { padding: 1.4rem 1.5rem 1.6rem; }
+        .section-body {
+            padding: 1.4rem 1.5rem 1.6rem;
+        }
 
         .stats {
             display: grid;
@@ -232,14 +244,24 @@
             color: var(--ink-soft);
         }
 
-        .grid-2, .grid-3, .grid-4 {
+        .grid-2,
+        .grid-3,
+        .grid-4 {
             display: grid;
             gap: 1rem;
         }
 
-        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
 
         .card {
             background: var(--surface);
@@ -248,13 +270,23 @@
             padding: 1.1rem 1rem;
         }
 
-        .card h3, .card h4 {
+        .card h3,
+        .card h4 {
             margin: 0 0 0.45rem;
             color: var(--primary-dark);
         }
 
-        .card p, .card li, .card td, .card th { font-size: 0.92rem; }
-        .card ul { margin: 0.6rem 0 0; padding-left: 1.1rem; }
+        .card p,
+        .card li,
+        .card td,
+        .card th {
+            font-size: 0.92rem;
+        }
+
+        .card ul {
+            margin: 0.6rem 0 0;
+            padding-left: 1.1rem;
+        }
 
         .callout {
             border-left: 4px solid var(--accent);
@@ -305,7 +337,10 @@
             background: linear-gradient(180deg, #ffffff, #fff9f2);
         }
 
-        .arch-box h3 { margin: 0 0 0.4rem; }
+        .arch-box h3 {
+            margin: 0 0 0.4rem;
+        }
+
         .arch-box strong {
             display: inline-block;
             margin-top: 0.45rem;
@@ -339,7 +374,8 @@
             min-width: 760px;
         }
 
-        th, td {
+        th,
+        td {
             padding: 0.78rem 0.8rem;
             border-bottom: 1px solid #f0e7db;
             text-align: left;
@@ -354,7 +390,9 @@
             letter-spacing: 0.06em;
         }
 
-        tr:hover td { background: #fffaf4; }
+        tr:hover td {
+            background: #fffaf4;
+        }
 
         .status {
             display: inline-flex;
@@ -366,10 +404,20 @@
             font-weight: 800;
         }
 
-        .status.ok { background: #e9f7ee; color: var(--success); }
-        .status.partial { background: #fff4e5; color: var(--warning); }
+        .status.ok {
+            background: #e9f7ee;
+            color: var(--success);
+        }
 
-        .inventory-groups { display: grid; gap: 1.4rem; }
+        .status.partial {
+            background: #fff4e5;
+            color: var(--warning);
+        }
+
+        .inventory-groups {
+            display: grid;
+            gap: 1.4rem;
+        }
 
         .inventory-head {
             display: flex;
@@ -379,8 +427,14 @@
             margin-bottom: 0.75rem;
         }
 
-        .inventory-head h3 { margin: 0; }
-        .mini-meta { font-size: 0.82rem; color: var(--ink-soft); }
+        .inventory-head h3 {
+            margin: 0;
+        }
+
+        .mini-meta {
+            font-size: 0.82rem;
+            color: var(--ink-soft);
+        }
 
         .rules-list {
             display: grid;
@@ -395,7 +449,9 @@
             background: #fffdf9;
         }
 
-        .rule strong { color: var(--primary-dark); }
+        .rule strong {
+            color: var(--primary-dark);
+        }
 
         .sequence-toolbar {
             display: flex;
@@ -404,7 +460,9 @@
             margin-bottom: 1rem;
         }
 
-        .toolbar-btn, .seq-btn, .ghost-btn {
+        .toolbar-btn,
+        .seq-btn,
+        .ghost-btn {
             border: none;
             cursor: pointer;
             border-radius: 999px;
@@ -414,7 +472,8 @@
             transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
 
-        .toolbar-btn, .seq-btn {
+        .toolbar-btn,
+        .seq-btn {
             background: linear-gradient(135deg, var(--accent), #15968d);
             color: white;
             box-shadow: 0 8px 18px rgba(15, 118, 110, 0.18);
@@ -425,8 +484,15 @@
             color: var(--primary-dark);
         }
 
-        .toolbar-btn:hover, .seq-btn:hover, .ghost-btn:hover { transform: translateY(-1px); }
-        .toolbar-btn.active { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); }
+        .toolbar-btn:hover,
+        .seq-btn:hover,
+        .ghost-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .toolbar-btn.active {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+        }
 
         .sequence-grid {
             display: grid;
@@ -488,7 +554,9 @@
             padding: 1rem;
         }
 
-        .overlay.active { display: flex; }
+        .overlay.active {
+            display: flex;
+        }
 
         .modal {
             width: min(1140px, 96vw);
@@ -547,16 +615,27 @@
         }
 
         @media (max-width: 900px) {
-            nav { position: static; }
-            .nav-links { display: none; }
-            .hero-shell { padding: 2rem 1.2rem; }
-            .section-head, .section-body {
+            nav {
+                position: static;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero-shell {
+                padding: 2rem 1.2rem;
+            }
+
+            .section-head,
+            .section-body {
                 padding-left: 1rem;
                 padding-right: 1rem;
             }
         }
     </style>
 </head>
+
 <body>
     <nav>
         <div class="logo">AudioGuideSystem PRD</div>
@@ -578,8 +657,10 @@
             <h1>AudioGuideSystem: PRD chi tiết cho hệ thống audio tour, QR, geofence và quản trị nội dung du lịch</h1>
             <p>
                 Tài liệu này thay thế cách kể chuyện cũ trong file mẫu bằng hiện trạng thật của project đang có:
-                <strong>AudioGuideAdmin</strong> là CMS vận hành, <strong>AudioGuideAPI</strong> là backend runtime/public API,
-                và <strong>AudioTourApp</strong> là ứng dụng MAUI Android cho visitor. Mọi mô tả, quy tắc và sequence dưới đây đều bám theo controller,
+                <strong>AudioGuideAdmin</strong> là CMS vận hành, <strong>AudioGuideAPI</strong> là backend
+                runtime/public API,
+                và <strong>AudioTourApp</strong> là ứng dụng MAUI Android cho visitor. Mọi mô tả, quy tắc và sequence
+                dưới đây đều bám theo controller,
                 page, service và model hiện có trong repo.
             </p>
             <div class="badge-row">
@@ -1338,351 +1419,565 @@
             {
                 id: "J01",
                 module: "Hanh trinh nguoi dung",
-                title: "Visitor bat dau tham quan",
+                title: "J01 — Visitor bắt đầu tham quan ",
                 actor: "Visitor",
                 entry: "PRD Section 8 - Hanh trinh 1",
                 source: "PRD.md - Section 8 / Hanh trinh 1",
-                status: "partial",
+                status: "ok",
                 summary: "Visitor mo app, bootstrap du lieu, cap quyen vi tri va bat dau gui vi tri dinh ky de khoi dong phien tham quan.",
                 mermaid: `sequenceDiagram
-    participant Visitor
-    participant App as Mobile App
-    participant Permission as Device Permission
-    participant Bootstrap as Bootstrap API
-    participant Track as Tracking API
-    Visitor->>App: Mo app / giu hoac nhap API Base URL
-    Visitor->>App: Bam Bootstrap hoac Bat tracking
-    App->>Bootstrap: Yeu cau bootstrap du lieu
-    Bootstrap-->>App: POI active va Tour active
-    App->>Permission: Xin quyen vi tri
-    Permission-->>App: Ket qua cap quyen
-    alt Duoc cap quyen
-        App->>Track: Bat dau gui vi tri dinh ky
-        Track-->>App: Xac nhan tracking
-    else Bi tu choi
-        App-->>Visitor: Thong bao thieu quyen vi tri
+    autonumber
+    actor V as Visitor
+    participant APP as Mobile App
+    participant OS as Device OS
+    participant BOOT as Bootstrap API
+    participant DB as Shared DB
+    participant TRACK as Tracking API
+    
+    V->>APP: Mở app & Nhập/Giữ API Base URL
+    V->>APP: Bấm "Bootstrap" hoặc "Bật tracking"
+    
+    rect rgb(240, 248, 255)
+    note right of APP: Pha 1: Đồng bộ dữ liệu (Bootstrap)
+    APP->>BOOT: GET /api/bootstrap?language={lang}
+    BOOT->>DB: Truy vấn danh sách POI, Tour đang active
+    DB-->>BOOT: Dữ liệu POI, Tours & Translations
+    BOOT-->>APP: 200 OK (Danh sách POI, cấu hình Geofence)
+    end
+    
+    rect rgb(255, 240, 245)
+    note right of APP: Pha 2: Cấp quyền & Theo dõi vị trí
+    APP->>OS: Yêu cầu quyền Vị trí (Location Permission)
+    
+    alt Bị từ chối (Denied)
+        OS-->>APP: Permission Denied
+        APP-->>V: Cảnh báo: "Ứng dụng cần quyền vị trí để hoạt động"
+    else Được cấp (Granted)
+        OS-->>APP: Permission Granted
+        APP->>OS: Khởi động Foreground Service bắt GPS
+        
+        loop Mỗi interval (vd: 10s)
+            OS-->>APP: Callback tọa độ (lat, lng, accuracy)
+            APP->>TRACK: POST /api/tracking {lat, lng, userId}
+            TRACK->>DB: Lưu UserTracking
+            TRACK-->>APP: 200 OK (Đã ghi nhận tracking)
+        end
+    end
     end`
             },
             {
                 id: "J02",
                 module: "Hanh trinh nguoi dung",
-                title: "Visitor di ngang mot POI",
+                title: "J02 — Visitor đi ngang một POI  ",
                 actor: "Visitor",
                 entry: "PRD Section 8 - Hanh trinh 2",
                 source: "PRD.md - Section 8 / Hanh trinh 2",
-                status: "partial",
-                summary: "App gui toa do hien tai, backend kiem tra geofence va neu trigger hop le thi day POI vao hang doi audio.",
+                status: "ok",
+                summary: "App gửi tọa độ hiện tại, backend kiểm tra vòng lặp khoảng cách. Nếu hợp lệ (Cooldown, Debounce, Mode), trả về POI để phát audio tự động.",
                 mermaid: `sequenceDiagram
-    participant Visitor
-    participant App as Mobile App
-    participant Geo as Geofence API
-    participant Trigger as Trigger Store
-    participant Audio as Audio Queue
-    App->>Geo: Gui toa do hien tai
-    Geo->>Geo: Tinh khoang cach toi cac POI
-    Geo->>Geo: Kiem tra radius, approach, trigger mode
-    Geo->>Trigger: Kiem tra cooldown va debounce
-    alt Trigger hop le
-        Geo->>Trigger: Tao ban ghi geofence trigger
-        Geo-->>App: Tra ve POI can phat
-        App->>Audio: Dua POI vao hang doi
-        Audio-->>Visitor: Phat audio URL hoac TTS
-    else Khong hop le
-        Geo-->>App: Bo qua trigger
+    autonumber
+    actor V as Visitor
+    participant APP as Mobile App
+    participant GEO as Geofence API
+    participant DB as Shared DB
+    participant AUDIO as Audio Hệ thống
+    
+    APP->>GEO: Gửi tọa độ GPS (Tự động theo chu kỳ)
+    
+    rect rgb(240, 248, 255)
+    note right of GEO: Thuật toán Geofence (Server-side)
+    GEO->>DB: Truy vấn POI đang active
+    DB-->>GEO: Tranh sách POI (Tọa độ, Radius, Priority)
+    GEO->>GEO: Tính khoảng cách (vd: Công thức Haversine)
+    GEO->>GEO: So sánh với bán kính (Radius/Approach) & Trigger Mode
+    end
+    
+    rect rgb(255, 250, 205)
+    note right of GEO: Kiểm tra Anti-Spam
+    GEO->>DB: Lấy lịch sử Trigger của thiết bị
+    DB-->>GEO: Lịch sử gọi GeofenceTrigger
+    GEO->>GEO: Kiểm tra Cooldown & Debounce (chống lặp rác)
+    end
+    
+    alt Hợp lệ (Bên trong vùng & Thỏa Anti-Spam)
+        GEO->>DB: INSERT GeofenceTrigger (Gán cờ đã báo)
+        DB-->>GEO: Đã lưu dữ liệu
+        GEO-->>APP: 200 OK (Trả về URL Audio / Cấu hình TTS)
+        APP->>AUDIO: Đưa bài thuyết minh vào hàng đợi
+        AUDIO-->>V: Tự động phát âm thanh
+    else Không hợp lệ (Ngoài vùng hoặc Vi phạm Cooldown)
+        GEO-->>APP: 200 OK (Danh sách POI hiển thị, không trigger Audio)
+        APP-->>V: (Cập nhật bản đồ im lặng)
     end`
             },
             {
                 id: "J03",
                 module: "Hanh trinh nguoi dung",
-                title: "Admin van hanh noi dung",
+                title: "J03 — Admin vận hành nội dung  ",
                 actor: "Admin",
                 entry: "PRD Section 8 - Hanh trinh 3",
                 source: "PRD.md - Section 8 / Hanh trinh 3",
-                status: "partial",
-                summary: "Admin dang nhap, quan ly POI, audio, translation, tour va sau do theo doi dashboard va tracking.",
+                status: "ok",
+                summary: "Quản trị viên đăng nhập vào hệ thống, cập nhật dữ liệu (POI, Tours, Bản dịch), tải tệp âm thanh lên vùng lưu trữ hệ thống, và sau đó theo dõi dữ liệu Tracking.",
                 mermaid: `sequenceDiagram
-    participant Admin
+    autonumber
+    actor A as Admin
     participant CMS as AudioGuideAdmin
     participant DB as Shared Database
-    participant Files as Shared Storage
-    Admin->>CMS: Dang nhap web admin
-    CMS-->>Admin: Mo dashboard
-    Admin->>CMS: Tao hoac sua POI
-    CMS->>DB: Luu POI
-    Admin->>CMS: Upload file audio
-    CMS->>Files: Luu audio file
-    Admin->>CMS: Tao translation
-    CMS->>DB: Luu translation
-    Admin->>CMS: Tao tour va sap xep stop
-    CMS->>DB: Luu tour va tour stop
-    Admin->>CMS: Xem dashboard va tracking
-    CMS->>DB: Doc analytics va trigger`
+    participant FS as Shared Storage
+    
+    rect rgb(240, 248, 255)
+    note right of CMS: Pha 1: Xác thực Session
+    A->>CMS: POST /auth/login {username, password}
+    CMS->>DB: Kiểm tra tài khoản & tra cứu Hash
+    
+    alt Đăng nhập thất bại
+        DB-->>CMS: User Not Found / Invalid Hash
+        CMS-->>A: 401 Unauthorized (Báo sai mật khẩu)
+    else Thành công
+        DB-->>CMS: Valid User
+        CMS->>CMS: Khởi tạo Session (Hạn 8h)
+        CMS-->>A: 302 Redirect to Dashboard
+    end
+    end
+    
+    rect rgb(255, 240, 245)
+    note right of CMS: Pha 2: Quản trị Nội dung & Media
+    A->>CMS: Khởi tạo POI, Translation, Tour (CRUD)
+    CMS->>DB: Thao tác INSERT/UPDATE cấu trúc thực thể
+    DB-->>CMS: Xác nhận thành công (Tránh trùng POI/Ngôn ngữ)
+    
+    A->>CMS: Upload file Media (Audio mp3/Hình ảnh)
+    CMS->>FS: Ghi thư mục tĩnh Shared Storage
+    FS-->>CMS: Trả về danh sách FilePath
+    CMS->>DB: Cập nhật đường dẫn File vào bản ghi nội dung
+    end
+    
+    rect rgb(230, 255, 230)
+    note right of CMS: Pha 3: Theo dõi Báo cáo & Phân tích
+    A->>CMS: Truy cập Dashboard / Tab Theo dõi Tracking
+    CMS->>DB: Lấy báo cáo lượng truy cập (Top POI, Heatmap)
+    DB-->>CMS: Lịch sử Trigger & Tracking Metrics
+    CMS-->>A: Render biểu đồ trực quan hóa dữ liệu
+    end`
             },
             {
                 id: "F01",
                 module: "Chuc nang quan tri",
-                title: "F1. Quan ly POI",
+                title: "F01 — Quản lý POI  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F1",
                 source: "PRD.md - Section 9 / F1",
                 status: "ok",
                 summary: "Admin tao, sua, xoa va quan ly day du thuoc tinh noi dung, geofence va audio cua moi POI.",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant CMS as POI Screen
-    participant Validate as Business Rule
+    autonumber
+    actor A as Admin
+    participant CMS as POI Manager
+    participant VAL as Business Rules
     participant DB as POI Store
-    Admin->>CMS: Tao hoac chinh sua POI
-    CMS->>Validate: Kiem tra title, toa do, geofence, audio mode
-    Validate-->>CMS: Ket qua validation
-    alt Hop le
-        CMS->>DB: Insert hoac update POI
-        DB-->>CMS: POI da luu
-        CMS-->>Admin: Hien thi chi tiet POI
-    else Loi du lieu
-        CMS-->>Admin: Bao loi validation
+    
+    A->>CMS: Khởi tạo/Chỉnh sửa POI (Nhập Toạ độ, Bán kính, Media)
+    CMS->>VAL: Gửi dữ liệu để Validate
+    
+    rect rgb(240, 248, 255)
+    note right of CMS: Kiểm tra Toạ độ & Geofence
+    VAL->>VAL: Kiểm tra Bán kính (Radius > 0), Toạ độ hợp lệ
     end
-    Admin->>CMS: Bat tat IsActive hoac xoa POI
-    CMS->>DB: Cap nhat trang thai hoac xoa`
+    
+    alt Lỗi Validate
+        VAL-->>CMS: Return 400 (Invalid Data)
+        CMS-->>A: Hiện cảnh báo lỗi nhập liệu
+    else Hợp lệ
+        VAL-->>CMS: Dữ liệu chuẩn hoá
+        CMS->>DB: INSERT/UPDATE Entity POI
+        DB-->>CMS: Trả về POI ID (200 OK)
+        CMS-->>A: Toast: Lấy thông tin POI thành công
+    end
+    
+    A->>CMS: Cập nhật cờ IsActive / Xoá POI (Soft Delete)
+    CMS->>DB: Thay đổi trạng thái bản ghi
+    DB-->>CMS: 204 No Content`
             },
             {
                 id: "F02",
                 module: "Chuc nang quan tri",
-                title: "F2. Translation management",
+                title: "F02 — Translation management  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F2",
                 source: "PRD.md - Section 9 / F2",
                 status: "ok",
-                summary: "Admin tao translation theo tung POI va ngon ngu, dam bao moi cap PoiId + Language la duy nhat.",
+                summary: "Admin tạo nội dung đa ngôn ngữ bản địa hóa cho POI. Hệ thống ràng buộc Unique POI + Ngôn ngữ.",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant CMS as Translation Screen
-    participant Rule as Unique Check
+    autonumber
+    actor A as Admin
+    participant CMS as Translation UI
+    participant VAL as Unique Checker
     participant DB as Translation Store
-    Admin->>CMS: Chon POI va ngon ngu
-    CMS->>DB: Tai translation hien co
-    alt Da ton tai
-        DB-->>CMS: Hien form edit
-    else Chua ton tai
-        DB-->>CMS: Hien form create
+    
+    A->>CMS: Chọn POI & Chọn Mã ngôn ngữ (LangCode)
+    CMS->>DB: Khôi phục lại bản dịch hiện có (nếu có)
+    
+    alt Đã tồn tại bản dịch
+        DB-->>CMS: Trả về Dữ liệu cũ
+        CMS-->>A: Hiển thị form Cập nhật (Edit)
+    else Chưa tồn tại
+        DB-->>CMS: Null
+        CMS-->>A: Hiển thị form Thêm mới (Create)
     end
-    Admin->>CMS: Luu title, summary, description, audio, tts
-    CMS->>Rule: Kiem tra unique PoiId + Language
-    Rule-->>CMS: Ket qua validation
-    CMS->>DB: Insert hoac update translation
-    DB-->>CMS: Translation da luu`
+    
+    A->>CMS: Nhập Title, Content, Gắn URL Audio Mp3
+    CMS->>VAL: Kiểm tra quy tắc POI + LanguageId
+    
+    rect rgb(255, 240, 245)
+    note right of CMS: Ràng buộc tính duy nhất
+    VAL->>DB: Lệnh COUNT() theo PoiId & LangCode
+    end
+    
+    alt Bị trùng ngôn ngữ
+        DB-->>VAL: Count > 0 
+        VAL-->>CMS: Trả về lỗi Unique Constraint
+        CMS-->>A: Báo lỗi "Ngôn ngữ đã có bản dịch"
+    else Thỏa mãn điều kiện
+        DB-->>VAL: Count = 0
+        CMS->>DB: Gọi lệnh Lưu trữ (UPSERT)
+        DB-->>CMS: 200 OK
+        CMS-->>A: Hiển thị thông báo thành công
+    end`
             },
             {
                 id: "F03",
                 module: "Chuc nang quan tri",
-                title: "F3. Tour management",
+                title: "F03 — Tour management  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F3",
                 source: "PRD.md - Section 9 / F3",
                 status: "ok",
-                summary: "Admin tao tour, gan danh sach POI va sap xep TourStop theo SortOrder.",
+                summary: "Quản trị viên thiết lập Tour và kéo thả thứ tự Tour Stop liên kết với POI.",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant CMS as Tour Screen
-    participant Rule as Sort Builder
-    participant DB as Tour Store
-    Admin->>CMS: Tao hoac sua tour
-    Admin->>CMS: Chon danh sach POI cho tour
-    CMS->>Rule: Sap xep stop theo SortOrder
-    Rule-->>CMS: Danh sach TourStop da chuan hoa
-    CMS->>DB: Luu Tour
-    CMS->>DB: Luu TourStop theo thu tu
-    DB-->>CMS: Tour va stops da luu
-    CMS-->>Admin: Hien thi tour active`
+    autonumber
+    actor A as Admin
+    participant CMS as Tour builder UI
+    participant RULE as Sort Logic
+    participant DB as Tour & Stop Store
+    
+    A->>CMS: Điền thông tin Tour, Upload Ảnh cover
+    A->>CMS: Kéo thả các điểm POI vào danh sách trạm dừng
+    CMS->>RULE: Xử lý định tuyến & Thứ tự trạm
+    
+    rect rgb(240, 248, 255)
+    note right of CMS: Build chuỗi dừng (TourStop)
+    RULE->>RULE: Đánh số SortOrder tuần tự 1,2,3...
+    end
+    
+    RULE-->>CMS: Tập Dữ Liệu mảng TourStops
+    CMS->>DB: BEGIN TRANSACTION
+    CMS->>DB: INSERT/UPDATE bảng Tours
+    CMS->>DB: INSERT/UPDATE bảng TourStops (Bulk save)
+    
+    alt Commit thành công
+        DB-->>CMS: COMMIT (Trả về số lượng Stop được gán)
+        CMS-->>A: Xác nhận tạo Tour
+    else Lỗi Ràng buộc khóa ngoại
+        DB-->>CMS: ROLLBACK
+        CMS-->>A: Cảnh báo POI không tồn tại
+    end`
             },
             {
                 id: "F04",
                 module: "Chuc nang quan tri",
-                title: "F4. Audio library",
+                title: "F04 — Audio library  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F4",
                 source: "PRD.md - Section 9 / F4",
                 status: "ok",
-                summary: "Admin upload audio vao static storage, xem thu vien audio va gan URL audio cho POI hoac translation.",
+                summary: "Quản lý kho Upload Audio gắn với Shared Storage để làm media asset cho POI.",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant CMS as Audio Library
-    participant Files as Static Storage
-    participant API as Audio API
-    Admin->>CMS: Upload file audio
-    CMS->>Files: Luu file vao thu muc static
-    Files-->>CMS: Tra ve audio URL
-    Admin->>CMS: Mo danh sach audio
-    CMS->>API: Yeu cau thu vien audio
-    API->>Files: Liet ke file
-    Files-->>API: Danh sach audio
-    API-->>CMS: Audio library payload`
+    autonumber
+    actor A as Admin
+    participant CMS as Admin UI
+    participant API as Audio Asset API
+    participant FS as Shared Static Folder
+    
+    A->>CMS: Kéo thả file mp3 / wav Upload
+    CMS->>API: Multipart Form Data
+    
+    rect rgb(255, 240, 245)
+    note right of CMS: Quá trình xử lý Tệp tin
+    API->>API: Xác thực Extension, Size Limit
+    API->>FS: Ghi I/O Stream vào đĩa vật lý
+    end
+    
+    alt Upload Thành công
+        FS-->>API: Trả về File Path tĩnh
+        API-->>CMS: 201 Created (Kèm Direct URL Audio)
+        CMS-->>A: Thêm vào Danh sách Library View
+    else Kích thước quá lớn / Sai định dạng
+        API-->>CMS: 415 Unsupported Media Type
+        CMS-->>A: Hiển thị lỗi Upload bị từ chối
+    end
+    
+    A->>CMS: Refesh Asset List
+    CMS->>API: Lệnh Fetch DS hiện có
+    API->>FS: Đọc Directory
+    FS-->>API: Mảng tên tập tin (File Info list)
+    API-->>CMS: Array DS URLs
+    CMS-->>A: Render Audio Media Picker`
             },
             {
                 id: "F09",
                 module: "Chuc nang quan tri",
-                title: "F9. Analytics va dashboard",
+                title: "F09 — Analytics & dashboard  ",
                 actor: "Admin / Product Owner",
                 entry: "PRD Section 9 - F9",
                 source: "PRD.md - Section 9 / F9",
                 status: "ok",
-                summary: "Dashboard tong hop KPI, top POI, recent trigger va cac so lieu analytics phuc vu van hanh.",
+                summary: "Truy vấn Dữ Liệu thống kê tổng hợp Dashboard (Heatmap, Average Duration, POI phổ biến).",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant Dashboard as Dashboard UI
-    participant Analytics as Analytics API
-    participant DB as Tracking and Visit Store
-    Admin->>Dashboard: Mo dashboard
-    Dashboard->>Analytics: Yeu cau overview, top POI, avg listen, heatmap
-    Analytics->>DB: Tong hop tracking, visit, trigger
-    DB-->>Analytics: Du lieu KPI
-    Analytics-->>Dashboard: Analytics payload
-    Dashboard-->>Admin: Hien thi cards, top POI, recent trigger`
+    autonumber
+    actor A as Product Owner
+    participant UI as Dashboard View
+    participant API as Analytics Endpoints
+    participant DB as Data Warehouse/Store
+    
+    A->>UI: View báo cáo (Chỉnh Range Date)
+    UI->>API: Yêu cầu Thống kê Gộp (DateFilter)
+    
+    rect rgb(255, 240, 245)
+    note right of API: Tính toán Aggregates
+    API->>DB: Câu lệnh truy vấn SQL phức (GROUP BY, SUM, COUNT)
+    DB-->>API: Danh sách Top list, Vector Heatmap, Heat point
+    end
+    
+    alt Dữ liệu rỗng
+        API-->>UI: Payload trống (No Analytics found)
+        UI-->>A: Hiển thị Blank State "Chưa có lượt chạy"
+    else Dữ liệu sẵn sàng
+        API-->>UI: 200 OK (Data Cube Payload)
+        UI->>UI: Map sang Chart.js / Recharts components
+        UI-->>A: Trực quan KPI
+    end`
             },
             {
                 id: "F11",
                 module: "Chuc nang quan tri",
-                title: "F11. Admin authentication",
+                title: "F11 — Admin authentication  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F11",
                 source: "PRD.md - Section 9 / F11",
                 status: "ok",
-                summary: "Web admin yeu cau dang nhap, ho tro tao admin dau tien va bao ve route bang session timeout 8 gio.",
+                summary: "Khởi tạo luồng Đăng nhập, bảo mật hệ thống Auth phiên 8 giờ thông thường.",
                 mermaid: `sequenceDiagram
-    participant Admin
-    participant Auth as Auth Screen
-    participant Session as Session Middleware
-    participant DB as Admin User Store
-    Admin->>Auth: Dang nhap hoac dang ky admin dau tien
-    Auth->>DB: Kiem tra tai khoan admin
-    alt Chua co admin
-        Auth-->>Admin: Mo form dang ky dau tien
-        Admin->>Auth: Submit username va password
-        Auth->>DB: Luu admin da hash password
-    else Da co admin
-        Auth->>DB: Xac thuc mat khau
-        DB-->>Auth: Ket qua login
+    autonumber
+    actor A as Admin
+    participant UI as Login Page
+    participant MID as Session Middleware
+    participant DB as Password Vault
+    
+    A->>UI: Submit thông tin Email & Password
+    UI->>MID: Yêu cầu Cấp phép Auth Token / Login Cookie
+    
+    rect rgb(255, 240, 245)
+    note right of MID: Kiểm tra Admin Tồn tại & Hash
+    MID->>DB: Lấy User Record đầu tiên
     end
-    Auth->>Session: Tao session user
-    Session-->>Admin: Cho phep vao cac route bao ve`
+    
+    alt Hệ thống Rỗng (First Boot)
+        DB-->>MID: Bàng DB Admin Trống
+        MID-->>UI: Chuyển hướng Form "Đăng ký Chủ App đầu tiên"
+        UI-->>A: Mở màn hình đăng ký ban đầu
+    else Có Tài khoản
+        DB-->>MID: Mang mật khẩu đã Hash để check
+        MID->>MID: Compare(Hash, Input)
+        
+        alt Sai mật khẩu
+            MID-->>UI: 401 Error Login
+            UI-->>A: Cảnh báo Nhập sai mật khẩu
+        else Mật khẩu Đúng
+            MID->>MID: Server sinh HttpOnly Cookie (Cookie Auth)
+            MID-->>UI: Trả Về Header Cấp Quyền Đã Logged In
+            UI-->>A: Admin Panel Mở Ra
+        end
+    end`
             },
             {
                 id: "F05",
                 module: "Chuc nang runtime",
-                title: "F5. Bootstrap va map feed",
+                title: "F05 — Bootstrap & map feed  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F5",
                 source: "PRD.md - Section 9 / F5",
                 status: "ok",
-                summary: "Mobile app bootstrap POI active va tour active, sau do tai nearby POI de hien thi tren map.",
+                summary: "App fetch dữ liệu gốc POI active khi mở app và load dynamic node theo phạm vi Nearby GPS.",
                 mermaid: `sequenceDiagram
-    participant App as Mobile App
-    participant Bootstrap as Bootstrap API
-    participant Map as Map API
-    participant DB as Content Store
-    App->>Bootstrap: Lay bootstrap luc khoi dong
-    Bootstrap->>DB: Doc POI active va tour active
-    DB-->>Bootstrap: Du lieu bootstrap
-    Bootstrap-->>App: POI, tour, language
-    App->>Map: Yeu cau nearby POI theo vi tri hien tai
-    Map->>DB: Tinh danh sach POI gan nhat
-    Map-->>App: Marker va nearby payload`
+    autonumber
+    participant APP as Mobile App
+    participant BOOT as Bootstrap/Map APIs
+    participant DB as Cache/Database
+    
+    rect rgb(240, 248, 255)
+    note right of APP: Luồng 1: Khởi động Ứng dụng
+    APP->>BOOT: GET /api/bootstrap {lang, appVersion}
+    BOOT->>DB: Lấy POI & Tour đang Active
+    DB-->>BOOT: Dữ liệu Master
+    BOOT-->>APP: JSON Data (Lưu Cache Offline Tạm)
+    end
+    
+    rect rgb(255, 240, 245)
+    note right of APP: Luồng 2: Cập nhật Bản Đồ Động
+    APP->>APP: Mở Map View, Lấy tọa độ Client
+    APP->>BOOT: POST /api/map/nearby {lat, lng, radius}
+    BOOT->>DB: Spatial Query (Bán kính)
+    DB-->>BOOT: Lọc các POI gần theo Radius yêu cầu
+    
+    alt Có POI gần đây
+        BOOT-->>APP: 200 OK (Mảng Nearby POIs)
+        APP->>APP: Vẽ Pin/Map Marker ở gần
+    else Vùng hẻo lánh
+        BOOT-->>APP: Dữ liệu Mảng rỗng [ ]
+        APP->>APP: Phóng to giới hạn Range
+    end
+    end`
             },
             {
                 id: "F06",
                 module: "Chuc nang runtime",
-                title: "F6. Geofence va auto play",
+                title: "F06 — Geofence & auto play  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F6",
                 source: "PRD.md - Section 9 / F6",
                 status: "ok",
-                summary: "Backend kiem tra trigger mode, radius, cooldown va debounce; app tu dong dua audio vao queue neu trigger hop le.",
+                summary: "Thuật toán kiểm soát Logic chống Spam (Cooldown/Debounce) khi kích hoạt Audio.",
                 mermaid: `sequenceDiagram
-    participant App as Mobile App
-    participant Geo as Geofence API
-    participant Rule as Geofence Engine
-    participant Trigger as Trigger Store
-    participant Audio as Audio Queue
-    App->>Geo: Gui location update
-    Geo->>Rule: Danh gia radius, approachRadius, trigger mode
-    Rule->>Trigger: Kiem tra lich su cooldown va debounce
-    alt Du dieu kien
-        Rule->>Trigger: Ghi geofence trigger moi
-        Geo-->>App: ShouldPlay = true
-        App->>Audio: Enqueue POI de auto play
-    else Khong du dieu kien
-        Geo-->>App: ShouldPlay = false
+    autonumber
+    participant APP as Mobile App
+    participant GEO as Geofence Logic Engine
+    participant STORE as Trigger History (DB)
+    participant MEDIA as Native Audio Player
+    
+    APP->>GEO: Định kỳ gửi Location {lat, lng}
+    GEO->>GEO: So sánh Khoảng cách từng POI active
+    
+    rect rgb(240, 248, 255)
+    note right of GEO: Đo Lường Khoảng cách (Intersection Radius) & Anti-spam
+    GEO->>STORE: Query thời gian phát lần cuối cùng
+    STORE-->>GEO: Lịch sử Trigger & Last Played Time
+    end
+    
+    alt Bị Chặn (Còn trong Cooldown)
+        GEO->>GEO: Cờ ShouldPlay = False
+        GEO-->>APP: Trả về trạng thái "Skip Trigger"
+    else Thỏa điều kiện Auto Play
+        GEO->>STORE: Ghi nhận Trigger Event + Mốc Timestamp
+        STORE-->>GEO: Logged Cập nhật thành công
+        GEO-->>APP: ShouldPlay = True (Kèm Link ID Media)
+        
+        APP->>MEDIA: Đưa Audio Element vào Queue
+        MEDIA-->>APP: (System) Âm thanh nền tự động phát
     end`
             },
             {
                 id: "F07",
                 module: "Chuc nang runtime",
-                title: "F7. Tracking visitor",
+                title: "F07 — Tracking visitor  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F7",
                 source: "PRD.md - Section 9 / F7",
                 status: "ok",
-                summary: "App gui toa do, accuracy, speed, bearing, foreground state len backend theo chu ky tracking.",
+                summary: "Quản lý quá trình App gửi tọa độ và Service nền (OS/Foreground) thu thập dữ liệu hành trình theo chu kỳ.",
                 mermaid: `sequenceDiagram
-    participant App as Mobile App
-    participant Sensor as Device GPS
-    participant Track as Tracking API
-    participant DB as Tracking Store
-    Sensor-->>App: Location sample
-    App->>Track: POST tracking with metadata
-    Track->>DB: Luu latitude, longitude, accuracy, speed, bearing, recordedAt
-    DB-->>Track: Tracking saved
-    Track-->>App: Xac nhan thanh cong`
+    autonumber
+    participant GPS as OS Hardware Sensor (GPS)
+    participant APP as Mobile Tracking Service
+    participant API as Tracking Endpoint
+    participant DB as Tracking Log Store
+    
+    rect rgb(255, 240, 245)
+    note right of GPS: Foreground Service Collection
+    GPS-->>APP: Phát Tọa độ Realtime (Cập nhật vị trí)
+    APP->>APP: Khoanh vùng Mốc dữ liệu (Batching)
+    end
+    
+    APP->>API: POST /tracking (Payload chứa Lat, Lng, Speed, Acc)
+    
+    alt Thu Thập Thành Công
+        API->>DB: Ghi log dòng Batch Tracking
+        DB-->>API: 200 OK Saved
+        API-->>APP: Xác nhận Thành Công
+    else Không có kết nối / Lạnh
+        API-->>APP: Time_out / 503
+        APP->>APP: Lưu vào Cache cục bộ (Sẽ retry sau)
+    end`
             },
             {
                 id: "F08",
                 module: "Chuc nang runtime",
-                title: "F8. Visit history",
+                title: "F08 — Visit history  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F8",
                 source: "PRD.md - Section 9 / F8",
                 status: "ok",
-                summary: "Backend nhan lich su nghe theo POI va user, tu tinh toan duration neu du lieu client gui chua day du.",
+                summary: "Theo dõi Thời Lượng Nghe thực tế (Playback metrics) sau khi Visitor tương tác với Audio.",
                 mermaid: `sequenceDiagram
-    participant App as Mobile App
-    participant Visit as Visit API
-    participant Normalize as Duration Rule
+    autonumber
+    participant APP as Mobile Playback Engine
+    participant API as Visit Statistics API
+    participant RULE as Duration Normalizer
     participant DB as Visit Store
-    App->>Visit: Gui startTime, endTime, duration, poiId, userId
-    Visit->>Normalize: Kiem tra du lieu thoi gian
-    alt Thieu mot phan du lieu
-        Normalize-->>Visit: Tu suy ra duration hoac time con thieu
-    else Day du
-        Normalize-->>Visit: Giu nguyen du lieu
+    
+    APP->>APP: Play Audio & Theo dõi Session hoàn tất
+    APP->>API: POST /visit (Gửi Start, End Time & Userid)
+    
+    rect rgb(240, 248, 255)
+    note right of API: Làm sạch Dữ liệu
+    API->>RULE: Chuyển dữ liệu cho Normalizer
+    RULE->>RULE: Tính toán % thời lượng Nghe (Duration Gap)
     end
-    Visit->>DB: Luu visit history
-    DB-->>Visit: Visit saved
-    Visit-->>App: Tra ve ket qua`
+    
+    alt Dữ liệu thiếu
+        RULE-->>API: Tự động nội suy trường dữ liệu EndTime
+    else Dữ liệu chuẩn đầy đủ
+        RULE-->>API: Xác nhận Valid Object Structure
+    end
+    
+    API->>DB: Gọi UPSERT (Lưu hồ sơ Visit Metrics của POI)
+    DB-->>API: Hoàn thiện Transaction
+    API-->>APP: Trả Về Http Status 200 OK`
             },
             {
                 id: "F10",
                 module: "Chuc nang runtime",
-                title: "F10. QR code lookup",
+                title: "F10 — QR code lookup  ",
                 actor: "Visitor / Mobile App",
                 entry: "PRD Section 9 - F10",
                 source: "PRD.md - Section 9 / F10",
                 status: "ok",
-                summary: "API tra ve thong tin POI theo ma QR de phuc vu deep-link hoac entry point tai dia diem.",
+                summary: "Quét mã QR và điều hướng chi tiết điểm đến nội dung tương ứng.",
                 mermaid: `sequenceDiagram
-    participant Visitor
-    participant App as Mobile App
-    participant QR as QR API
-    participant DB as QR and POI Store
-    Visitor->>App: Quet hoac nhap ma QR
-    App->>QR: Yeu cau lookup theo code
-    QR->>DB: Tim QR va POI lien ket
-    alt Tim thay
-        DB-->>QR: POI payload
-        QR-->>App: Tra ve thong tin POI
-        App-->>Visitor: Mo entry point noi dung
-    else Khong tim thay
-        QR-->>App: Loi not found
-        App-->>Visitor: Bao ma khong hop le
+    autonumber
+    actor V as Visitor
+    participant APP as Mobile Camera Module
+    participant API as QR Code Router
+    participant DB as POI Catalog
+    
+    V->>APP: Mở Camera, Quét QR tag
+    APP->>APP: Extract mã URL Code
+    APP->>API: GET /api/qrcode/lookup/{code}
+    
+    rect rgb(240, 248, 255)
+    note right of API: Tìm kiếm Mapping ID
+    API->>DB: Truy xuất quan hệ QR ↔ Dữ Liệu Thực thể
+    end
+    
+    alt Mã Không Tồn tại
+        DB-->>API: Null Error
+        API-->>APP: Lỗi 404 Not Found Code
+        APP-->>V: Popup Cảnh báo Mã Quét Không Hợp Lệ
+    else Mã Hợp lệ
+        DB-->>API: Trả về Metadata Bản Thu POI
+        API-->>APP: 200 Payload Object Chi Tiết
+        APP->>APP: Navigate sang Trang Chi Tiết (PoiDetail)
+        APP-->>V: Phát Audio hoặc hiển thị Bài Đọc
     end`
             }
         ];
@@ -2263,4 +2558,5 @@
         init();
     </script>
 </body>
+
 </html>
