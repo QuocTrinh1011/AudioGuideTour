@@ -1,8 +1,9 @@
-﻿using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Data;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AudioGuideAdmin.Controllers;
 
@@ -20,17 +21,26 @@ public class AnalyticsController : Controller
         "#2f855a"
     };
 
-    private readonly AppDbContext _context;
+    private static readonly TimeZoneInfo AnalyticsTimeZone = ResolveAnalyticsTimeZone();
+    private const int MaxTrackingRows = 20000;
+    private const int MaxTriggerRows = 200;
+    private const int MaxHeatCells = 500;
+    private const int MaxVisibleVisitorPoints = 250;
 
-    public AnalyticsController(AppDbContext context)
+    private readonly AppDbContext _context;
+    private readonly ILogger<AnalyticsController> _logger;
+
+    public AnalyticsController(AppDbContext context, ILogger<AnalyticsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
-    public IActionResult Index([FromQuery] int days = 7, [FromQuery] double maxAccuracy = 120)
+    public IActionResult Index([FromQuery] int days = 7, [FromQuery] double maxAccuracy = 120, [FromQuery] int startHour = 0, [FromQuery] int endHour = 23)
     {
-        days = Math.Clamp(days, 1, 30);
-        maxAccuracy = Math.Clamp(maxAccuracy, 30, 300);
+        NormalizeFilters(ref days, ref maxAccuracy, ref startHour, ref endHour);
+        try
+        {
 
         var windowStart = DateTime.UtcNow.AddDays(-days);
         var poiLookup = _context.Pois
@@ -44,28 +54,23 @@ public class AnalyticsController : Controller
             })
             .ToDictionary(x => x.Id);
 
-        var rawTrackingRows = _context.UserTrackings
-            .AsNoTracking()
-            .Where(x => x.RecordedAt >= windowStart)
-            .OrderByDescending(x => x.RecordedAt)
-            .Take(5000)
-            .ToList();
-
-        var trackingRows = rawTrackingRows
-            .Where(x => x.Latitude != 0 && x.Longitude != 0)
-            .Where(x => x.Accuracy == 0 || x.Accuracy <= maxAccuracy)
-            .ToList();
+        var rawTrackingRows = LoadRawTrackingRows(windowStart);
+        var trackingRows = FilterTrackingRows(rawTrackingRows, maxAccuracy, startHour, endHour);
 
         var triggerRows = _context.GeofenceTriggers
             .AsNoTracking()
             .Where(x => x.RecordedAt >= windowStart)
             .OrderByDescending(x => x.RecordedAt)
-            .Take(200)
+            .ToList()
+            .Where(x => IsWithinHourWindow(x.RecordedAt, startHour, endHour))
+            .Take(MaxTriggerRows)
             .ToList();
 
         var visitRows = _context.VisitHistories
             .AsNoTracking()
             .Where(x => x.EndTime >= windowStart)
+            .ToList()
+            .Where(x => IsWithinHourWindow(x.EndTime, startHour, endHour))
             .ToList();
 
         var recentVisitRows = visitRows
@@ -103,7 +108,7 @@ public class AnalyticsController : Controller
             .ToList();
 
         var dailyRows = visitRows
-            .GroupBy(x => x.EndTime.Date)
+            .GroupBy(x => ToAnalyticsLocalTime(x.EndTime).Date)
             .Select(group => new DailyListenViewModel
             {
                 Date = group.Key,
@@ -115,7 +120,7 @@ public class AnalyticsController : Controller
             .OrderBy(x => x.Date)
             .ToList();
 
-        var heatmapPoints = BuildHeatmapPoints(trackingRows);
+        var initialHeatPayload = BuildHeatmapPayload(trackingRows, visitorAliases, null, 15);
         var routeSessions = BuildRouteSessions(trackingRows, visitorAliases)
             .OrderByDescending(x => x.EndedAt)
             .Take(10)
@@ -126,16 +131,19 @@ public class AnalyticsController : Controller
             TrackingWindowLabel = days == 1 ? "24 giờ gần nhất" : $"{days} ngày gần nhất",
             SelectedWindowDays = days,
             SelectedMaxAccuracyMeters = maxAccuracy,
+            SelectedStartHour = startHour,
+            SelectedEndHour = endHour,
             TotalTrackingPoint = trackingRows.Count,
             RawTrackingPoint = rawTrackingRows.Count,
             FilteredOutTrackingPoint = Math.Max(rawTrackingRows.Count - trackingRows.Count, 0),
             UniqueVisitors = visitorAliases.Count,
             TotalTrigger = triggerRows.Count,
-            HeatmapClusterCount = heatmapPoints.Count,
+            HeatmapClusterCount = initialHeatPayload.HeatmapClusterCount,
             RouteSessionCount = routeSessions.Count,
             AverageListenDuration = visitRows.Select(x => (double?)x.Duration).Average() ?? 0,
             CompletionRate = visitRows.Any() ? visitRows.Count(x => x.WasCompleted) * 100.0 / visitRows.Count : 0,
             AutoPlayRate = visitRows.Any() ? visitRows.Count(x => x.WasAutoPlayed) * 100.0 / visitRows.Count : 0,
+            InitialHeatCellSizeMeters = initialHeatPayload.CellSizeMeters,
             TopPois = topPoiRows,
             TopPoiMapPoints = topPoiRows
                 .Where(x => x.Latitude != 0 && x.Longitude != 0)
@@ -149,7 +157,10 @@ public class AnalyticsController : Controller
                     Longitude = x.Longitude
                 })
                 .ToList(),
-            HeatmapPoints = heatmapPoints,
+            HeatmapPoints = initialHeatPayload.HeatPoints,
+            HeatmapCells = initialHeatPayload.GridCells,
+            HottestCell = initialHeatPayload.HottestCell,
+            VisitorPoints = initialHeatPayload.VisitorPoints,
             RouteSessions = routeSessions,
             DailyListens = dailyRows,
             RecentTriggers = triggerRows.Select(x => new TriggerLogViewModel
@@ -174,6 +185,114 @@ public class AnalyticsController : Controller
         };
 
         return View(model);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Không thể tải trang Analytics với bộ lọc days={Days}, maxAccuracy={MaxAccuracy}, startHour={StartHour}, endHour={EndHour}", days, maxAccuracy, startHour, endHour);
+
+            return View(new AnalyticsViewModel
+            {
+                ErrorMessage = "Không thể tải đầy đủ dữ liệu analytics trong lần này. Trang đã được giữ ở chế độ an toàn để admin không bị văng ra ngoài.",
+                TrackingWindowLabel = days == 1 ? "24 giờ gần nhất" : $"{days} ngày gần nhất",
+                SelectedWindowDays = days,
+                SelectedMaxAccuracyMeters = maxAccuracy,
+                SelectedStartHour = startHour,
+                SelectedEndHour = endHour,
+                InitialHeatCellSizeMeters = ResolveHeatCellSizeMeters(15)
+            });
+        }
+    }
+
+    [HttpGet]
+    public IActionResult HeatmapData(
+        [FromQuery] int days = 7,
+        [FromQuery] double maxAccuracy = 120,
+        [FromQuery] int startHour = 0,
+        [FromQuery] int endHour = 23,
+        [FromQuery] double? south = null,
+        [FromQuery] double? west = null,
+        [FromQuery] double? north = null,
+        [FromQuery] double? east = null,
+        [FromQuery] int zoom = 15)
+    {
+        NormalizeFilters(ref days, ref maxAccuracy, ref startHour, ref endHour);
+        try
+        {
+        zoom = Math.Clamp(zoom, 11, 19);
+
+        var windowStart = DateTime.UtcNow.AddDays(-days);
+        var rawTrackingRows = LoadRawTrackingRows(windowStart);
+        var trackingRows = FilterTrackingRows(rawTrackingRows, maxAccuracy, startHour, endHour);
+
+        HeatmapBounds? bounds = null;
+        if (south.HasValue && west.HasValue && north.HasValue && east.HasValue)
+        {
+            bounds = new HeatmapBounds(
+                south.Value,
+                west.Value,
+                north.Value,
+                east.Value);
+            trackingRows = trackingRows
+                .Where(x => x.Latitude >= bounds.Value.South && x.Latitude <= bounds.Value.North)
+                .Where(x => x.Longitude >= bounds.Value.West && x.Longitude <= bounds.Value.East)
+                .ToList();
+        }
+
+        var visitorAliases = BuildVisitorAliases(
+            trackingRows.Select(x => x.UserId)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .OrderBy(x => x));
+
+        var payload = BuildHeatmapPayload(trackingRows, visitorAliases, bounds, zoom);
+        return Ok(payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Không thể tải HeatmapData của Analytics");
+            return StatusCode(StatusCodes.Status500InternalServerError, new AnalyticsHeatmapPayloadViewModel
+            {
+                ErrorMessage = "Không thể tải dữ liệu heatmap động trong lần này."
+            });
+        }
+    }
+
+    private List<UserTracking> LoadRawTrackingRows(DateTime windowStart)
+    {
+        return _context.UserTrackings
+            .AsNoTracking()
+            .Where(x => x.RecordedAt >= windowStart)
+            .OrderByDescending(x => x.RecordedAt)
+            .Take(MaxTrackingRows)
+            .ToList();
+    }
+
+    private static void NormalizeFilters(ref int days, ref double maxAccuracy, ref int startHour, ref int endHour)
+    {
+        days = Math.Clamp(days, 1, 30);
+        maxAccuracy = Math.Clamp(maxAccuracy, 30, 300);
+        startHour = Math.Clamp(startHour, 0, 23);
+        endHour = Math.Clamp(endHour, 0, 23);
+    }
+
+    private static List<UserTracking> FilterTrackingRows(IEnumerable<UserTracking> rawTrackingRows, double maxAccuracy, int startHour, int endHour)
+    {
+        return rawTrackingRows
+            .Where(x => x.Latitude != 0 && x.Longitude != 0)
+            .Where(x => x.Accuracy == 0 || x.Accuracy <= maxAccuracy)
+            .Where(x => IsWithinHourWindow(x.RecordedAt, startHour, endHour))
+            .ToList();
+    }
+
+    private static bool IsWithinHourWindow(DateTime recordedAt, int startHour, int endHour)
+    {
+        var localHour = ToAnalyticsLocalTime(recordedAt).Hour;
+        if (startHour <= endHour)
+        {
+            return localHour >= startHour && localHour <= endHour;
+        }
+
+        return localHour >= startHour || localHour <= endHour;
     }
 
     private static Dictionary<string, string> BuildVisitorAliases(IEnumerable<string> userIds)
@@ -207,35 +326,157 @@ public class AnalyticsController : Controller
             : $"Visitor {((Math.Abs(userId.GetHashCode()) % 99) + 1):00}";
     }
 
-    private static List<AnalyticsHeatPointViewModel> BuildHeatmapPoints(IEnumerable<UserTracking> trackingRows)
+    private static AnalyticsHeatmapPayloadViewModel BuildHeatmapPayload(
+        IReadOnlyList<UserTracking> trackingRows,
+        IReadOnlyDictionary<string, string> visitorAliases,
+        HeatmapBounds? bounds,
+        int zoom)
     {
-        var grouped = trackingRows
-            .GroupBy(x => new
-            {
-                Latitude = Math.Round(x.Latitude, 4),
-                Longitude = Math.Round(x.Longitude, 4)
-            })
-            .Select(group => new
-            {
-                group.Key.Latitude,
-                group.Key.Longitude,
-                SampleCount = group.Count()
-            })
-            .OrderByDescending(x => x.SampleCount)
-            .Take(500)
+        var cellSizeMeters = ResolveHeatCellSizeMeters(zoom);
+        var heatCells = BuildHeatCells(trackingRows, cellSizeMeters)
+            .OrderByDescending(x => x.UniqueVisitorCount)
+            .ThenByDescending(x => x.SampleCount)
+            .Take(MaxHeatCells)
             .ToList();
 
-        var peak = grouped.Any() ? grouped.Max(x => x.SampleCount) : 1;
+        var peakSampleCount = heatCells.Any() ? heatCells.Max(x => x.SampleCount) : 1;
+        foreach (var cell in heatCells)
+        {
+            cell.Intensity = Math.Round(Math.Max(0.18, cell.SampleCount / (double)peakSampleCount), 2);
+        }
 
-        return grouped
-            .Select(x => new AnalyticsHeatPointViewModel
+        var visibleVisitorPoints = trackingRows
+            .GroupBy(x => x.UserId)
+            .Select(group => group.OrderByDescending(x => x.RecordedAt).First())
+            .OrderByDescending(x => x.RecordedAt)
+            .Take(MaxVisibleVisitorPoints)
+            .Select(x => new AnalyticsVisitorPointViewModel
             {
                 Latitude = x.Latitude,
                 Longitude = x.Longitude,
-                SampleCount = x.SampleCount,
-                Intensity = Math.Round(Math.Max(0.18, x.SampleCount / (double)peak), 2)
+                VisitorAlias = ResolveVisitorAlias(visitorAliases, x.UserId),
+                Accuracy = x.Accuracy,
+                Source = x.Source,
+                RecordedAt = x.RecordedAt
             })
             .ToList();
+
+        var payload = new AnalyticsHeatmapPayloadViewModel
+        {
+            Zoom = zoom,
+            CellSizeMeters = cellSizeMeters,
+            TotalTrackingPoint = trackingRows.Count,
+            UniqueVisitors = visitorAliases.Count,
+            HeatmapClusterCount = heatCells.Count,
+            HeatPoints = heatCells
+                .Select(x => new AnalyticsHeatPointViewModel
+                {
+                    Latitude = x.CenterLatitude,
+                    Longitude = x.CenterLongitude,
+                    SampleCount = x.SampleCount,
+                    Intensity = x.Intensity
+                })
+                .ToList(),
+            GridCells = heatCells,
+            VisitorPoints = visibleVisitorPoints,
+            HottestCell = heatCells.FirstOrDefault()
+        };
+
+        if (bounds.HasValue && payload.HottestCell == null)
+        {
+            payload.HottestCell = new AnalyticsHeatCellViewModel
+            {
+                CellId = "empty",
+                CenterLatitude = (bounds.Value.South + bounds.Value.North) / 2d,
+                CenterLongitude = (bounds.Value.West + bounds.Value.East) / 2d,
+                MinLatitude = bounds.Value.South,
+                MinLongitude = bounds.Value.West,
+                MaxLatitude = bounds.Value.North,
+                MaxLongitude = bounds.Value.East
+            };
+        }
+
+        return payload;
+    }
+
+    private static IEnumerable<AnalyticsHeatCellViewModel> BuildHeatCells(IEnumerable<UserTracking> trackingRows, double cellSizeMeters)
+    {
+        var cells = new Dictionary<string, HeatCellAccumulator>(StringComparer.Ordinal);
+
+        foreach (var point in trackingRows)
+        {
+            var snappedCell = SnapToGrid(point.Latitude, point.Longitude, cellSizeMeters);
+            if (!cells.TryGetValue(snappedCell.CellId, out var bucket))
+            {
+                bucket = new HeatCellAccumulator
+                {
+                    CellId = snappedCell.CellId,
+                    MinLatitude = snappedCell.MinLatitude,
+                    MinLongitude = snappedCell.MinLongitude,
+                    MaxLatitude = snappedCell.MaxLatitude,
+                    MaxLongitude = snappedCell.MaxLongitude,
+                    CenterLatitude = (snappedCell.MinLatitude + snappedCell.MaxLatitude) / 2d,
+                    CenterLongitude = (snappedCell.MinLongitude + snappedCell.MaxLongitude) / 2d
+                };
+                cells[snappedCell.CellId] = bucket;
+            }
+
+            bucket.SampleCount++;
+            bucket.Visitors.Add(point.UserId ?? string.Empty);
+
+            var localHour = ToAnalyticsLocalTime(point.RecordedAt).Hour;
+            bucket.HourCounts[localHour] = bucket.HourCounts.GetValueOrDefault(localHour, 0) + 1;
+        }
+
+        foreach (var bucket in cells.Values)
+        {
+            var peakHour = bucket.HourCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).FirstOrDefault();
+            var nextHour = (peakHour.Key + 1) % 24;
+            yield return new AnalyticsHeatCellViewModel
+            {
+                CellId = bucket.CellId,
+                CenterLatitude = bucket.CenterLatitude,
+                CenterLongitude = bucket.CenterLongitude,
+                MinLatitude = bucket.MinLatitude,
+                MinLongitude = bucket.MinLongitude,
+                MaxLatitude = bucket.MaxLatitude,
+                MaxLongitude = bucket.MaxLongitude,
+                SampleCount = bucket.SampleCount,
+                UniqueVisitorCount = bucket.Visitors.Count(id => !string.IsNullOrWhiteSpace(id)),
+                PeakHourLabel = $"{peakHour.Key:00}:00 - {nextHour:00}:00",
+                PeakHourCount = peakHour.Value
+            };
+        }
+    }
+
+    private static GridCellBounds SnapToGrid(double latitude, double longitude, double cellSizeMeters)
+    {
+        var latitudeStep = cellSizeMeters / 111320d;
+        var longitudeStep = cellSizeMeters / Math.Max(111320d * Math.Max(Math.Cos(DegreesToRadians(latitude)), 0.15d), 1d);
+
+        var minLatitude = Math.Floor(latitude / latitudeStep) * latitudeStep;
+        var minLongitude = Math.Floor(longitude / longitudeStep) * longitudeStep;
+
+        return new GridCellBounds(
+            $"{Math.Round(minLatitude, 5):F5}|{Math.Round(minLongitude, 5):F5}",
+            Math.Round(minLatitude, 6),
+            Math.Round(minLongitude, 6),
+            Math.Round(minLatitude + latitudeStep, 6),
+            Math.Round(minLongitude + longitudeStep, 6));
+    }
+
+    private static double ResolveHeatCellSizeMeters(int zoom)
+    {
+        return zoom switch
+        {
+            <= 12 => 90,
+            13 => 70,
+            14 => 48,
+            15 => 30,
+            16 => 18,
+            17 => 12,
+            _ => 8
+        };
     }
 
     private static List<AnalyticsRouteViewModel> BuildRouteSessions(
@@ -306,9 +547,37 @@ public class AnalyticsController : Controller
                 Longitude = point.Longitude,
                 Accuracy = point.Accuracy,
                 RecordedAt = point.RecordedAt,
-                Label = $"{alias} · {point.RecordedAt:dd/MM HH:mm}"
+                Label = $"{alias} · {ToAnalyticsLocalTime(point.RecordedAt):dd/MM HH:mm}"
             }).ToList()
         });
+    }
+
+    private static DateTime ToAnalyticsLocalTime(DateTime value)
+    {
+        var normalized = value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+        return TimeZoneInfo.ConvertTimeFromUtc(normalized, AnalyticsTimeZone);
+    }
+
+    private static TimeZoneInfo ResolveAnalyticsTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Bangkok");
+            }
+            catch
+            {
+                return TimeZoneInfo.Local;
+            }
+        }
     }
 
     private static double CalculateDistanceMeters(double latitude1, double longitude1, double latitude2, double longitude2)
@@ -335,4 +604,21 @@ public class AnalyticsController : Controller
         public double Latitude { get; set; }
         public double Longitude { get; set; }
     }
+
+    private sealed class HeatCellAccumulator
+    {
+        public string CellId { get; set; } = "";
+        public double CenterLatitude { get; set; }
+        public double CenterLongitude { get; set; }
+        public double MinLatitude { get; set; }
+        public double MinLongitude { get; set; }
+        public double MaxLatitude { get; set; }
+        public double MaxLongitude { get; set; }
+        public int SampleCount { get; set; }
+        public HashSet<string> Visitors { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<int, int> HourCounts { get; } = new();
+    }
+
+    private readonly record struct GridCellBounds(string CellId, double MinLatitude, double MinLongitude, double MaxLatitude, double MaxLongitude);
+    private readonly record struct HeatmapBounds(double South, double West, double North, double East);
 }

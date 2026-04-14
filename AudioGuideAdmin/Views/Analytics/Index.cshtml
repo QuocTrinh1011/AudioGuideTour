@@ -4,6 +4,7 @@
 @{
     var peakListen = Model.DailyListens.Any() ? Model.DailyListens.Max(x => x.ListenCount) : 1;
     var topPoiPeak = Model.TopPois.Any() ? Model.TopPois.Max(x => x.ListenCount) : 1;
+    var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 }
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -55,6 +56,53 @@
         height: 10px;
         background: linear-gradient(90deg, #17324d, #c97732);
     }
+
+    .heat-legend {
+        position: absolute;
+        left: 14px;
+        bottom: 14px;
+        z-index: 500;
+        width: min(280px, calc(100% - 28px));
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 10px 30px rgba(23, 50, 77, 0.12);
+        padding: 12px 14px;
+    }
+
+    .heat-legend-gradient {
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #93c5fd 0%, #fde047 40%, #fb923c 72%, #dc2626 100%);
+        margin-bottom: 8px;
+    }
+
+    .heat-legend-scale {
+        display: flex;
+        justify-content: space-between;
+        color: #607487;
+        font-size: 0.8rem;
+    }
+
+    .heat-map-toolbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .heat-map-toolbar .analytics-note {
+        min-height: 100%;
+    }
+
+    .heat-map-status {
+        color: #607487;
+        font-size: 0.88rem;
+        margin-top: 8px;
+    }
+
+    .leaflet-popup-content {
+        min-width: 220px;
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -65,9 +113,16 @@
     <a href="/Tracking" class="btn btn-outline-dark">Xem log chi tiet</a>
 </div>
 
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="alert alert-warning mb-4" role="alert">
+        @Model.ErrorMessage
+    </div>
+}
+
 <div class="card p-3 mb-4">
-    <form method="get" class="row g-3 align-items-end">
-        <div class="col-md-3">
+    <form method="get" class="row g-3 align-items-end" id="analytics-filter-form">
+        <div class="col-md-2">
             <label class="form-label">Khoảng thời gian</label>
             <select class="form-select" name="days">
                 <option value="1" selected="@(Model.SelectedWindowDays == 1 ? "selected" : null)">24 giờ</option>
@@ -77,7 +132,7 @@
                 <option value="30" selected="@(Model.SelectedWindowDays == 30 ? "selected" : null)">30 ngày</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label">Sai số GPS tối đa</label>
             <select class="form-select" name="maxAccuracy">
                 <option value="30" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 30) < 0.1 ? "selected" : null)">30 m</option>
@@ -87,11 +142,29 @@
                 <option value="300" selected="@(Math.Abs(Model.SelectedMaxAccuracyMeters - 300) < 0.1 ? "selected" : null)">300 m</option>
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
+            <label class="form-label">Giờ bắt đầu</label>
+            <select class="form-select" name="startHour">
+                @for (var hour = 0; hour < 24; hour++)
+                {
+                    <option value="@hour" selected="@(Model.SelectedStartHour == hour ? "selected" : null)">@($"{hour:00}:00")</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Giờ kết thúc</label>
+            <select class="form-select" name="endHour">
+                @for (var hour = 0; hour < 24; hour++)
+                {
+                    <option value="@hour" selected="@(Model.SelectedEndHour == hour ? "selected" : null)">@($"{hour:00}:00")</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
             <div class="analytics-note">
                 <div class="fw-semibold">Bộ lọc đang dùng</div>
                 <div class="analytics-map-caption">@Model.TrackingWindowLabel · chỉ giữ các điểm có sai số ≤ @Model.SelectedMaxAccuracyMeters m</div>
-                <div class="analytics-map-caption">Đã loại @Model.FilteredOutTrackingPoint / @Model.RawTrackingPoint điểm GPS nhiễu.</div>
+                <div class="analytics-map-caption">@($"{Model.SelectedStartHour:00}:00 - {Model.SelectedEndHour:00}:59")</div>
             </div>
         </div>
         <div class="col-md-2 d-grid">
@@ -104,7 +177,7 @@
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Tracking @Model.TrackingWindowLabel</div><div class="fs-3 fw-bold">@Model.TotalTrackingPoint</div><div class="small text-muted">raw: @Model.RawTrackingPoint</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Visitor ẩn danh</div><div class="fs-3 fw-bold">@Model.UniqueVisitors</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Triggers</div><div class="fs-3 fw-bold">@Model.TotalTrigger</div></div></div>
-    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Heat clusters</div><div class="fs-3 fw-bold">@Model.HeatmapClusterCount</div></div></div>
+    <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Cụm heat ban đầu</div><div class="fs-3 fw-bold">@Model.HeatmapClusterCount</div><div class="small text-muted">ô ~ @Math.Round(Model.InitialHeatCellSizeMeters, 0)m</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Route sessions</div><div class="fs-3 fw-bold">@Model.RouteSessionCount</div></div></div>
     <div class="col-md-4 col-xl-2"><div class="card p-3"><div class="text-muted">Avg nghe</div><div class="fs-3 fw-bold">@Math.Round(Model.AverageListenDuration, 1)s</div></div></div>
 </div>
@@ -115,15 +188,36 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <h4 class="mb-1">Heat map vị trí</h4>
-                    <div class="analytics-map-caption">Tổng hợp các điểm GPS đã được ẩn danh và gom cụm để hiện mật độ di chuyển.</div>
+                    <div class="analytics-map-caption">Leaflet + heat layer. Bản đồ tự tải lại theo vùng nhìn hiện tại, theo mức zoom và theo bộ lọc ngày/giờ.</div>
                 </div>
-                <span class="badge text-bg-light">@Model.HeatmapClusterCount cum</span>
+                <span class="badge text-bg-light" id="heatmap-cluster-badge">@Model.HeatmapClusterCount cụm</span>
             </div>
-            <div id="heatmap-map" class="analytics-map"></div>
-            <div class="analytics-note mt-3">
-                <div class="fw-semibold mb-1">Đáp ứng yêu cầu</div>
-                <div class="analytics-map-caption">Heat map hiển thị mật độ vị trí người dùng trên nền bản đồ thật, có thêm marker Top POI để đối chiếu điểm nghe nhiều.</div>
+            <div id="heatmap-map" class="analytics-map">
+                <div class="heat-legend">
+                    <div class="fw-semibold small mb-2">Chú giải mật độ</div>
+                    <div class="heat-legend-gradient"></div>
+                    <div class="heat-legend-scale">
+                        <span>Ít</span>
+                        <span>Trung bình</span>
+                        <span>Nhiều</span>
+                    </div>
+                </div>
             </div>
+            <div class="heat-map-toolbar">
+                <div class="analytics-note">
+                    <div class="fw-semibold">Heatmap</div>
+                    <div class="analytics-map-caption" id="heatmap-summary">Đang chuẩn bị dữ liệu heatmap.</div>
+                </div>
+                <div class="analytics-note">
+                    <div class="fw-semibold">Hotspot cao nhất</div>
+                    <div class="analytics-map-caption" id="hotspot-summary">Sẽ hiển thị khi bản đồ nạp xong.</div>
+                </div>
+                <div class="analytics-note">
+                    <div class="fw-semibold">Tương tác</div>
+                    <div class="analytics-map-caption">Bật/tắt riêng heatmap, người dùng, vùng phân tích và hotspot bằng bộ layer ở góc phải bản đồ.</div>
+                </div>
+            </div>
+            <div class="heat-map-status" id="heatmap-status">Di chuyển hoặc zoom bản đồ để cập nhật heatmap theo vùng đang xem. Trang cũng tự làm mới định kỳ.</div>
         </div>
     </div>
     <div class="col-xl-6">
@@ -321,9 +415,20 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     <script>
-        const heatmapPoints = @Html.Raw(JsonSerializer.Serialize(Model.HeatmapPoints));
-        const routeSessions = @Html.Raw(JsonSerializer.Serialize(Model.RouteSessions));
-        const topPois = @Html.Raw(JsonSerializer.Serialize(Model.TopPoiMapPoints));
+        const initialHeatmapPayload = {
+            zoom: 15,
+            cellSizeMeters: @Html.Raw(JsonSerializer.Serialize(Model.InitialHeatCellSizeMeters, jsonOptions)),
+            totalTrackingPoint: @Html.Raw(JsonSerializer.Serialize(Model.TotalTrackingPoint, jsonOptions)),
+            uniqueVisitors: @Html.Raw(JsonSerializer.Serialize(Model.UniqueVisitors, jsonOptions)),
+            heatmapClusterCount: @Html.Raw(JsonSerializer.Serialize(Model.HeatmapClusterCount, jsonOptions)),
+            heatPoints: @Html.Raw(JsonSerializer.Serialize(Model.HeatmapPoints, jsonOptions)),
+            gridCells: @Html.Raw(JsonSerializer.Serialize(Model.HeatmapCells, jsonOptions)),
+            visitorPoints: @Html.Raw(JsonSerializer.Serialize(Model.VisitorPoints, jsonOptions)),
+            hottestCell: @Html.Raw(JsonSerializer.Serialize(Model.HottestCell, jsonOptions))
+        };
+
+        const routeSessions = @Html.Raw(JsonSerializer.Serialize(Model.RouteSessions, jsonOptions));
+        const topPois = @Html.Raw(JsonSerializer.Serialize(Model.TopPoiMapPoints, jsonOptions));
         const districtCenter = [10.7589, 106.7039];
 
         function createBaseMap(elementId) {
@@ -336,13 +441,39 @@
             return map;
         }
 
-        function bindPoiMarkers(map, bounds) {
+        function createPoiLayer() {
+            const layer = L.layerGroup();
             topPois.forEach((poi) => {
-                if (!poi.Latitude || !poi.Longitude) {
+                if (!poi.latitude || !poi.longitude) {
                     return;
                 }
 
-                const latLng = [poi.Latitude, poi.Longitude];
+                const latLng = [poi.latitude, poi.longitude];
+                L.circleMarker(latLng, {
+                    radius: 8,
+                    color: '#17324d',
+                    fillColor: '#e4b43c',
+                    fillOpacity: 0.88,
+                    weight: 2
+                }).addTo(layer).bindPopup(
+                    `<div style="min-width:190px;">
+                        <div style="font-weight:700;margin-bottom:4px;">${poi.poiName}</div>
+                        <div style="color:#5f7488;font-size:12px;">${poi.listenCount} lượt nghe</div>
+                        <div style="color:#5f7488;font-size:12px;">Avg ${poi.averageDuration.toFixed(1)}s</div>
+                    </div>`
+                );
+            });
+
+            return layer;
+        }
+
+        function bindPoiMarkers(map, bounds) {
+            topPois.forEach((poi) => {
+                if (!poi.latitude || !poi.longitude) {
+                    return;
+                }
+
+                const latLng = [poi.latitude, poi.longitude];
                 L.circleMarker(latLng, {
                     radius: 8,
                     color: '#17324d',
@@ -351,9 +482,9 @@
                     weight: 2
                 }).addTo(map).bindPopup(
                     `<div style="min-width:190px;">
-                        <div style="font-weight:700;margin-bottom:4px;">${poi.PoiName}</div>
-                        <div style="color:#5f7488;font-size:12px;">${poi.ListenCount} luot nghe</div>
-                        <div style="color:#5f7488;font-size:12px;">Avg ${poi.AverageDuration.toFixed(1)}s</div>
+                        <div style="font-weight:700;margin-bottom:4px;">${poi.poiName}</div>
+                        <div style="color:#5f7488;font-size:12px;">${poi.listenCount} lượt nghe</div>
+                        <div style="color:#5f7488;font-size:12px;">Avg ${poi.averageDuration.toFixed(1)}s</div>
                     </div>`
                 );
 
@@ -361,36 +492,161 @@
             });
         }
 
-        function initHeatmap() {
-            const map = createBaseMap('heatmap-map');
-            const bounds = [];
+        function formatAnalyticsTime(value) {
+            return new Date(value).toLocaleString();
+        }
 
-            if (heatmapPoints.length > 0) {
-                const heatLayerData = heatmapPoints.map((point) => {
-                    bounds.push([point.Latitude, point.Longitude]);
-                    return [point.Latitude, point.Longitude, point.Intensity];
-                });
+        function popupHtmlForCell(cell) {
+            return `
+                <div>
+                    <div style="font-weight:700;margin-bottom:6px;">Vùng phân tích</div>
+                    <div style="font-size:12px;color:#5f7488;">${cell.uniqueVisitorCount} visitor • ${cell.sampleCount} mẫu GPS</div>
+                    <div style="font-size:12px;color:#5f7488;">Cao điểm: ${cell.peakHourLabel}</div>
+                    <div style="font-size:12px;color:#5f7488;">${cell.peakHourCount} mẫu trong giờ cao điểm</div>
+                </div>`;
+        }
 
-                L.heatLayer(heatLayerData, {
-                    radius: 28,
-                    blur: 24,
-                    minOpacity: 0.32,
-                    maxZoom: 18,
-                    gradient: {
-                        0.2: '#93c5fd',
-                        0.45: '#38bdf8',
-                        0.65: '#22c55e',
-                        0.82: '#f59e0b',
-                        1.0: '#dc2626'
+        function renderHeatPayload(mapState, payload) {
+            const heatData = (payload.heatPoints || []).map((point) => [point.latitude, point.longitude, point.intensity]);
+            mapState.heatLayer.setLatLngs(heatData);
+
+            mapState.userLayer.clearLayers();
+            (payload.visitorPoints || []).forEach((point) => {
+                L.circleMarker([point.latitude, point.longitude], {
+                    radius: 5,
+                    color: '#0f766e',
+                    fillColor: '#14b8a6',
+                    fillOpacity: 0.7,
+                    weight: 1.5
+                }).bindPopup(
+                    `<div>
+                        <div style="font-weight:700;margin-bottom:4px;">${point.visitorAlias}</div>
+                        <div style="font-size:12px;color:#5f7488;">${formatAnalyticsTime(point.recordedAt)}</div>
+                        <div style="font-size:12px;color:#5f7488;">Nguồn: ${point.source} • Accuracy: ${Math.round(point.accuracy)}m</div>
+                    </div>`
+                ).addTo(mapState.userLayer);
+            });
+
+            mapState.gridLayer.clearLayers();
+            (payload.gridCells || []).forEach((cell) => {
+                L.rectangle(
+                    [[cell.minLatitude, cell.minLongitude], [cell.maxLatitude, cell.maxLongitude]],
+                    {
+                        color: '#f59e0b',
+                        weight: 1,
+                        opacity: 0.45,
+                        fillColor: '#f59e0b',
+                        fillOpacity: Math.max(0.04, Math.min(0.24, cell.intensity * 0.28))
                     }
-                }).addTo(map);
+                ).bindPopup(popupHtmlForCell(cell)).addTo(mapState.gridLayer);
+            });
+
+            mapState.hotspotLayer.clearLayers();
+            if (payload.hottestCell && payload.hottestCell.cellId && payload.hottestCell.cellId !== 'empty') {
+                L.rectangle(
+                    [[payload.hottestCell.minLatitude, payload.hottestCell.minLongitude], [payload.hottestCell.maxLatitude, payload.hottestCell.maxLongitude]],
+                    {
+                        color: '#dc2626',
+                        weight: 2.5,
+                        opacity: 0.95,
+                        dashArray: '6 4',
+                        fillOpacity: 0
+                    }
+                ).bindPopup(
+                    `<div>
+                        <div style="font-weight:700;margin-bottom:6px;">Hotspot cao nhất</div>
+                        <div style="font-size:12px;color:#5f7488;">${payload.hottestCell.uniqueVisitorCount} visitor • ${payload.hottestCell.sampleCount} mẫu GPS</div>
+                        <div style="font-size:12px;color:#5f7488;">Cao điểm: ${payload.hottestCell.peakHourLabel}</div>
+                    </div>`
+                ).addTo(mapState.hotspotLayer);
             }
 
-            bindPoiMarkers(map, bounds);
+            document.getElementById('heatmap-cluster-badge').textContent = `${payload.heatmapClusterCount} cụm`;
+            document.getElementById('heatmap-summary').textContent = `${payload.totalTrackingPoint} điểm GPS hợp lệ, ${payload.uniqueVisitors} visitor, ô phân tích ~ ${Math.round(payload.cellSizeMeters)}m ở mức zoom ${payload.zoom}.`;
+            document.getElementById('hotspot-summary').textContent =
+                payload.hottestCell && payload.hottestCell.cellId && payload.hottestCell.cellId !== 'empty'
+                    ? `${payload.hottestCell.uniqueVisitorCount} visitor, cao điểm ${payload.hottestCell.peakHourLabel}.`
+                    : 'Chưa có đủ dữ liệu để xác định hotspot trong vùng đang xem.';
+            document.getElementById('heatmap-status').textContent =
+                payload.totalTrackingPoint > 0
+                    ? 'Heatmap đã cập nhật theo vùng nhìn hiện tại. Bạn có thể bật/tắt các lớp ở góc phải bản đồ.'
+                    : 'Không có dữ liệu tracking khớp với bộ lọc và vùng nhìn hiện tại.';
+        }
 
-            if (bounds.length > 1) {
-                map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+        async function fetchHeatPayload(mapState) {
+            const bounds = mapState.map.getBounds();
+            const params = new URLSearchParams({
+                days: document.querySelector('select[name="days"]').value,
+                maxAccuracy: document.querySelector('select[name="maxAccuracy"]').value,
+                startHour: document.querySelector('select[name="startHour"]').value,
+                endHour: document.querySelector('select[name="endHour"]').value,
+                south: bounds.getSouth().toString(),
+                west: bounds.getWest().toString(),
+                north: bounds.getNorth().toString(),
+                east: bounds.getEast().toString(),
+                zoom: mapState.map.getZoom().toString()
+            });
+
+            const response = await fetch(`/Analytics/HeatmapData?${params.toString()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Heatmap request failed: ${response.status}`);
             }
+
+            return await response.json();
+        }
+
+        function createHeatmapMap() {
+            const map = createBaseMap('heatmap-map');
+            const poiLayer = createPoiLayer().addTo(map);
+            const userLayer = L.layerGroup().addTo(map);
+            const gridLayer = L.layerGroup().addTo(map);
+            const hotspotLayer = L.layerGroup().addTo(map);
+            const heatLayer = L.heatLayer([], {
+                radius: 30,
+                blur: 24,
+                minOpacity: 0.26,
+                maxZoom: 18,
+                gradient: {
+                    0.2: '#93c5fd',
+                    0.42: '#fde047',
+                    0.68: '#fb923c',
+                    1.0: '#dc2626'
+                }
+            }).addTo(map);
+
+            L.control.layers(null, {
+                'Heatmap': heatLayer,
+                'Điểm người dùng': userLayer,
+                'Vùng phân tích': gridLayer,
+                'Hotspot cao nhất': hotspotLayer,
+                'Top POI': poiLayer
+            }, { position: 'topright', collapsed: false }).addTo(map);
+
+            const mapState = { map, heatLayer, userLayer, gridLayer, hotspotLayer, poiLayer };
+            renderHeatPayload(mapState, initialHeatmapPayload);
+
+            let refreshTimer = null;
+            const scheduleRefresh = () => {
+                if (refreshTimer) {
+                    clearTimeout(refreshTimer);
+                }
+
+                refreshTimer = setTimeout(async () => {
+                    try {
+                        const payload = await fetchHeatPayload(mapState);
+                        renderHeatPayload(mapState, payload);
+                    } catch (error) {
+                        document.getElementById('heatmap-status').textContent = 'Không tải được dữ liệu heatmap động. Bản đồ vẫn giữ dữ liệu hiện tại.';
+                        console.error(error);
+                    }
+                }, 220);
+            };
+
+            map.on('moveend zoomend', scheduleRefresh);
+            window.setInterval(scheduleRefresh, 30000);
         }
 
         function initRouteMap() {
@@ -398,7 +654,7 @@
             const bounds = [];
 
             routeSessions.forEach((route) => {
-                const latLngs = route.Points.map((point) => [point.Latitude, point.Longitude]);
+                const latLngs = route.points.map((point) => [point.latitude, point.longitude]);
                 if (latLngs.length < 2) {
                     return;
                 }
@@ -406,37 +662,37 @@
                 latLngs.forEach((point) => bounds.push(point));
 
                 const polyline = L.polyline(latLngs, {
-                    color: route.Color,
+                    color: route.color,
                     weight: 4,
                     opacity: 0.82
                 }).addTo(map);
 
                 polyline.bindPopup(
                     `<div style="min-width:200px;">
-                        <div style="font-weight:700;margin-bottom:4px;">${route.VisitorAlias}</div>
-                        <div style="color:#5f7488;font-size:12px;">${route.PointCount} diem GPS</div>
-                        <div style="color:#5f7488;font-size:12px;">${new Date(route.StartedAt).toLocaleString()} - ${new Date(route.EndedAt).toLocaleString()}</div>
+                        <div style="font-weight:700;margin-bottom:4px;">${route.visitorAlias}</div>
+                        <div style="color:#5f7488;font-size:12px;">${route.pointCount} điểm GPS</div>
+                        <div style="color:#5f7488;font-size:12px;">${formatAnalyticsTime(route.startedAt)} - ${formatAnalyticsTime(route.endedAt)}</div>
                     </div>`
                 );
 
-                const start = route.Points[0];
-                const end = route.Points[route.Points.length - 1];
+                const start = route.points[0];
+                const end = route.points[route.points.length - 1];
 
-                L.circleMarker([start.Latitude, start.Longitude], {
+                L.circleMarker([start.latitude, start.longitude], {
                     radius: 6,
-                    color: route.Color,
+                    color: route.color,
                     fillColor: '#ffffff',
                     fillOpacity: 1,
                     weight: 3
-                }).addTo(map).bindPopup(`${route.VisitorAlias} · bật dau`);
+                }).addTo(map).bindPopup(`${route.visitorAlias} · bắt đầu`);
 
-                L.circleMarker([end.Latitude, end.Longitude], {
+                L.circleMarker([end.latitude, end.longitude], {
                     radius: 7,
-                    color: route.Color,
-                    fillColor: route.Color,
+                    color: route.color,
+                    fillColor: route.color,
                     fillOpacity: 0.92,
                     weight: 2
-                }).addTo(map).bindPopup(`${route.VisitorAlias} · ket thuc`);
+                }).addTo(map).bindPopup(`${route.visitorAlias} · kết thúc`);
             });
 
             bindPoiMarkers(map, bounds);
@@ -447,7 +703,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            initHeatmap();
+            createHeatmapMap();
             initRouteMap();
         });
     </script>

@@ -1,10 +1,13 @@
-﻿namespace AudioGuideAdmin.ViewModels;
+namespace AudioGuideAdmin.ViewModels;
 
 public class AnalyticsViewModel
 {
+    public string? ErrorMessage { get; set; }
     public string TrackingWindowLabel { get; set; } = "";
     public int SelectedWindowDays { get; set; } = 7;
     public double SelectedMaxAccuracyMeters { get; set; } = 120;
+    public int SelectedStartHour { get; set; }
+    public int SelectedEndHour { get; set; } = 23;
     public int TotalTrackingPoint { get; set; }
     public int RawTrackingPoint { get; set; }
     public int FilteredOutTrackingPoint { get; set; }
@@ -15,9 +18,13 @@ public class AnalyticsViewModel
     public double AverageListenDuration { get; set; }
     public double CompletionRate { get; set; }
     public double AutoPlayRate { get; set; }
+    public double InitialHeatCellSizeMeters { get; set; }
     public List<AnalyticsTopPoiViewModel> TopPois { get; set; } = new();
     public List<AnalyticsPoiMapViewModel> TopPoiMapPoints { get; set; } = new();
     public List<AnalyticsHeatPointViewModel> HeatmapPoints { get; set; } = new();
+    public List<AnalyticsHeatCellViewModel> HeatmapCells { get; set; } = new();
+    public AnalyticsHeatCellViewModel? HottestCell { get; set; }
+    public List<AnalyticsVisitorPointViewModel> VisitorPoints { get; set; } = new();
     public List<AnalyticsRouteViewModel> RouteSessions { get; set; } = new();
     public List<DailyListenViewModel> DailyListens { get; set; } = new();
     public List<TriggerLogViewModel> RecentTriggers { get; set; } = new();
@@ -67,6 +74,46 @@ public class AnalyticsHeatPointViewModel
     public double Longitude { get; set; }
     public int SampleCount { get; set; }
     public double Intensity { get; set; }
+}
+
+public class AnalyticsHeatCellViewModel
+{
+    public string CellId { get; set; } = "";
+    public double CenterLatitude { get; set; }
+    public double CenterLongitude { get; set; }
+    public double MinLatitude { get; set; }
+    public double MinLongitude { get; set; }
+    public double MaxLatitude { get; set; }
+    public double MaxLongitude { get; set; }
+    public int SampleCount { get; set; }
+    public int UniqueVisitorCount { get; set; }
+    public string PeakHourLabel { get; set; } = "";
+    public int PeakHourCount { get; set; }
+    public double Intensity { get; set; }
+}
+
+public class AnalyticsVisitorPointViewModel
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string VisitorAlias { get; set; } = "";
+    public double Accuracy { get; set; }
+    public string Source { get; set; } = "";
+    public DateTime RecordedAt { get; set; }
+}
+
+public class AnalyticsHeatmapPayloadViewModel
+{
+    public string? ErrorMessage { get; set; }
+    public int Zoom { get; set; }
+    public double CellSizeMeters { get; set; }
+    public int TotalTrackingPoint { get; set; }
+    public int UniqueVisitors { get; set; }
+    public int HeatmapClusterCount { get; set; }
+    public List<AnalyticsHeatPointViewModel> HeatPoints { get; set; } = new();
+    public List<AnalyticsHeatCellViewModel> GridCells { get; set; } = new();
+    public List<AnalyticsVisitorPointViewModel> VisitorPoints { get; set; } = new();
+    public AnalyticsHeatCellViewModel? HottestCell { get; set; }
 }
 
 public class AnalyticsRouteViewModel
