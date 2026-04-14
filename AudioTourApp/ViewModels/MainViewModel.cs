@@ -516,13 +516,13 @@ public class MainViewModel : INotifyPropertyChanged
                 ? SelectedPoi.Description
                 : (string.IsNullOrWhiteSpace(SelectedPoi.Summary) ? "POI này chưa có nội dung thuyết minh." : SelectedPoi.Summary);
     public string SelectedPoiNarrationSourceText => SelectedPoi == null
-        ? "Chưa có nguồn thuyết minh."
+        ? "Chưa có nguồn nội dung thuyết minh."
         : !string.IsNullOrWhiteSpace(SelectedPoi.TtsScript)
-            ? "Nguồn đọc: TTS Script từ admin"
+            ? "Nội dung đọc: TTS Script từ admin"
             : !string.IsNullOrWhiteSpace(SelectedPoi.Description)
-                ? "Nguồn đọc: Mô tả POI"
+                ? "Nội dung đọc: Mô tả POI"
                 : !string.IsNullOrWhiteSpace(SelectedPoi.Summary)
-                    ? "Nguồn đọc: Tóm tắt POI"
+                    ? "Nội dung đọc: Tóm tắt POI"
                     : "POI này chưa có script đọc.";
     public string SelectedPoiMetaText => SelectedPoi == null
         ? "Chọn 1 POI để xem thông tin kích hoạt."

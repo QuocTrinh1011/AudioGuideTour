@@ -45,7 +45,7 @@ public class MapController : ControllerBase
                 description = x.translation?.Description ?? x.poi.Description,
                 x.poi.Address,
                 ttsScript = string.IsNullOrWhiteSpace(x.translation?.TtsScript) ? x.poi.TtsScript : x.translation.TtsScript,
-                audioUrl = string.IsNullOrWhiteSpace(x.translation?.AudioUrl) ? x.poi.AudioUrl : x.translation.AudioUrl,
+                audioUrl = PoiAudioSelector.Resolve(x.poi, x.translation),
                 x.poi.AudioMode,
                 voiceName = x.translation?.VoiceName ?? string.Empty,
                 language = x.translation?.Language ?? x.poi.DefaultLanguage,

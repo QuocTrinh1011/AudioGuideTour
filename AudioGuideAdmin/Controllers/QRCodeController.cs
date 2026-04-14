@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -48,12 +49,22 @@ public class QRCodeController : Controller
     {
         Normalize(model);
 
+        if (model.PoiId <= 0)
+        {
+            ModelState.AddModelError(nameof(model.PoiId), "Vui lòng chọn POI.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Code))
+        {
+            ModelState.AddModelError(nameof(model.Code), "Mã QR không được để trống.");
+        }
+
         if (!_context.Pois.Any(x => x.Id == model.PoiId))
         {
             ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
-        if (_context.QRCodes.Any(x => x.Code == model.Code))
+        if (!string.IsNullOrWhiteSpace(model.Code) && _context.QRCodes.Any(x => x.Code == model.Code))
         {
             ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
@@ -65,10 +76,20 @@ public class QRCodeController : Controller
             return View(model);
         }
 
-        _context.QRCodes.Add(model);
+        try
+        {
+            _context.QRCodes.Add(model);
         await _context.SaveChangesAsync();
         TempData["Success"] = "Đã tạo QR mới.";
         return RedirectToAction(nameof(Index));
+        }
+        catch (DbUpdateException)
+        {
+            ModelState.AddModelError(string.Empty, "Không thể tạo QR mới. Hãy kiểm tra lại mã QR và POI đã chọn.");
+            PreparePoiOptions(model.PoiId);
+            ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
+            return View(model);
+        }
     }
 
     public async Task<IActionResult> Edit(int id)
@@ -90,12 +111,22 @@ public class QRCodeController : Controller
     {
         Normalize(model);
 
+        if (model.PoiId <= 0)
+        {
+            ModelState.AddModelError(nameof(model.PoiId), "Vui lòng chọn POI.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Code))
+        {
+            ModelState.AddModelError(nameof(model.Code), "Mã QR không được để trống.");
+        }
+
         if (!_context.Pois.Any(x => x.Id == model.PoiId))
         {
             ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
-        if (_context.QRCodes.Any(x => x.Id != model.Id && x.Code == model.Code))
+        if (!string.IsNullOrWhiteSpace(model.Code) && _context.QRCodes.Any(x => x.Id != model.Id && x.Code == model.Code))
         {
             ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
@@ -139,6 +170,7 @@ public class QRCodeController : Controller
 
         var poi = qr.Poi;
         var translation = SelectTranslation(poi.Translations, language);
+        var resolvedLanguage = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language;
         var model = new QrPublicPageViewModel
         {
             Code = qr.Code,
@@ -148,11 +180,15 @@ public class QRCodeController : Controller
             Description = translation?.Description ?? poi.Description,
             Address = poi.Address,
             ImageUrl = NormalizeAssetUrl(poi.ImageUrl),
-            AudioUrl = NormalizeAssetUrl(string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation!.AudioUrl),
+            AudioUrl = NormalizeAssetUrl(ResolvePublicAudioUrl(poi, translation)),
             MapUrl = NormalizeMapUrl(poi.MapUrl, poi.Latitude, poi.Longitude),
-            Language = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language,
+            Language = resolvedLanguage,
+            LanguageDisplayName = GetLanguageDisplayName(resolvedLanguage),
+            NarrationText = ResolveNarrationText(poi, translation),
+            NarrationSource = ResolveNarrationSource(poi, translation),
             DeepLinkUrl = $"audiotour://qr?code={Uri.EscapeDataString(qr.Code)}"
         };
+        model.AvailableLanguages = BuildLanguageOptions(qr.Code, poi, resolvedLanguage);
 
         ViewBag.HideAdminChrome = true;
         return View(model);
@@ -500,6 +536,147 @@ public class QRCodeController : Controller
 
         return translations.FirstOrDefault(x => x.IsPublished && x.Language.Equals(normalized, StringComparison.OrdinalIgnoreCase))
             ?? translations.FirstOrDefault(x => x.IsPublished && x.Language.StartsWith(root, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolvePublicAudioUrl(Poi poi, PoiTranslation? translation)
+    {
+        if (!string.IsNullOrWhiteSpace(translation?.AudioUrl))
+        {
+            return translation.AudioUrl;
+        }
+
+        var translationLanguage = translation?.Language?.Trim();
+        if (!string.IsNullOrWhiteSpace(translationLanguage) &&
+            !translationLanguage.Equals(poi.DefaultLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return poi.AudioUrl;
+    }
+
+    private static string ResolveNarrationText(Poi poi, PoiTranslation? translation)
+    {
+        return FirstNonEmpty(
+            translation?.TtsScript,
+            translation?.Description,
+            translation?.Summary,
+            poi.TtsScript,
+            poi.Description,
+            poi.Summary);
+    }
+
+    private static string ResolveNarrationSource(Poi poi, PoiTranslation? translation)
+    {
+        if (!string.IsNullOrWhiteSpace(translation?.TtsScript))
+        {
+            return "TTS Script theo ngôn ngữ đang chọn";
+        }
+
+        if (!string.IsNullOrWhiteSpace(translation?.Description) || !string.IsNullOrWhiteSpace(translation?.Summary))
+        {
+            return "Nội dung bản dịch đang chọn";
+        }
+
+        if (!string.IsNullOrWhiteSpace(poi.TtsScript))
+        {
+            return "TTS Script mặc định của POI";
+        }
+
+        return "Mô tả mặc định của POI";
+    }
+
+    private List<QrPublicLanguageOption> BuildLanguageOptions(string code, Poi poi, string selectedLanguage)
+    {
+        var items = new List<QrPublicLanguageOption>();
+        var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddLanguage(string? languageCode)
+        {
+            var normalized = NormalizeLanguageCode(languageCode);
+            if (string.IsNullOrWhiteSpace(normalized) || !seenCodes.Add(normalized))
+            {
+                return;
+            }
+
+            items.Add(new QrPublicLanguageOption
+            {
+                Code = normalized,
+                Label = GetLanguageDisplayName(normalized),
+                Url = Url.Action(nameof(Open), "QRCode", new { code, language = normalized }) ?? $"/QRCode/Open/{Uri.EscapeDataString(code)}?language={Uri.EscapeDataString(normalized)}",
+                IsSelected = normalized.Equals(selectedLanguage, StringComparison.OrdinalIgnoreCase)
+            });
+        }
+
+        AddLanguage(poi.DefaultLanguage);
+
+        foreach (var translation in poi.Translations.Where(x => x.IsPublished))
+        {
+            AddLanguage(translation.Language);
+        }
+
+        return items
+            .OrderBy(x => GetLanguageSortOrder(x.Code))
+            .ThenBy(x => x.Label, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private static string NormalizeLanguageCode(string? languageCode)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            return "vi-VN";
+        }
+
+        return languageCode.Trim();
+    }
+
+    private static string GetLanguageDisplayName(string? languageCode)
+    {
+        var normalized = NormalizeLanguageCode(languageCode);
+        return normalized.ToLowerInvariant() switch
+        {
+            "vi-vn" => "Tiếng Việt",
+            "en-us" => "English",
+            "zh-cn" => "简体中文",
+            _ => TryGetNativeLanguageName(normalized)
+        };
+    }
+
+    private static string TryGetNativeLanguageName(string languageCode)
+    {
+        try
+        {
+            return new CultureInfo(languageCode).NativeName;
+        }
+        catch
+        {
+            return languageCode;
+        }
+    }
+
+    private static int GetLanguageSortOrder(string languageCode)
+    {
+        return NormalizeLanguageCode(languageCode).ToLowerInvariant() switch
+        {
+            "vi-vn" => 0,
+            "en-us" => 1,
+            "zh-cn" => 2,
+            _ => 99
+        };
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 
     private string NormalizeAssetUrl(string? raw)

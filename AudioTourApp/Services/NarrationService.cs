@@ -13,6 +13,8 @@ namespace AudioTourApp.Services;
 public sealed class NarrationService : IAsyncDisposable
 {
 #if ANDROID
+    private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan InitializationFailureCooldown = TimeSpan.FromSeconds(3);
     private AndroidTextToSpeech? _textToSpeech;
     private TaskCompletionSource<bool>? _initTcs;
     private readonly SemaphoreSlim _initGate = new(1, 1);
@@ -85,11 +87,6 @@ public sealed class NarrationService : IAsyncDisposable
     public async Task<bool> ShouldPreferTtsFirstAsync(string language, string? voiceName = null, CancellationToken cancellationToken = default)
     {
 #if ANDROID
-        if (!RequiresStrictVoice(language))
-        {
-            return false;
-        }
-
         var init = await EnsureInitializedAsync(cancellationToken);
         if (!init.Ready || _textToSpeech == null)
         {
@@ -108,8 +105,25 @@ public sealed class NarrationService : IAsyncDisposable
             return false;
         }
 
-        var preferredVoice = ResolveVoice(language, voiceName);
-        return preferredVoice != null || string.Equals(locale.Language, NormalizeLanguage(language).Split('-')[0], StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(voiceName))
+        {
+            return true;
+        }
+
+        var preferredVoice = ResolveConfiguredVoice(voiceName);
+        if (!RequiresStrictVoice(language))
+        {
+            return preferredVoice != null;
+        }
+
+        var languageRoot = NormalizeLanguage(language).Split('-')[0];
+        if (preferredVoice?.Locale?.Language?.Equals(languageRoot, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        var activeVoice = _textToSpeech.Voice;
+        return activeVoice?.Locale?.Language?.Equals(languageRoot, StringComparison.OrdinalIgnoreCase) == true;
 #else
         await Task.CompletedTask;
         return false;
@@ -139,14 +153,14 @@ public sealed class NarrationService : IAsyncDisposable
         var locale = ResolveLocale(language);
         var localeTag = locale?.ToLanguageTag() ?? "mac dinh";
         var availableVoices = _textToSpeech.Voices?.Count ?? 0;
-        var preferredVoice = ResolveVoice(language, voiceName);
+        var preferredVoice = ResolveConfiguredVoice(voiceName);
         var availability = locale == null
             ? "không có locale"
             : _textToSpeech.IsLanguageAvailable(locale).ToString();
 
         return preferredVoice != null
-            ? $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | voice {preferredVoice.Name} | total voices {availableVoices}"
-            : $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | không tìm thấy voice cụ thể, sẽ dùng locale mặc định | total voices {availableVoices}";
+            ? $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | voice cấu hình {preferredVoice.Name} | total voices {availableVoices}"
+            : $"TTS: sẵn sàng | locale {localeTag} | availability {availability} | đang dùng voice mặc định của Android | total voices {availableVoices}";
 #else
         return "TTS: nền tảng hiện tại chưa hỗ trợ chẩn đoán TTS native.";
 #endif
@@ -172,7 +186,7 @@ public sealed class NarrationService : IAsyncDisposable
         if (_textToSpeech == null &&
             !string.IsNullOrWhiteSpace(_lastInitializationMessage) &&
             _lastInitializationFailureUtc > DateTime.MinValue &&
-            DateTime.UtcNow - _lastInitializationFailureUtc < TimeSpan.FromSeconds(20))
+            DateTime.UtcNow - _lastInitializationFailureUtc < InitializationFailureCooldown)
         {
             return TtsInitializationResult.Failed(_lastInitializationMessage);
         }
@@ -204,9 +218,10 @@ public sealed class NarrationService : IAsyncDisposable
 
         try
         {
-            if (!await _initTcs.Task.WaitAsync(TimeSpan.FromSeconds(12), cancellationToken))
+            if (!await _initTcs.Task.WaitAsync(InitializationTimeout, cancellationToken))
             {
-                return MarkInitializationFailure("Khoi tao TTS qua lau, vui long thu lai.");
+                await ResetEngineAsync();
+                return MarkInitializationFailure("Khởi tạo TTS quá lâu. Vui lòng thử lại sau khi chờ vài giây.");
             }
 
             _lastInitializationMessage = "TTS đã sẵn sàng.";
@@ -215,7 +230,8 @@ public sealed class NarrationService : IAsyncDisposable
         }
         catch (TimeoutException)
         {
-            return MarkInitializationFailure("Khoi tao TTS qua lau, vui long thu lai.");
+            await ResetEngineAsync();
+            return MarkInitializationFailure("Khởi tạo TTS quá lâu. Vui lòng thử lại sau khi chờ vài giây.");
         }
         catch (System.OperationCanceledException)
         {
@@ -223,6 +239,7 @@ public sealed class NarrationService : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            await ResetEngineAsync();
             return MarkInitializationFailure(ex.GetBaseException().Message);
         }
     }
@@ -232,6 +249,41 @@ public sealed class NarrationService : IAsyncDisposable
         _lastInitializationMessage = message;
         _lastInitializationFailureUtc = DateTime.UtcNow;
         return TtsInitializationResult.Failed(message);
+    }
+
+    private async Task ResetEngineAsync()
+    {
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            try
+            {
+                _textToSpeech?.Stop();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _textToSpeech?.Shutdown();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _textToSpeech?.Dispose();
+            }
+            catch
+            {
+            }
+
+            _textToSpeech = null;
+            _initTcs = null;
+            _currentUtteranceId = null;
+            _speakTcs = null;
+        });
     }
 
     private void SetProgressListener()
@@ -294,18 +346,6 @@ public sealed class NarrationService : IAsyncDisposable
             return NarrationResult.Failed("Thiết bị không khởi tạo được engine TTS.");
         }
 
-        var normalizedLanguage = NormalizeLanguage(language);
-        var languageRoot = normalizedLanguage.Split('-')[0];
-        var preferredVoice = ResolveVoice(language, voiceName);
-        if (preferredVoice != null && Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop)
-        {
-            var voiceResult = _textToSpeech.SetVoice(preferredVoice);
-            if (voiceResult != Android.Speech.Tts.OperationResult.Error)
-            {
-                return NarrationResult.Success();
-            }
-        }
-
         var locale = ResolveLocale(language);
         if (locale == null)
         {
@@ -320,21 +360,27 @@ public sealed class NarrationService : IAsyncDisposable
                 : $"Thiết bị chưa hỗ trợ voice {language}.");
         }
 
-        if (RequiresStrictVoice(language))
+        if (!string.IsNullOrWhiteSpace(voiceName))
         {
-            var activeLanguage = _textToSpeech.Voice?.Locale?.Language;
-            if (!string.Equals(activeLanguage, languageRoot, StringComparison.OrdinalIgnoreCase))
+            var preferredVoice = ResolveConfiguredVoice(voiceName);
+            if (preferredVoice != null && Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop)
             {
-                return NarrationResult.Failed("Thiết bị chưa có voice tiếng Việt chuẩn. Hãy dùng audio thu sẵn hoặc cài voice vi-VN.");
+                var voiceResult = _textToSpeech.SetVoice(preferredVoice);
+                if (voiceResult == Android.Speech.Tts.OperationResult.Error)
+                {
+                    return NarrationResult.Failed($"Không thể áp dụng voice '{voiceName}' cho {language}.");
+                }
             }
         }
 
         return NarrationResult.Success();
     }
 
-    private AndroidVoice? ResolveVoice(string language, string? voiceName)
+    private AndroidVoice? ResolveConfiguredVoice(string? voiceName)
     {
-        if (_textToSpeech == null || Build.VERSION.SdkInt < BuildVersionCodes.Lollipop)
+        if (_textToSpeech == null ||
+            Build.VERSION.SdkInt < BuildVersionCodes.Lollipop ||
+            string.IsNullOrWhiteSpace(voiceName))
         {
             return null;
         }
@@ -345,39 +391,17 @@ public sealed class NarrationService : IAsyncDisposable
             return null;
         }
 
-        var normalizedLanguage = NormalizeLanguage(language);
-        var languageRoot = normalizedLanguage.Split('-')[0];
-
-        if (!string.IsNullOrWhiteSpace(voiceName))
-        {
-            var exactVoice = voices
-                .Cast<AndroidVoice>()
-                .FirstOrDefault(v => string.Equals(v.Name, voiceName, StringComparison.OrdinalIgnoreCase));
-            if (exactVoice != null)
-            {
-                return exactVoice;
-            }
-
-            var partialVoice = voices
-                .Cast<AndroidVoice>()
-                .FirstOrDefault(v => v.Name?.Contains(voiceName, StringComparison.OrdinalIgnoreCase) == true);
-            if (partialVoice != null)
-            {
-                return partialVoice;
-            }
-        }
-
-        var exactLanguageVoice = voices
+        var exactVoice = voices
             .Cast<AndroidVoice>()
-            .FirstOrDefault(v => string.Equals(v.Locale?.ToLanguageTag(), normalizedLanguage, StringComparison.OrdinalIgnoreCase));
-        if (exactLanguageVoice != null)
+            .FirstOrDefault(v => string.Equals(v.Name, voiceName, StringComparison.OrdinalIgnoreCase));
+        if (exactVoice != null)
         {
-            return exactLanguageVoice;
+            return exactVoice;
         }
 
         return voices
             .Cast<AndroidVoice>()
-            .FirstOrDefault(v => v.Locale?.Language?.Equals(languageRoot, StringComparison.OrdinalIgnoreCase) == true);
+            .FirstOrDefault(v => v.Name?.Contains(voiceName, StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private static string NormalizeLanguage(string language)

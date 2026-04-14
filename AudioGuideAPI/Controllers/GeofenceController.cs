@@ -177,7 +177,7 @@ public class GeofenceController : ControllerBase
             Description = translation?.Description ?? poi.Description,
             Address = poi.Address,
             TtsScript = string.IsNullOrWhiteSpace(translation?.TtsScript) ? poi.TtsScript : translation.TtsScript,
-            AudioUrl = string.IsNullOrWhiteSpace(translation?.AudioUrl) ? poi.AudioUrl : translation.AudioUrl,
+            AudioUrl = PoiAudioSelector.Resolve(poi, translation),
             AudioMode = poi.AudioMode,
             VoiceName = translation?.VoiceName ?? string.Empty,
             ImageUrl = poi.ImageUrl,

@@ -274,6 +274,11 @@ public class MapPage : ContentPage
             TextColor = Color.FromArgb("#35526B"),
             FontAttributes = FontAttributes.Bold
         }.Bind(Label.TextProperty, nameof(MainViewModel.PlaybackStatusText)));
+        selectedLayout.Add(new Label
+        {
+            TextColor = Color.FromArgb("#5F7488"),
+            FontSize = 12
+        }.Bind(Label.TextProperty, nameof(MainViewModel.Status)));
         selectedCard.Content = selectedLayout;
         root.Add(selectedCard);
 

@@ -12,5 +12,17 @@ public class QrPublicPageViewModel
     public string AudioUrl { get; set; } = "";
     public string MapUrl { get; set; } = "";
     public string Language { get; set; } = "vi-VN";
+    public string LanguageDisplayName { get; set; } = "Tiếng Việt";
+    public string NarrationText { get; set; } = "";
+    public string NarrationSource { get; set; } = "";
     public string DeepLinkUrl { get; set; } = "";
+    public List<QrPublicLanguageOption> AvailableLanguages { get; set; } = new();
+}
+
+public class QrPublicLanguageOption
+{
+    public string Code { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Url { get; set; } = "";
+    public bool IsSelected { get; set; }
 }

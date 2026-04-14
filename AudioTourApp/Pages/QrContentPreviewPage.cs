@@ -47,7 +47,7 @@ public class QrContentPreviewPage : ContentPage
                                 },
                                 new Label
                                 {
-                                    Text = "Trong app chỉ xem nhanh một phần nội dung. Muốn mở đầy đủ, hãy quay lại và bấm Mở QR để điện thoại khác quét.",
+                                    Text = "Trong app có thể xem nhanh tiêu đề, mô tả và bản thuyết minh theo ngôn ngữ hiện tại. Muốn mở đầy đủ bằng điện thoại khác, quay lại và bấm Mở QR.",
                                     TextColor = Color.FromArgb("#E8F0F7")
                                 }
                             }
@@ -77,9 +77,14 @@ public class QrContentPreviewPage : ContentPage
                             }.Bind(Label.TextProperty, nameof(QrDirectoryItem.Code), stringFormat: "Mã QR: {0}"),
                             new Label
                             {
+                                TextColor = Color.FromArgb("#667C92"),
+                                FontSize = 12
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.Language), stringFormat: "Ngôn ngữ: {0}"),
+                            new Label
+                            {
+                                Text = "Tóm tắt",
                                 TextColor = Color.FromArgb("#445D75"),
-                                FontAttributes = FontAttributes.Bold,
-                                Text = "Tóm tắt"
+                                FontAttributes = FontAttributes.Bold
                             },
                             new Label
                             {
@@ -88,28 +93,43 @@ public class QrContentPreviewPage : ContentPage
                             }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiSummary)),
                             new Label
                             {
-                                Text = BuildPreviewDescription(item),
+                                Text = "Mô tả",
+                                TextColor = Color.FromArgb("#445D75"),
+                                FontAttributes = FontAttributes.Bold
+                            },
+                            new Label
+                            {
                                 TextColor = Color.FromArgb("#5F7488"),
                                 LineBreakMode = LineBreakMode.WordWrap
-                            }
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiDescription)),
+                            new Border
+                            {
+                                BackgroundColor = Color.FromArgb("#EEF5FB"),
+                                StrokeThickness = 0,
+                                StrokeShape = new RoundRectangle { CornerRadius = 16 },
+                                Padding = new Thickness(12, 8),
+                                Content = new Label
+                                {
+                                    TextColor = Color.FromArgb("#17324D"),
+                                    FontAttributes = FontAttributes.Bold
+                                }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiNarrationSource), stringFormat: "Nguồn thuyết minh: {0}")
+                            },
+                            new Label
+                            {
+                                Text = "Bản thuyết minh",
+                                TextColor = Color.FromArgb("#17324D"),
+                                FontAttributes = FontAttributes.Bold
+                            },
+                            new Label
+                            {
+                                TextColor = Color.FromArgb("#31485F"),
+                                LineBreakMode = LineBreakMode.WordWrap
+                            }.Bind(Label.TextProperty, nameof(QrDirectoryItem.PoiNarrationText))
                         }
                     })
                 }
             }
         };
-    }
-
-    private static string BuildPreviewDescription(QrDirectoryItem item)
-    {
-        var description = item.Poi?.Description?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            return "Điểm này có nội dung đầy đủ khi mở bằng trang QR công khai hoặc trong app theo luồng nghe chính.";
-        }
-
-        return description.Length <= 260
-            ? description
-            : $"{description[..260].Trim()}...";
     }
 
     private static Border CreateCard(View content) => new()
