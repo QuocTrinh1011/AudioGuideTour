@@ -1,27 +1,28 @@
 using AudioTourApp.Services;
 using AudioTourApp.ViewModels;
 using Microsoft.Maui.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AudioTourApp;
 
 public class App : Application
 {
-    private readonly Page _rootPage;
+    private readonly IServiceProvider _serviceProvider;
     private readonly MainWindowLifecycle _lifecycle;
     private readonly MainViewModel _mainViewModel;
 
-    public App(AppShell shell, MainViewModel mainViewModel, AudioQueueService audioQueueService, LocationTrackingService locationTrackingService)
+    public App(IServiceProvider serviceProvider, MainViewModel mainViewModel, AudioQueueService audioQueueService, LocationTrackingService locationTrackingService)
     {
         Resources = BuildResources();
-        _rootPage = shell;
-        MainPage = _rootPage;
+        _serviceProvider = serviceProvider;
         _mainViewModel = mainViewModel;
         _lifecycle = new MainWindowLifecycle(mainViewModel, audioQueueService, locationTrackingService);
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return _lifecycle.CreateWindow(_rootPage);
+        var rootPage = _serviceProvider.GetRequiredService<AppShell>();
+        return _lifecycle.CreateWindow(rootPage);
     }
 
     protected override async void OnAppLinkRequestReceived(Uri uri)
@@ -87,9 +88,9 @@ internal sealed class MainWindowLifecycle
     public Window CreateWindow(Page rootPage)
     {
         var window = new Window(rootPage);
-        window.Activated += (_, _) => _mainViewModel.OnAppForegroundChanged(true);
-        window.Resumed += (_, _) => _mainViewModel.OnAppForegroundChanged(true);
-        window.Stopped += (_, _) => _mainViewModel.OnAppForegroundChanged(false);
+        window.Activated += (_, _) => window.Dispatcher.Dispatch(() => _mainViewModel.OnAppForegroundChanged(true));
+        window.Resumed += (_, _) => window.Dispatcher.Dispatch(() => _mainViewModel.OnAppForegroundChanged(true));
+        window.Stopped += (_, _) => window.Dispatcher.Dispatch(() => _mainViewModel.OnAppForegroundChanged(false));
         window.Destroying += (_, _) =>
         {
             _locationTrackingService.SetForegroundState(false);

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -14,6 +15,8 @@ namespace AudioGuideAdmin.Controllers;
 
 public class QRCodeController : Controller
 {
+    private const string QrVisitorCookieName = "audio-guide-qr-visitor-id";
+    private const string QrDeviceCookieName = "audio-guide-qr-device-id";
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
@@ -171,6 +174,7 @@ public class QRCodeController : Controller
         var poi = qr.Poi;
         var translation = SelectTranslation(poi.Translations, language);
         var resolvedLanguage = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language;
+        var qrVisitor = await TouchQrVisitorAsync(qr, poi, resolvedLanguage);
         var model = new QrPublicPageViewModel
         {
             Code = qr.Code,
@@ -186,7 +190,7 @@ public class QRCodeController : Controller
             LanguageDisplayName = GetLanguageDisplayName(resolvedLanguage),
             NarrationText = ResolveNarrationText(poi, translation),
             NarrationSource = ResolveNarrationSource(poi, translation),
-            DeepLinkUrl = $"audiotour://qr?code={Uri.EscapeDataString(qr.Code)}"
+            DeepLinkUrl = BuildQrDeepLinkUrl(qr.Code, resolvedLanguage, qrVisitor?.Id, qrVisitor?.DeviceId)
         };
         model.AvailableLanguages = BuildLanguageOptions(qr.Code, poi, resolvedLanguage);
 
@@ -416,6 +420,151 @@ public class QRCodeController : Controller
         return $"{ResolvePublicQrBaseUrl().TrimEnd('/')}/QRCode/Open/{Uri.EscapeDataString(code.Trim().ToUpperInvariant())}";
     }
 
+    private string BuildQrDeepLinkUrl(string code, string? language, string? visitorId, string? deviceId)
+    {
+        var normalizedCode = code?.Trim().ToUpperInvariant() ?? string.Empty;
+        var normalizedLanguage = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language.Trim();
+        var apiBaseUrl = ResolvePublicApiBaseUrl();
+        var builder = new StringBuilder();
+        builder.Append("audiotour://qr?code=");
+        builder.Append(Uri.EscapeDataString(normalizedCode));
+        builder.Append("&language=");
+        builder.Append(Uri.EscapeDataString(normalizedLanguage));
+        builder.Append("&apiBaseUrl=");
+        builder.Append(Uri.EscapeDataString(apiBaseUrl));
+
+        if (!string.IsNullOrWhiteSpace(visitorId))
+        {
+            builder.Append("&visitorId=");
+            builder.Append(Uri.EscapeDataString(visitorId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(deviceId))
+        {
+            builder.Append("&deviceId=");
+            builder.Append(Uri.EscapeDataString(deviceId));
+        }
+
+        return builder.ToString();
+    }
+
+    private async Task<VisitorProfile?> TouchQrVisitorAsync(QRCode qr, Poi poi, string language)
+    {
+        var userAgent = Request.Headers.UserAgent.ToString();
+        if (!IsLikelyMobileUserAgent(userAgent))
+        {
+            return null;
+        }
+
+        var visitorId = Request.Cookies[QrVisitorCookieName];
+        var deviceId = Request.Cookies[QrDeviceCookieName];
+
+        if (string.IsNullOrWhiteSpace(visitorId))
+        {
+            visitorId = Guid.NewGuid().ToString("N");
+            AppendQrCookie(QrVisitorCookieName, visitorId);
+        }
+
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            deviceId = $"qr-web-{RandomNumberGenerator.GetHexString(12).ToLowerInvariant()}";
+            AppendQrCookie(QrDeviceCookieName, deviceId);
+        }
+
+        var now = DateTime.UtcNow;
+        var visitor = await _context.Visitors.FirstOrDefaultAsync(x => x.Id == visitorId || x.DeviceId == deviceId);
+        if (visitor == null)
+        {
+            visitor = new VisitorProfile
+            {
+                Id = visitorId,
+                DeviceId = deviceId,
+                DisplayName = BuildQrVisitorDisplayName(userAgent),
+                Language = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language,
+                AllowAutoPlay = false,
+                AllowBackgroundTracking = false,
+                CreatedAt = now,
+                LastSeenAt = now
+            };
+            _context.Visitors.Add(visitor);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(visitor.DisplayName) ||
+                visitor.DisplayName.Contains("ẩn danh", StringComparison.OrdinalIgnoreCase) ||
+                visitor.DisplayName.Contains("quét QR", StringComparison.OrdinalIgnoreCase))
+            {
+                visitor.DisplayName = BuildQrVisitorDisplayName(userAgent);
+            }
+
+            visitor.Language = string.IsNullOrWhiteSpace(language) ? visitor.Language : language;
+            visitor.LastSeenAt = now;
+        }
+
+        _context.VisitHistories.Add(new VisitHistory
+        {
+            UserId = visitor.Id,
+            PoiId = poi.Id,
+            Language = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language,
+            StartTime = now,
+            EndTime = now,
+            Duration = 0,
+            TriggerType = "qr-public",
+            PlaybackMode = "web",
+            WasAutoPlayed = false,
+            WasCompleted = true,
+            ActivationDistanceMeters = 0
+        });
+
+        await _context.SaveChangesAsync();
+        return visitor;
+    }
+
+    private void AppendQrCookie(string name, string value)
+    {
+        Response.Cookies.Append(name, value, new CookieOptions
+        {
+            Expires = DateTimeOffset.UtcNow.AddDays(180),
+            HttpOnly = true,
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps
+        });
+    }
+
+    private static bool IsLikelyMobileUserAgent(string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            return false;
+        }
+
+        return userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase)
+            || userAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildQrVisitorDisplayName(string userAgent)
+    {
+        if (userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Android quét QR";
+        }
+
+        if (userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            return "iPhone quét QR";
+        }
+
+        if (userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase))
+        {
+            return "iPad quét QR";
+        }
+
+        return "Thiết bị quét QR";
+    }
+
     private string ResolvePublicQrBaseUrl()
     {
         var configured = _configuration["Qr:PublicBaseUrl"]?.Trim();
@@ -440,6 +589,24 @@ public class QRCodeController : Controller
         return requestPort.HasValue
             ? $"{Request.Scheme}://{resolvedHost}:{requestPort.Value}"
             : $"{Request.Scheme}://{resolvedHost}";
+    }
+
+    private string ResolvePublicApiBaseUrl()
+    {
+        var configured = _configuration["Api:PublicBaseUrl"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.TrimEnd('/');
+        }
+
+        var qrBaseUrl = ResolvePublicQrBaseUrl();
+        if (Uri.TryCreate(qrBaseUrl, UriKind.Absolute, out var qrUri))
+        {
+            var apiPort = ResolveApiHttpPortFromLaunchSettings() ?? 5297;
+            return $"http://{qrUri.Host}:{apiPort}";
+        }
+
+        return "http://10.0.2.2:5297";
     }
 
     private string NormalizeConfiguredPublicBaseUrl(string configured)
@@ -493,6 +660,53 @@ public class QRCodeController : Controller
             }
 
             using var stream = System.IO.File.OpenRead(launchSettingsPath);
+            using var document = JsonDocument.Parse(stream);
+            if (!document.RootElement.TryGetProperty("profiles", out var profiles))
+            {
+                return null;
+            }
+
+            foreach (var profile in profiles.EnumerateObject())
+            {
+                if (!profile.Value.TryGetProperty("applicationUrl", out var applicationUrlElement))
+                {
+                    continue;
+                }
+
+                var applicationUrl = applicationUrlElement.GetString();
+                if (string.IsNullOrWhiteSpace(applicationUrl))
+                {
+                    continue;
+                }
+
+                foreach (var candidate in applicationUrl.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (Uri.TryCreate(candidate, UriKind.Absolute, out var uri) &&
+                        string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return uri.Port;
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private int? ResolveApiHttpPortFromLaunchSettings()
+    {
+        try
+        {
+            var apiLaunchSettingsPath = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, "..", "AudioGuideAPI", "Properties", "launchSettings.json"));
+            if (!System.IO.File.Exists(apiLaunchSettingsPath))
+            {
+                return null;
+            }
+
+            using var stream = System.IO.File.OpenRead(apiLaunchSettingsPath);
             using var document = JsonDocument.Parse(stream);
             if (!document.RootElement.TryGetProperty("profiles", out var profiles))
             {
