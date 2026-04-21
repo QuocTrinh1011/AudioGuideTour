@@ -36,6 +36,16 @@ public class VisitController : ControllerBase
             visit.Duration = Math.Max((int)(visit.EndTime - visit.StartTime).TotalSeconds, 0);
         }
 
+        var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == visit.UserId);
+        if (user != null)
+        {
+            user.LastSeenAt = DateTime.UtcNow;
+            if (!string.IsNullOrWhiteSpace(visit.Language))
+            {
+                user.Language = visit.Language;
+            }
+        }
+
         _context.VisitHistories.Add(visit);
         await _context.SaveChangesAsync();
 

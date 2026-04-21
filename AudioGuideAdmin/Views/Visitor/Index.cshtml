@@ -1,11 +1,58 @@
-﻿@model IEnumerable<AudioGuideAdmin.ViewModels.VisitorSummaryViewModel>
+@model AudioGuideAdmin.ViewModels.VisitorIndexViewModel
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h2 class="mb-1">Quản lý visitor mobile</h2>
-        <p class="text-muted mb-0">Theo dõi thiết bị, người dùng ẩn danh và các tùy chọn auto-play/background tracking.</p>
+        <p class="text-muted mb-0">Theo dõi thiết bị, trạng thái hoạt động và các tùy chọn auto-play/background tracking.</p>
+        <div class="small text-muted mt-1">Trang này tự làm mới sau mỗi 15 giây để phản ánh trạng thái hoạt động gần realtime.</div>
+    </div>
+    <div class="d-flex gap-2">
+        @if (Model.IncludeTestData)
+        {
+            <a href="/Visitor" class="btn btn-outline-secondary">Ẩn dữ liệu test</a>
+        }
+        else
+        {
+            <a href="/Visitor?includeTest=true" class="btn btn-outline-secondary">Hiện dữ liệu test</a>
+        }
     </div>
 </div>
+
+@if (!Model.IncludeTestData && Model.HiddenTestVisitors > 0)
+{
+    <div class="alert alert-info">
+        Đang ẩn @Model.HiddenTestVisitors visitor test/demo để số liệu tập trung vào thiết bị thật. Bạn vẫn có thể bấm <strong>Hiện dữ liệu test</strong> khi cần kiểm tra.
+    </div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <div class="text-muted small">Tổng visitor</div>
+            <div class="display-6 fw-semibold">@Model.TotalVisitors</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <div class="text-muted small">Đang hoạt động</div>
+            <div class="display-6 fw-semibold text-success">@Model.ActiveVisitors</div>
+            <div class="small text-muted">Có tương tác trong vòng @Model.ActiveThresholdMinutes phút gần nhất.</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <div class="text-muted small">Không hoạt động</div>
+            <div class="display-6 fw-semibold text-secondary">@Model.InactiveVisitors</div>
+            <div class="small text-muted">Chưa có tương tác mới trong ngưỡng đang theo dõi.</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        setTimeout(() => window.location.reload(), 15000);
+    </script>
+}
 
 <div class="card p-3">
     <div class="table-responsive">
@@ -13,10 +60,11 @@
             <thead>
                 <tr>
                     <th>Visitor</th>
+                    <th>Trạng thái</th>
                     <th>Ngôn ngữ</th>
                     <th>Auto play</th>
                     <th>Background</th>
-                    <th>Lan cuoi</th>
+                    <th>Lần cuối</th>
                     <th>Tracking</th>
                     <th>Visit</th>
                     <th>Trigger</th>
@@ -24,17 +72,27 @@
                 </tr>
             </thead>
             <tbody>
-            @foreach (var item in Model)
+            @foreach (var item in Model.Visitors)
             {
                 <tr>
                     <td>
                         <div class="fw-semibold">@item.Visitor.DisplayName</div>
                         <div class="small text-muted"><code>@item.Visitor.DeviceId</code></div>
+                        @if (item.IsSyntheticData)
+                        {
+                            <div class="small text-warning">Dữ liệu test/demo</div>
+                        }
+                    </td>
+                    <td>
+                        <span class="badge @(item.IsActive ? "text-bg-success" : "text-bg-secondary")">@item.ActivityStatusText</span>
                     </td>
                     <td><span class="badge badge-soft">@item.Visitor.Language</span></td>
-                    <td>@(item.Visitor.AllowAutoPlay ? "Bat" : "Tat")</td>
-                    <td>@(item.Visitor.AllowBackgroundTracking ? "Bat" : "Tat")</td>
-                    <td>@item.Visitor.LastSeenAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@(item.Visitor.AllowAutoPlay ? "Bật" : "Tắt")</td>
+                    <td>@(item.Visitor.AllowBackgroundTracking ? "Bật" : "Tắt")</td>
+                    <td>
+                        <div>@item.LastSeenDisplayText</div>
+                        <div class="small text-muted">@item.LastSeenAgoText</div>
+                    </td>
                     <td>@item.TrackingCount</td>
                     <td>@item.VisitCount</td>
                     <td>@item.TriggerCount</td>

@@ -31,6 +31,7 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceCustomerSessionToken = "audio-tour-customer-session-token";
     private const string PreferenceLoginIdentifier = "audio-tour-login-identifier";
     private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan VisitorHeartbeatInterval = TimeSpan.FromSeconds(45);
     private static readonly HashSet<string> SupportedLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         "vi-VN",
@@ -55,8 +56,8 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private string _apiBaseUrl;
     private string _qrCodeInput = "";
-    private readonly string _userId;
-    private readonly string _deviceId;
+    private string _userId;
+    private string _deviceId;
     private readonly List<PoiItem> _allPois = new();
     private Location? _latestLocation;
     private PoiItem? _selectedPoi;
@@ -70,6 +71,8 @@ public class MainViewModel : INotifyPropertyChanged
     private bool _appIsForeground = true;
     private bool _isSyncingVisitor;
     private bool _isRestoringTracking;
+    private CancellationTokenSource? _visitorHeartbeatCts;
+    private Task? _visitorHeartbeatTask;
     private bool _canUseCamera;
     private int _mapRefreshVersion;
     private string _locationPermissionText = "Chưa kiểm tra";
@@ -88,6 +91,7 @@ public class MainViewModel : INotifyPropertyChanged
     private string _loginPassword = "";
     private CustomerSessionItem? _currentCustomerSession;
     private string _pendingUserNotice = "";
+    private readonly string _defaultVisitorDisplayName;
 
     public MainViewModel(ApiClient apiClient, LocationTrackingService locationService, AudioQueueService audioQueueService, AppPermissionService permissionService, NarrationService narrationService)
     {
@@ -99,7 +103,8 @@ public class MainViewModel : INotifyPropertyChanged
         _apiBaseUrl = Preferences.Default.Get(PreferenceApiBaseUrl, apiClient.BaseUrl);
         _userId = GetOrCreatePreference(PreferenceUserId, () => Guid.NewGuid().ToString("N"));
         _deviceId = GetOrCreatePreference(PreferenceDeviceId, () => $"{DeviceInfo.Current.Platform}-{Guid.NewGuid().ToString("N")[..8]}");
-        _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, "Khách ẩn danh");
+        _defaultVisitorDisplayName = BuildDefaultVisitorDisplayName();
+        _visitorDisplayName = Preferences.Default.Get(PreferenceVisitorName, _defaultVisitorDisplayName);
         _allowAutoPlay = Preferences.Default.Get(PreferenceAllowAutoPlay, true);
         _allowBackgroundTracking = Preferences.Default.Get(PreferenceAllowBackground, true);
         _registrationFullName = Preferences.Default.Get(PreferenceRegistrationName, _visitorDisplayName);
@@ -1041,9 +1046,40 @@ public class MainViewModel : INotifyPropertyChanged
 
         try
         {
+            ApplyQrLaunchContext(code);
             _apiClient.BaseUrl = ApiBaseUrl;
-            var language = SelectedLanguage?.Code ?? "vi-VN";
+            var language = SelectedLanguage?.Code ?? Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
+            if (IsAppEntryLaunch(code))
+            {
+                var appEntryVisitor = await SyncVisitorProfileAsync(language, cancellationToken, suppressError: true);
+                if (!string.IsNullOrWhiteSpace(appEntryVisitor?.Language))
+                {
+                    language = appEntryVisitor.Language;
+                }
+
+                if (_allPois.Count == 0 || Languages.Count == 0)
+                {
+                    await BootstrapAsync(cancellationToken);
+                }
+
+                Status = "Đã mở app từ QR. Visitor đã được ghi nhận.";
+                RaiseFlowStateChanged();
+                return;
+            }
+
             var normalizedCode = NormalizeQrCode(code);
+            if (string.IsNullOrWhiteSpace(normalizedCode))
+            {
+                Status = "Không đọc được mã QR hợp lệ.";
+                return;
+            }
+
+            var visitor = await SyncVisitorProfileAsync(language, cancellationToken, suppressError: true);
+            if (!string.IsNullOrWhiteSpace(visitor?.Language))
+            {
+                language = visitor.Language;
+            }
+
             QrCodeInput = normalizedCode;
             var result = await _apiClient.LookupQrAsync(normalizedCode, language, cancellationToken);
             if (result?.Poi == null)
@@ -1218,6 +1254,8 @@ public class MainViewModel : INotifyPropertyChanged
 
         if (isForeground)
         {
+            StartVisitorHeartbeat();
+
             if (Preferences.Default.Get(PreferenceTrackingEnabled, false) && !IsTracking)
             {
                 _ = MainThread.InvokeOnMainThreadAsync(async () => await TryRestoreTrackingAsync());
@@ -1225,6 +1263,8 @@ public class MainViewModel : INotifyPropertyChanged
 
             return;
         }
+
+        StopVisitorHeartbeat();
 
         if (!AllowBackgroundTracking && IsTracking)
         {
@@ -1860,7 +1900,7 @@ public class MainViewModel : INotifyPropertyChanged
             {
                 Id = _userId,
                 DeviceId = _deviceId,
-                DisplayName = string.IsNullOrWhiteSpace(VisitorDisplayName) ? "Khách ẩn danh" : VisitorDisplayName.Trim(),
+                DisplayName = ResolveVisitorDisplayNameForSync(),
                 Language = string.IsNullOrWhiteSpace(language) ? "vi-VN" : language,
                 AllowAutoPlay = AllowAutoPlay,
                 AllowBackgroundTracking = AllowBackgroundTracking
@@ -1883,6 +1923,56 @@ public class MainViewModel : INotifyPropertyChanged
         {
             _isSyncingVisitor = false;
         }
+    }
+
+    private void StartVisitorHeartbeat()
+    {
+        if (_visitorHeartbeatTask is { IsCompleted: false })
+        {
+            return;
+        }
+
+        _visitorHeartbeatCts?.Cancel();
+        _visitorHeartbeatCts?.Dispose();
+        _visitorHeartbeatCts = new CancellationTokenSource();
+        var cancellationToken = _visitorHeartbeatCts.Token;
+
+        _visitorHeartbeatTask = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var currentLanguage = SelectedLanguage?.Code
+                        ?? Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
+                    await SyncVisitorProfileAsync(currentLanguage, cancellationToken, suppressError: true);
+                    await Task.Delay(VisitorHeartbeatInterval, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
+            }
+        }, cancellationToken);
+    }
+
+    private void StopVisitorHeartbeat()
+    {
+        _visitorHeartbeatCts?.Cancel();
+        _visitorHeartbeatCts?.Dispose();
+        _visitorHeartbeatCts = null;
+        _visitorHeartbeatTask = null;
     }
 
     private void ApplyVisitorProfile(VisitorProfile visitor)
@@ -2079,6 +2169,121 @@ public class MainViewModel : INotifyPropertyChanged
         return value.ToUpperInvariant();
     }
 
+    private static bool IsAppEntryLaunch(string raw)
+    {
+        if (!Uri.TryCreate(raw?.Trim(), UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var entry = TryReadQueryValue(uri, "entry");
+        if (!string.IsNullOrWhiteSpace(entry) && string.Equals(entry, "app", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var source = TryReadQueryValue(uri, "source");
+        return !string.IsNullOrWhiteSpace(source) && string.Equals(source, "qr-app-entry", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApplyQrLaunchContext(string raw)
+    {
+        if (!Uri.TryCreate(raw?.Trim(), UriKind.Absolute, out var uri))
+        {
+            return;
+        }
+
+        var requestedLanguage = TryReadQueryValue(uri, "language");
+        if (!string.IsNullOrWhiteSpace(requestedLanguage))
+        {
+            ApplySelectedLanguageCode(requestedLanguage);
+        }
+
+        var requestedVisitorId = TryReadQueryValue(uri, "visitorId");
+        var requestedDeviceId = TryReadQueryValue(uri, "deviceId");
+        AdoptQrVisitorIdentity(requestedVisitorId, requestedDeviceId);
+
+        var requestedApiBaseUrl = TryReadQueryValue(uri, "apiBaseUrl");
+        var resolvedApiBaseUrl = NormalizeIncomingApiBaseUrl(requestedApiBaseUrl)
+            ?? DeriveApiBaseUrlFromQrUri(uri);
+
+        if (!string.IsNullOrWhiteSpace(resolvedApiBaseUrl))
+        {
+            ApiBaseUrl = resolvedApiBaseUrl;
+            _apiClient.BaseUrl = resolvedApiBaseUrl;
+        }
+    }
+
+    private void AdoptQrVisitorIdentity(string? visitorId, string? deviceId)
+    {
+        var normalizedVisitorId = string.IsNullOrWhiteSpace(visitorId) ? null : visitorId.Trim();
+        var normalizedDeviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId.Trim();
+
+        if (!string.IsNullOrWhiteSpace(normalizedVisitorId) && !string.Equals(_userId, normalizedVisitorId, StringComparison.Ordinal))
+        {
+            _userId = normalizedVisitorId;
+            Preferences.Default.Set(PreferenceUserId, normalizedVisitorId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedDeviceId) && !string.Equals(_deviceId, normalizedDeviceId, StringComparison.Ordinal))
+        {
+            _deviceId = normalizedDeviceId;
+            Preferences.Default.Set(PreferenceDeviceId, normalizedDeviceId);
+        }
+    }
+
+    private void ApplySelectedLanguageCode(string languageCode)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            return;
+        }
+
+        var normalizedLanguage = NormalizeSupportedLanguage(languageCode);
+        Preferences.Default.Set(PreferenceVisitorLanguage, normalizedLanguage);
+
+        var match = Languages.FirstOrDefault(x => x.Code.Equals(normalizedLanguage, StringComparison.OrdinalIgnoreCase));
+        SelectedLanguage = match ?? new LanguageItem
+        {
+            Code = normalizedLanguage,
+            Name = normalizedLanguage,
+            NativeName = normalizedLanguage,
+            Locale = normalizedLanguage
+        };
+    }
+
+    private static string? NormalizeIncomingApiBaseUrl(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || !Uri.TryCreate(raw.Trim(), UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static string? DeriveApiBaseUrlFromQrUri(Uri uri)
+    {
+        if (uri == null)
+        {
+            return null;
+        }
+
+        var isHttp = string.Equals(uri.Scheme, "http", StringComparison.OrdinalIgnoreCase);
+        var isHttps = string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase);
+        if (!isHttp && !isHttps)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return null;
+        }
+
+        return $"http://{uri.Host}:5297";
+    }
+
     private static string? TryReadQueryValue(Uri uri, string key)
     {
         if (string.IsNullOrWhiteSpace(uri.Query))
@@ -2096,6 +2301,35 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         return null;
+    }
+
+    private string ResolveVisitorDisplayNameForSync()
+    {
+        if (!string.IsNullOrWhiteSpace(VisitorDisplayName) &&
+            !string.Equals(VisitorDisplayName.Trim(), "Khách ẩn danh", StringComparison.OrdinalIgnoreCase))
+        {
+            return VisitorDisplayName.Trim();
+        }
+
+        if (!string.Equals(VisitorDisplayName, _defaultVisitorDisplayName, StringComparison.Ordinal))
+        {
+            VisitorDisplayName = _defaultVisitorDisplayName;
+        }
+
+        return _defaultVisitorDisplayName;
+    }
+
+    private string BuildDefaultVisitorDisplayName()
+    {
+        var platform = DeviceInfo.Current.Platform.ToString();
+        var model = (DeviceInfo.Current.Model ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            return $"{platform} visitor";
+        }
+
+        return $"{platform} {model}";
     }
 
     private void ApplyRegistrationState(RegistrationStatusItem? registration)

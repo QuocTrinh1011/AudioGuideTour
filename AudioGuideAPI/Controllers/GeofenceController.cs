@@ -46,6 +46,8 @@ public class GeofenceController : ControllerBase
             .OrderByDescending(x => x.IsInside)
             .ThenByDescending(x => x.Poi.Priority)
             .ThenBy(x => x.Distance)
+            .ThenBy(x => x.Poi.Radius)
+            .ThenBy(x => x.Poi.Id)
             .ToList();
 
         if (nearby.Count == 0)
