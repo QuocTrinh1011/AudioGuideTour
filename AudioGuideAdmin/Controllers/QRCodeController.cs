@@ -15,6 +15,7 @@ namespace AudioGuideAdmin.Controllers;
 
 public class QRCodeController : Controller
 {
+    private const string AppEntryQrCode = "APP-ENTRY-ANDROID";
     private const string QrVisitorCookieName = "audio-guide-qr-visitor-id";
     private const string QrDeviceCookieName = "audio-guide-qr-device-id";
     private readonly AppDbContext _context;
@@ -36,6 +37,7 @@ public class QRCodeController : Controller
             .ToListAsync();
 
         ViewBag.PublicQrBaseUrl = ResolvePublicQrBaseUrl();
+        ViewBag.AppEntryDeepLinkUrl = BuildAppEntryDeepLinkUrl();
         return View(items);
     }
 
@@ -282,6 +284,30 @@ public class QRCodeController : Controller
         return BuildQrPngResult(qr.Code, BuildQrPayloadUrl(qr.Code), download: true);
     }
 
+    [HttpGet("/QRCode/RenderAppEntryPng")]
+    public IActionResult RenderAppEntryPng()
+    {
+        return BuildQrPngResult(AppEntryQrCode, BuildAppEntryDeepLinkUrl());
+    }
+
+    [HttpGet("/QRCode/DownloadAppEntryPng")]
+    public IActionResult DownloadAppEntryPng()
+    {
+        return BuildQrPngResult(AppEntryQrCode, BuildAppEntryDeepLinkUrl(), download: true);
+    }
+
+    [HttpGet("/QRCode/RenderAppEntrySvg")]
+    public IActionResult RenderAppEntrySvg()
+    {
+        return BuildQrSvgResult(AppEntryQrCode, BuildAppEntryDeepLinkUrl());
+    }
+
+    [HttpGet("/QRCode/DownloadAppEntrySvg")]
+    public IActionResult DownloadAppEntrySvg()
+    {
+        return BuildQrSvgResult(AppEntryQrCode, BuildAppEntryDeepLinkUrl(), download: true);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
@@ -445,6 +471,19 @@ public class QRCodeController : Controller
             builder.Append(Uri.EscapeDataString(deviceId));
         }
 
+        return builder.ToString();
+    }
+
+    private string BuildAppEntryDeepLinkUrl()
+    {
+        var builder = new StringBuilder();
+        builder.Append("audiotour://qr?entry=app");
+        builder.Append("&language=");
+        builder.Append(Uri.EscapeDataString("vi-VN"));
+        builder.Append("&apiBaseUrl=");
+        builder.Append(Uri.EscapeDataString(ResolvePublicApiBaseUrl()));
+        builder.Append("&source=");
+        builder.Append(Uri.EscapeDataString("qr-app-entry"));
         return builder.ToString();
     }
 

@@ -87,6 +87,7 @@ public class AnalyticsHeatCellViewModel
     public double MaxLongitude { get; set; }
     public int SampleCount { get; set; }
     public int UniqueVisitorCount { get; set; }
+    public double EstimatedDwellSeconds { get; set; }
     public string PeakHourLabel { get; set; } = "";
     public int PeakHourCount { get; set; }
     public double Intensity { get; set; }

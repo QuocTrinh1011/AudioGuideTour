@@ -188,7 +188,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <h4 class="mb-1">Heat map vị trí</h4>
-                    <div class="analytics-map-caption">Leaflet + heat layer. Bản đồ tự tải lại theo vùng nhìn hiện tại, theo mức zoom và theo bộ lọc ngày/giờ.</div>
+                    <div class="analytics-map-caption">Leaflet + heat layer. Heat được tính từ GPS hợp lệ sau khi lọc sai số, loại điểm nhảy bất thường và cộng trọng số theo mật độ, visitor duy nhất và thời gian đứng tương đối.</div>
                 </div>
                 <span class="badge text-bg-light" id="heatmap-cluster-badge">@Model.HeatmapClusterCount cụm</span>
             </div>
@@ -279,7 +279,7 @@
                 }
                 else
                 {
-                    <div class="analytics-note">Chưa có visit history trong 7 ngày gần nhất.</div>
+                    <div class="analytics-note">Chưa có lượt nghe hợp lệ trong 7 ngày gần nhất.</div>
                 }
             </div>
             <hr />
@@ -304,7 +304,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <h4 class="mb-1">Top địa điểm được nghe nhiều nhất</h4>
-                    <div class="analytics-map-caption">Kem thoi gian nghe trung binh va marker hien tren heat map.</div>
+                    <div class="analytics-map-caption">Chỉ tính các lượt nghe hợp lệ từ 5 giây đến 30 phút, kèm thời gian nghe trung bình và marker trên heat map.</div>
                 </div>
                 <span class="badge text-bg-light">@Model.TopPois.Count POI</span>
             </div>
@@ -337,7 +337,7 @@
                     }
                     else
                     {
-                        <tr><td colspan="4" class="text-muted">Chưa có POI nào được nghe trong 7 ngày gần nhất.</td></tr>
+                        <tr><td colspan="4" class="text-muted">Chưa có POI nào có lượt nghe hợp lệ trong 7 ngày gần nhất.</td></tr>
                     }
                     </tbody>
                 </table>
@@ -501,6 +501,7 @@
                 <div>
                     <div style="font-weight:700;margin-bottom:6px;">Vùng phân tích</div>
                     <div style="font-size:12px;color:#5f7488;">${cell.uniqueVisitorCount} visitor • ${cell.sampleCount} mẫu GPS</div>
+                    <div style="font-size:12px;color:#5f7488;">Ước tính dừng: ${Math.round(cell.estimatedDwellSeconds || 0)} giây</div>
                     <div style="font-size:12px;color:#5f7488;">Cao điểm: ${cell.peakHourLabel}</div>
                     <div style="font-size:12px;color:#5f7488;">${cell.peakHourCount} mẫu trong giờ cao điểm</div>
                 </div>`;
@@ -556,6 +557,7 @@
                     `<div>
                         <div style="font-weight:700;margin-bottom:6px;">Hotspot cao nhất</div>
                         <div style="font-size:12px;color:#5f7488;">${payload.hottestCell.uniqueVisitorCount} visitor • ${payload.hottestCell.sampleCount} mẫu GPS</div>
+                        <div style="font-size:12px;color:#5f7488;">Ước tính dừng: ${Math.round(payload.hottestCell.estimatedDwellSeconds || 0)} giây</div>
                         <div style="font-size:12px;color:#5f7488;">Cao điểm: ${payload.hottestCell.peakHourLabel}</div>
                     </div>`
                 ).addTo(mapState.hotspotLayer);
@@ -565,7 +567,7 @@
             document.getElementById('heatmap-summary').textContent = `${payload.totalTrackingPoint} điểm GPS hợp lệ, ${payload.uniqueVisitors} visitor, ô phân tích ~ ${Math.round(payload.cellSizeMeters)}m ở mức zoom ${payload.zoom}.`;
             document.getElementById('hotspot-summary').textContent =
                 payload.hottestCell && payload.hottestCell.cellId && payload.hottestCell.cellId !== 'empty'
-                    ? `${payload.hottestCell.uniqueVisitorCount} visitor, cao điểm ${payload.hottestCell.peakHourLabel}.`
+                    ? `${payload.hottestCell.uniqueVisitorCount} visitor, dừng ~ ${Math.round(payload.hottestCell.estimatedDwellSeconds || 0)} giây, cao điểm ${payload.hottestCell.peakHourLabel}.`
                     : 'Chưa có đủ dữ liệu để xác định hotspot trong vùng đang xem.';
             document.getElementById('heatmap-status').textContent =
                 payload.totalTrackingPoint > 0

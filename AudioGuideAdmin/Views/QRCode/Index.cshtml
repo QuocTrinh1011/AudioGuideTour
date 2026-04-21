@@ -1,6 +1,7 @@
 @model IEnumerable<AudioGuideAdmin.Models.QRCode>
 @{
     var publicQrBaseUrl = (ViewBag.PublicQrBaseUrl as string ?? string.Empty).TrimEnd('/');
+    var appEntryDeepLinkUrl = (ViewBag.AppEntryDeepLinkUrl as string ?? string.Empty).Trim();
     var isLocalHost = Uri.TryCreate(publicQrBaseUrl, UriKind.Absolute, out var publicQrUri)
         && (string.Equals(publicQrUri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
             || string.Equals(publicQrUri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase));
@@ -35,6 +36,34 @@
         {
             <div class="text-danger mt-2">Base URL hiện là localhost. Muốn khách quét bằng điện thoại ngoài app thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
         }
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-lg-8">
+            <div class="fw-semibold mb-1">QR mở app Android ngay</div>
+            <div class="text-muted small">
+                Mã này tách riêng với các QR nội dung hiện tại. Dùng camera Android quét để mở app trực tiếp, đồng bộ visitor và đưa người dùng vào app ngay.
+            </div>
+            <div class="small mt-3">
+                <div class="fw-semibold">Deep link Android đang mã hóa</div>
+                <code>@appEntryDeepLinkUrl</code>
+            </div>
+            <div class="mt-3 d-flex flex-wrap gap-2">
+                <a href="/QRCode/DownloadAppEntryPng" class="btn btn-sm btn-primary">Tải PNG mở app</a>
+                <a href="/QRCode/DownloadAppEntrySvg" class="btn btn-sm btn-outline-dark">Tải SVG mở app</a>
+            </div>
+        </div>
+        <div class="col-lg-4 text-center">
+            <div class="border rounded-4 bg-white p-2 d-inline-flex align-items-center justify-content-center" style="width:160px;height:160px;">
+                <img src="/QRCode/RenderAppEntryPng"
+                     alt="QR mở app Android"
+                     width="144"
+                     height="144"
+                     style="max-width:144px;max-height:144px;" />
+            </div>
+        </div>
     </div>
 </div>
 

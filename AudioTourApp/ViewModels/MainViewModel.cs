@@ -1049,6 +1049,24 @@ public class MainViewModel : INotifyPropertyChanged
             ApplyQrLaunchContext(code);
             _apiClient.BaseUrl = ApiBaseUrl;
             var language = SelectedLanguage?.Code ?? Preferences.Default.Get(PreferenceVisitorLanguage, "vi-VN");
+            if (IsAppEntryLaunch(code))
+            {
+                var appEntryVisitor = await SyncVisitorProfileAsync(language, cancellationToken, suppressError: true);
+                if (!string.IsNullOrWhiteSpace(appEntryVisitor?.Language))
+                {
+                    language = appEntryVisitor.Language;
+                }
+
+                if (_allPois.Count == 0 || Languages.Count == 0)
+                {
+                    await BootstrapAsync(cancellationToken);
+                }
+
+                Status = "Đã mở app từ QR. Visitor đã được ghi nhận.";
+                RaiseFlowStateChanged();
+                return;
+            }
+
             var normalizedCode = NormalizeQrCode(code);
             if (string.IsNullOrWhiteSpace(normalizedCode))
             {
@@ -2149,6 +2167,23 @@ public class MainViewModel : INotifyPropertyChanged
         }
 
         return value.ToUpperInvariant();
+    }
+
+    private static bool IsAppEntryLaunch(string raw)
+    {
+        if (!Uri.TryCreate(raw?.Trim(), UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var entry = TryReadQueryValue(uri, "entry");
+        if (!string.IsNullOrWhiteSpace(entry) && string.Equals(entry, "app", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var source = TryReadQueryValue(uri, "source");
+        return !string.IsNullOrWhiteSpace(source) && string.Equals(source, "qr-app-entry", StringComparison.OrdinalIgnoreCase);
     }
 
     private void ApplyQrLaunchContext(string raw)

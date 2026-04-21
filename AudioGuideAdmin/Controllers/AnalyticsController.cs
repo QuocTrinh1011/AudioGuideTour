@@ -26,6 +26,12 @@ public class AnalyticsController : Controller
     private const int MaxTriggerRows = 200;
     private const int MaxHeatCells = 500;
     private const int MaxVisibleVisitorPoints = 250;
+    private const int MinValidVisitDurationSeconds = 5;
+    private const int MaxValidVisitDurationSeconds = 1800;
+    private const int MinRouteSessionPointCount = 3;
+    private const double MaxReasonableTravelSpeedMetersPerSecond = 22d;
+    private const double MinSuspiciousJumpDistanceMeters = 120d;
+    private static readonly TimeSpan MaxDwellGap = TimeSpan.FromMinutes(3);
 
     private readonly AppDbContext _context;
     private readonly ILogger<AnalyticsController> _logger;
@@ -66,12 +72,13 @@ public class AnalyticsController : Controller
             .Take(MaxTriggerRows)
             .ToList();
 
-        var visitRows = _context.VisitHistories
+        var rawVisitRows = _context.VisitHistories
             .AsNoTracking()
             .Where(x => x.EndTime >= windowStart)
             .ToList()
             .Where(x => IsWithinHourWindow(x.EndTime, startHour, endHour))
             .ToList();
+        var visitRows = FilterValidVisitRows(rawVisitRows);
 
         var recentVisitRows = visitRows
             .OrderByDescending(x => x.EndTime)
@@ -277,10 +284,58 @@ public class AnalyticsController : Controller
 
     private static List<UserTracking> FilterTrackingRows(IEnumerable<UserTracking> rawTrackingRows, double maxAccuracy, int startHour, int endHour)
     {
-        return rawTrackingRows
+        var candidateRows = rawTrackingRows
             .Where(x => x.Latitude != 0 && x.Longitude != 0)
             .Where(x => x.Accuracy == 0 || x.Accuracy <= maxAccuracy)
             .Where(x => IsWithinHourWindow(x.RecordedAt, startHour, endHour))
+            .ToList();
+
+        var filteredRows = new List<UserTracking>(candidateRows.Count);
+
+        foreach (var visitorGroup in candidateRows
+                     .OrderBy(x => x.RecordedAt)
+                     .GroupBy(x => x.UserId ?? string.Empty))
+        {
+            UserTracking? previousAccepted = null;
+            foreach (var point in visitorGroup)
+            {
+                if (point.SpeedMetersPerSecond.HasValue &&
+                    point.SpeedMetersPerSecond.Value > MaxReasonableTravelSpeedMetersPerSecond)
+                {
+                    continue;
+                }
+
+                if (previousAccepted != null)
+                {
+                    var gapSeconds = Math.Max((point.RecordedAt - previousAccepted.RecordedAt).TotalSeconds, 1d);
+                    var distanceMeters = CalculateDistanceMeters(
+                        previousAccepted.Latitude,
+                        previousAccepted.Longitude,
+                        point.Latitude,
+                        point.Longitude);
+                    var impliedSpeed = distanceMeters / gapSeconds;
+
+                    if (distanceMeters >= MinSuspiciousJumpDistanceMeters &&
+                        impliedSpeed > MaxReasonableTravelSpeedMetersPerSecond)
+                    {
+                        continue;
+                    }
+                }
+
+                filteredRows.Add(point);
+                previousAccepted = point;
+            }
+        }
+
+        return filteredRows;
+    }
+
+    private static List<VisitHistory> FilterValidVisitRows(IEnumerable<VisitHistory> rawVisitRows)
+    {
+        return rawVisitRows
+            .Where(x => x.Duration >= MinValidVisitDurationSeconds)
+            .Where(x => x.Duration <= MaxValidVisitDurationSeconds)
+            .Where(x => x.EndTime >= x.StartTime)
             .ToList();
     }
 
@@ -339,10 +394,10 @@ public class AnalyticsController : Controller
             .Take(MaxHeatCells)
             .ToList();
 
-        var peakSampleCount = heatCells.Any() ? heatCells.Max(x => x.SampleCount) : 1;
+        var peakWeight = heatCells.Any() ? heatCells.Max(x => x.Intensity) : 1d;
         foreach (var cell in heatCells)
         {
-            cell.Intensity = Math.Round(Math.Max(0.18, cell.SampleCount / (double)peakSampleCount), 2);
+            cell.Intensity = Math.Round(Math.Max(0.18, cell.Intensity / Math.Max(peakWeight, 1d)), 2);
         }
 
         var visibleVisitorPoints = trackingRows
@@ -403,35 +458,57 @@ public class AnalyticsController : Controller
     {
         var cells = new Dictionary<string, HeatCellAccumulator>(StringComparer.Ordinal);
 
-        foreach (var point in trackingRows)
+        foreach (var visitorGroup in trackingRows
+                     .OrderBy(x => x.RecordedAt)
+                     .GroupBy(x => x.UserId ?? string.Empty))
         {
-            var snappedCell = SnapToGrid(point.Latitude, point.Longitude, cellSizeMeters);
-            if (!cells.TryGetValue(snappedCell.CellId, out var bucket))
+            UserTracking? previousPoint = null;
+
+            foreach (var point in visitorGroup)
             {
-                bucket = new HeatCellAccumulator
+                var snappedCell = SnapToGrid(point.Latitude, point.Longitude, cellSizeMeters);
+                if (!cells.TryGetValue(snappedCell.CellId, out var bucket))
                 {
-                    CellId = snappedCell.CellId,
-                    MinLatitude = snappedCell.MinLatitude,
-                    MinLongitude = snappedCell.MinLongitude,
-                    MaxLatitude = snappedCell.MaxLatitude,
-                    MaxLongitude = snappedCell.MaxLongitude,
-                    CenterLatitude = (snappedCell.MinLatitude + snappedCell.MaxLatitude) / 2d,
-                    CenterLongitude = (snappedCell.MinLongitude + snappedCell.MaxLongitude) / 2d
-                };
-                cells[snappedCell.CellId] = bucket;
+                    bucket = new HeatCellAccumulator
+                    {
+                        CellId = snappedCell.CellId,
+                        MinLatitude = snappedCell.MinLatitude,
+                        MinLongitude = snappedCell.MinLongitude,
+                        MaxLatitude = snappedCell.MaxLatitude,
+                        MaxLongitude = snappedCell.MaxLongitude,
+                        CenterLatitude = (snappedCell.MinLatitude + snappedCell.MaxLatitude) / 2d,
+                        CenterLongitude = (snappedCell.MinLongitude + snappedCell.MaxLongitude) / 2d
+                    };
+                    cells[snappedCell.CellId] = bucket;
+                }
+
+                bucket.SampleCount++;
+                bucket.Visitors.Add(point.UserId ?? string.Empty);
+
+                var localHour = ToAnalyticsLocalTime(point.RecordedAt).Hour;
+                bucket.HourCounts[localHour] = bucket.HourCounts.GetValueOrDefault(localHour, 0) + 1;
+
+                if (previousPoint != null)
+                {
+                    var gap = point.RecordedAt - previousPoint.RecordedAt;
+                    if (gap > TimeSpan.Zero &&
+                        gap <= MaxDwellGap &&
+                        string.Equals(bucket.CellId, SnapToGrid(previousPoint.Latitude, previousPoint.Longitude, cellSizeMeters).CellId, StringComparison.Ordinal))
+                    {
+                        bucket.EstimatedDwellSeconds += Math.Min(gap.TotalSeconds, 60d);
+                    }
+                }
+
+                previousPoint = point;
             }
-
-            bucket.SampleCount++;
-            bucket.Visitors.Add(point.UserId ?? string.Empty);
-
-            var localHour = ToAnalyticsLocalTime(point.RecordedAt).Hour;
-            bucket.HourCounts[localHour] = bucket.HourCounts.GetValueOrDefault(localHour, 0) + 1;
         }
 
         foreach (var bucket in cells.Values)
         {
             var peakHour = bucket.HourCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).FirstOrDefault();
             var nextHour = (peakHour.Key + 1) % 24;
+            var uniqueVisitorCount = bucket.Visitors.Count(id => !string.IsNullOrWhiteSpace(id));
+            var weightedScore = bucket.SampleCount + (uniqueVisitorCount * 2.5d) + Math.Min(bucket.EstimatedDwellSeconds / 30d, 8d);
             yield return new AnalyticsHeatCellViewModel
             {
                 CellId = bucket.CellId,
@@ -442,9 +519,12 @@ public class AnalyticsController : Controller
                 MaxLatitude = bucket.MaxLatitude,
                 MaxLongitude = bucket.MaxLongitude,
                 SampleCount = bucket.SampleCount,
-                UniqueVisitorCount = bucket.Visitors.Count(id => !string.IsNullOrWhiteSpace(id)),
+                UniqueVisitorCount = uniqueVisitorCount,
+                EstimatedDwellSeconds = Math.Round(bucket.EstimatedDwellSeconds, 0),
                 PeakHourLabel = $"{peakHour.Key:00}:00 - {nextHour:00}:00",
                 PeakHourCount = peakHour.Value
+                ,
+                Intensity = weightedScore
             };
         }
     }
@@ -503,7 +583,10 @@ public class AnalyticsController : Controller
                 var gap = point.RecordedAt - previous.RecordedAt;
                 var distance = CalculateDistanceMeters(previous.Latitude, previous.Longitude, point.Latitude, point.Longitude);
 
-                if (gap > TimeSpan.FromMinutes(18) || distance > 1800)
+                var gapSeconds = Math.Max(gap.TotalSeconds, 1d);
+                var impliedSpeed = distance / gapSeconds;
+
+                if (gap > TimeSpan.FromMinutes(12) || distance > 600 || impliedSpeed > MaxReasonableTravelSpeedMetersPerSecond)
                 {
                     AddRouteSession(sessions, currentSession, visitorGroup.Key, visitorAliases);
                     currentSession = new List<UserTracking> { point };
@@ -525,7 +608,7 @@ public class AnalyticsController : Controller
         string userId,
         IReadOnlyDictionary<string, string> visitorAliases)
     {
-        if (points.Count < 2)
+        if (points.Count < MinRouteSessionPointCount)
         {
             return;
         }
@@ -617,6 +700,7 @@ public class AnalyticsController : Controller
         public int SampleCount { get; set; }
         public HashSet<string> Visitors { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<int, int> HourCounts { get; } = new();
+        public double EstimatedDwellSeconds { get; set; }
     }
 
     private readonly record struct GridCellBounds(string CellId, double MinLatitude, double MinLongitude, double MaxLatitude, double MaxLongitude);
