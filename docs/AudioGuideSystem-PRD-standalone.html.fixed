@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 
 <head>
@@ -34,7 +34,7 @@
 
         body {
             margin: 0;
-            font-family: "Times New Roman", Times, serif;
+            font-family: "Segoe UI Variable", "Aptos", "Segoe UI", sans-serif;
             background:
                 radial-gradient(circle at top left, rgba(201, 106, 34, 0.16), transparent 28%),
                 radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 22%),
@@ -1414,6 +1414,237 @@
     ADMIN->>API: Overview / Top POI / Heatmap
     API->>DB: Aggregate visits and trackings
     API-->>ADMIN: Content payloads and KPI responses`
+            },
+            {
+                id: "QR01",
+                module: "Admin/CMS",
+                title: "QR Public Web — Visitor quét QR mở trang web POI",
+                actor: "Visitor (Mobile Browser)",
+                entry: "GET /QRCode/Open/{code}",
+                source: "QRCodeController.Open; TouchQrVisitorAsync; QrPublicPageViewModel",
+                status: "ok",
+                summary: "Khi visitor quét mã QR bằng điện thoại, Admin site render trang web công khai hiển thị nội dung POI, tạo cookie visitor ẩn danh, ghi VisitHistory (TriggerType=qr-public) và cung cấp deep link audiotour:// để mở thẳng vào app.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant V as Visitor (Browser)
+    participant QR as QRCodeController
+    participant DB as Shared DB
+    participant COOKIE as Cookie Store
+    V->>QR: GET /QRCode/Open/{code}?language=vi-VN
+    QR->>DB: Load QRCode + Poi + Translations
+    alt Mã không tồn tại
+        QR-->>V: 404 Not Found
+    else Mã hợp lệ
+        QR->>QR: SelectTranslation(language)
+        QR->>QR: Kiểm tra User-Agent có phải Mobile?
+        alt Mobile browser
+            QR->>COOKIE: Đọc visitor-id / device-id cookie
+            alt Cookie chưa có
+                QR->>COOKIE: Sinh visitorId + deviceId mới và ghi cookie 180 ngày
+            end
+            QR->>DB: Upsert VisitorProfile (DisplayName theo UA, Language)
+            QR->>DB: Insert VisitHistory (TriggerType=qr-public, PlaybackMode=web)
+        end
+        QR->>QR: BuildDeepLinkUrl(audiotour://qr?code=...&apiBaseUrl=...&visitorId=...)
+        QR-->>V: Render trang POI công khai (ảnh, mô tả, audio, nút mở app)
+    end`
+            },
+            {
+                id: "QR02",
+                module: "Admin/CMS",
+                title: "App Entry Deep Link — QR mã khởi động app kèm cấu hình server",
+                actor: "Operator, Visitor",
+                entry: "GET /QRCode/RenderAppEntryPng; audiotour://qr?entry=app",
+                source: "QRCodeController.RenderAppEntryPng; BuildAppEntryDeepLinkUrl",
+                status: "ok",
+                summary: "Admin in mã QR đặc biệt APP-ENTRY. Khi visitor quét, scheme audiotour:// mở app kèm apiBaseUrl và language đã nhúng sẵn vào payload, cho phép app tự cấu hình server mà không cần người dùng nhập tay.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant O as Operator
+    participant QR as QRCodeController
+    participant V as Visitor
+    participant APP as AudioTourApp
+    O->>QR: GET /QRCode/RenderAppEntryPng
+    QR->>QR: BuildAppEntryDeepLinkUrl()
+    note right of QR: audiotour://qr?entry=app&language=vi-VN&apiBaseUrl=...&source=qr-app-entry
+    QR-->>O: PNG mã QR (payload = deep link)
+    O->>O: In và đặt mã QR ở điểm tham quan
+    V->>V: Quét mã QR bằng camera điện thoại
+    V->>APP: Deep link audiotour://qr?entry=app&apiBaseUrl=http://...
+    APP->>APP: Lưu apiBaseUrl và language vào Preferences
+    APP->>APP: Trigger BootstrapAsync với cấu hình server mới
+    APP-->>V: App mở và tự động tải dữ liệu từ server`
+            },
+            {
+                id: "M15",
+                module: "Mobile App",
+                title: "Đổi ngôn ngữ runtime và re-bootstrap theo ngôn ngữ mới",
+                actor: "Visitor",
+                entry: "MapPage, SettingsPage — Language Picker",
+                source: "MapPage.OnLanguageChanged; MainViewModel.ChangeLanguageAsync; BootstrapAsync; SyncVisitorSettingsAsync",
+                status: "ok",
+                summary: "Khi visitor chọn ngôn ngữ khác, app đồng bộ language lên server rồi re-bootstrap toàn bộ POI và tour theo ngôn ngữ mới, reset filter và refresh map.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant V as Visitor
+    participant MAP as MapPage / SettingsPage
+    participant VM as MainViewModel
+    participant API as Bootstrap + User API
+    participant DB as Shared DB
+    V->>MAP: Chọn ngôn ngữ khác trong Language Picker
+    MAP->>VM: ChangeLanguageAsync()
+    VM->>VM: Cập nhật SelectedLanguage
+    VM->>API: POST /api/user (đồng bộ language mới lên server)
+    API->>DB: Update visitor language
+    API-->>VM: VisitorProfile đã cập nhật
+    VM->>API: GET /api/bootstrap?language={newLang}
+    API->>DB: Load POI, Tour, Translation theo ngôn ngữ mới
+    API-->>VM: BootstrapResponse (nội dung đã dịch)
+    VM->>VM: Normalize content, reset filter, refresh map
+    VM-->>V: Toàn bộ POI/tour hiển thị theo ngôn ngữ mới`
+            },
+            {
+                id: "M16",
+                module: "Mobile App",
+                title: "EnsureCurrentLocation — Lấy vị trí một lần không cần bật tracking",
+                actor: "App Runtime",
+                entry: "MapPage.OnAppearing, HomePage",
+                source: "MainViewModel.EnsureCurrentLocationAsync; Geolocation.GetLastKnownLocationAsync",
+                status: "ok",
+                summary: "Khi mở MapPage mà tracking chưa bật, app lấy một lần vị trí cuối cùng được cache bởi OS để hiển thị map ban đầu. Không bật foreground service, không ghi tracking lên server.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant V as Visitor
+    participant MAP as MapPage
+    participant VM as MainViewModel
+    participant OS as Android GPS Cache
+    V->>MAP: Mở MapPage (tracking chưa bật)
+    MAP->>VM: EnsureCurrentLocationAsync()
+    VM->>OS: Geolocation.GetLastKnownLocationAsync()
+    alt Có vị trí cached sẵn trong OS
+        OS-->>VM: Location (lat, lng, accuracy)
+        VM->>VM: Lưu vào LatestLocation
+        VM->>VM: Refresh map với pin vị trí người dùng
+        VM-->>V: Map hiển thị vị trí hiện tại cùng các POI xung quanh
+    else Chưa có vị trí trong cache
+        OS-->>VM: Null
+        VM->>VM: Map dùng vị trí mặc định (10.7618, 106.7041 — TP.HCM)
+        VM-->>V: Map hiển thị khu vực mặc định, không có pin người dùng
+    end`
+            },
+            {
+                id: "M17",
+                module: "Mobile App",
+                title: "AudioInterruptionService — Xử lý ngắt audio khi mất audio focus",
+                actor: "App Runtime / Android OS",
+                entry: "AudioInterruptionService — audio focus callback",
+                source: "AudioTourApp/Services/AudioInterruptionService.cs; AudioQueueService; NarrationService; AudioFallbackPlayer",
+                status: "ok",
+                summary: "Khi có cuộc gọi đến hoặc ứng dụng khác giành audio focus, AudioInterruptionService dừng queue và TTS. Khi audio focus được trả lại, service quyết định có nên resume hay không dựa trên loại ngắt.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant OS as Android OS
+    participant INT as AudioInterruptionService
+    participant QUEUE as AudioQueueService
+    participant TTS as NarrationService
+    participant AUDIO as AudioFallbackPlayer
+    OS->>INT: Audio focus lost (AUDIOFOCUS_LOSS hoặc LOSS_TRANSIENT)
+    INT->>QUEUE: RequestInterruptAsync()
+    QUEUE->>TTS: StopAsync()
+    QUEUE->>AUDIO: Stop current playback
+    QUEUE->>QUEUE: Đánh dấu trạng thái interrupted
+    OS->>INT: Audio focus regained (AUDIOFOCUS_GAIN)
+    alt Ngắt tạm thời (cuộc gọi kết thúc)
+        INT->>QUEUE: Kiểm tra trạng thái interrupted
+        alt Còn item trong hàng đợi
+            INT->>QUEUE: Resume từ đầu track hiện tại
+            QUEUE-->>OS: Phát tiếp audio
+        else Hàng đợi rỗng
+            INT->>INT: Không làm gì thêm
+        end
+    else Ngắt vĩnh viễn (app khác chiếm focus lâu dài)
+        INT->>QUEUE: Clear queue
+        INT-->>OS: Nhường audio focus hoàn toàn
+    end`
+            },
+            {
+                id: "M18",
+                module: "Mobile App",
+                title: "PoiDetailPage — Xem chi tiết POI, chẩn đoán audio và phát từ trang chi tiết",
+                actor: "Visitor",
+                entry: "PoiDetailPage — mở từ POI list, MapPage hoặc tour stop",
+                source: "PoiDetailPage.cs; MainViewModel.OpenSelectedPoiDetailsAsync; RunSelectedPoiAudioDiagnosticsAsync; PlaySelectedAsync",
+                status: "ok",
+                summary: "Visitor mở trang chi tiết POI để xem toàn bộ thông tin: ảnh, mô tả, địa chỉ, audio mode. Có thể chạy chẩn đoán audio/TTS, phát ngay hoặc mở bản đồ ngoài trực tiếp từ trang này.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant V as Visitor
+    participant VM as MainViewModel
+    participant SHELL as Shell Navigation
+    participant DETAIL as PoiDetailPage
+    participant QUEUE as AudioQueueService
+    participant API as ApiClient
+    V->>VM: OpenSelectedPoiDetailsAsync()
+    VM->>SHELL: Push PoiDetailPage(selectedPoi)
+    SHELL-->>V: Render chi tiết POI (ảnh, title, summary, address, audio mode)
+    opt Chạy chẩn đoán audio
+        V->>DETAIL: Bấm chẩn đoán audio
+        DETAIL->>VM: RunSelectedPoiAudioDiagnosticsAsync()
+        VM->>API: ProbeUrlAsync(audioUrl) — HTTP HEAD check
+        API-->>VM: HTTP status, content-type, content-length
+        VM->>VM: GetDiagnosticsAsync(language, voiceName)
+        VM-->>DETAIL: Kết quả: URL sống/chết, TTS locale, voice khả dụng
+        DETAIL-->>V: Hiển thị log chẩn đoán đầy đủ
+    end
+    opt Nghe thuyết minh
+        V->>DETAIL: Bấm Nghe ngay
+        DETAIL->>VM: PlaySelectedAsync()
+        VM->>QUEUE: Enqueue(manual, selectedPoi)
+        QUEUE-->>V: Phát audio file hoặc TTS
+    end
+    opt Mở bản đồ ngoài
+        V->>DETAIL: Bấm Mở bản đồ
+        DETAIL->>VM: OpenSelectedMapAsync()
+        VM-->>V: Launch Google Maps ngoài
+    end`
+            },
+            {
+                id: "A14",
+                module: "Admin/CMS",
+                title: "CreateBusStopSet — Batch tạo QR cho điểm dừng xe buýt",
+                actor: "Operator",
+                entry: "QRCodeController.CreateBusStopSet",
+                source: "QRCodeController.CreateBusStopSet; FindBusStopPoi; QRCodes table",
+                status: "ok",
+                summary: "Operator bấm một nút để hệ thống tự động tìm POI khớp tên điểm dừng xe buýt bằng keyword matching rồi tạo hoặc cập nhật bộ mã QR chuẩn BUS-KH-001, BUS-VH-002, BUS-XC-003.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant O as Operator
+    participant QR as QRCodeController
+    participant DB as Pois + QRCodes
+    O->>QR: POST /QRCode/CreateBusStopSet
+    QR->>DB: Load toàn bộ danh sách POI
+    loop Với mỗi spec trong bộ bus stop
+        note right of QR: BUS-KH-001 Khánh Hội, BUS-VH-002 Vĩnh Hội, BUS-XC-003 Xuân Chiếu
+        QR->>QR: FindBusStopPoi(label) — so khớp keyword tên điểm với POI.Name
+        alt Tìm thấy POI phù hợp
+            QR->>DB: Check QRCode với code này đã tồn tại chưa
+            alt Chưa có
+                QR->>DB: INSERT QRCode mới (PoiId, Code, Note)
+            else Đã có
+                QR->>DB: UPDATE PoiId + Note (cập nhật liên kết)
+            end
+        else Không tìm thấy POI
+            QR->>QR: Thêm label vào danh sách missing
+        end
+    end
+    alt Có QR được tạo hoặc cập nhật
+        QR-->>O: TempData Success: "Đã tạo/cập nhật X QR xe buýt"
+    end
+    alt Có POI chưa khớp
+        QR-->>O: TempData Error: "Chưa tìm thấy POI cho: [danh sách]"
+    end
+    QR-->>O: Redirect về trang Index QR`
             }
         ];
         const legacyModuleDescriptions = {
@@ -1424,13 +1655,13 @@
         const features = [
             {
                 id: "J01",
-                module: "Hanh trinh nguoi dung",
+                module: "Hành trình người dùng",
                 title: "J01 — Visitor bắt đầu tham quan ",
                 actor: "Visitor",
-                entry: "PRD Section 8 - Hanh trinh 1",
-                source: "PRD.md - Section 8 / Hanh trinh 1",
+                entry: "PRD Section 8 - Hành trình 1",
+                source: "PRD.md - Section 8 / H�nh tr�nh 1",
                 status: "ok",
-                summary: "Visitor mo app, bootstrap du lieu, cap quyen vi tri va bat dau gui vi tri dinh ky de khoi dong phien tham quan.",
+                summary: "Visitor mở app, bootstrap dữ liệu, cấp quyền vị trí và bắt đầu gửi vị trí định kỳ để khởi động phiên tham quan.",
                 mermaid: `sequenceDiagram
     autonumber
     actor V as Visitor
@@ -1473,11 +1704,11 @@
             },
             {
                 id: "J02",
-                module: "Hanh trinh nguoi dung",
+                module: "H�nh tr�nh ngu?i d�ng",
                 title: "J02 — Visitor đi ngang một POI  ",
                 actor: "Visitor",
-                entry: "PRD Section 8 - Hanh trinh 2",
-                source: "PRD.md - Section 8 / Hanh trinh 2",
+                entry: "PRD Section 8 - H�nh tr�nh 2",
+                source: "PRD.md - Section 8 / H�nh tr�nh 2",
                 status: "ok",
                 summary: "App gửi tọa độ hiện tại, backend kiểm tra vòng lặp khoảng cách. Nếu hợp lệ (Cooldown, Debounce, Mode), trả về POI để phát audio tự động.",
                 mermaid: `sequenceDiagram
@@ -1486,105 +1717,43 @@
     participant APP as Mobile App
     participant GEO as Geofence API
     participant DB as Shared DB
-    participant AQ as AudioQueueService
-    participant PLAY as AudioPlayer / TTS
+    participant AUDIO as Audio Hệ thống
     
-    note over V,PLAY: Visitor di chuyển — GPS callback gửi tọa độ mỗi 10s
-    APP->>GEO: POST /api/geofence {lat, lng, userId, deviceId, language}
-    
-    rect rgb(230, 245, 255)
-    note right of GEO: Pha 0: Upsert Visitor
-    GEO->>DB: SELECT Users WHERE Id hoặc DeviceId
-    GEO->>DB: UPDATE LastSeenAt = UtcNow (hoặc INSERT nếu mới)
-    end
+    APP->>GEO: Gửi tọa độ GPS (Tự động theo chu kỳ)
     
     rect rgb(240, 248, 255)
-    note right of GEO: Pha 1: Tìm TẤT CẢ POI gần visitor
-    GEO->>DB: SELECT Pois WHERE IsActive\\nINCLUDE Translations (IsPublished)
-    DB-->>GEO: Danh sách POI active
-    GEO->>GEO: Tính Haversine distance cho TỪNG POI
-    GEO->>GEO: Lọc: IsInside (≤ Radius) hoặc IsApproaching (≤ ApproachRadius)
-    note right of GEO: Visitor có thể nằm trong\\nvùng của NHIỀU POI cùng lúc
-    GEO->>GEO: Sắp xếp ưu tiên:\\nIsInside > Priority > Distance > Radius > Id
-    GEO->>GEO: NearbyPois = top 5 POI gần nhất\\n(hiển thị trên bản đồ)
-    GEO->>GEO: Candidate = POI đầu tiên thỏa MatchesTriggerMode\\n(enter / nearby / manual / auto)
-    end
-
-    alt Không có POI nào gần
-        GEO-->>APP: {ShouldPlay: false, Reason: "outside-geofence"}
-        APP-->>V: Cập nhật bản đồ (im lặng)
+    note right of GEO: Thuật toán Geofence (Server-side)
+    GEO->>DB: Truy vấn POI đang active
+    DB-->>GEO: Tranh sách POI (Tọa độ, Radius, Priority)
+    GEO->>GEO: Tính khoảng cách (vd: Công thức Haversine)
+    GEO->>GEO: So sánh với bán kính (Radius/Approach) & Trigger Mode
     end
     
     rect rgb(255, 250, 205)
-    note right of GEO: Pha 2: Anti-Spam (cho Candidate POI)
-    GEO->>DB: SELECT TOP 1 GeofenceTriggers\\nWHERE UserId & PoiId DESC
-    alt CooldownUntil > now
-        GEO-->>APP: {ShouldPlay: false, Reason: "cooldown",\\nNearbyPois: top 5, NextEligibleAt}
-    else (now - RecordedAt) < DebounceSeconds
-        GEO-->>APP: {ShouldPlay: false, Reason: "debounce"}
-    else Thỏa tất cả điều kiện
-        GEO->>DB: INSERT GeofenceTriggers\\n(UserId, PoiId, TriggerType,\\nDistance, CooldownUntil)
-        GEO->>GEO: PoiTranslationSelector.Select(language)
-        GEO->>GEO: PoiAudioSelector.Resolve(poi, translation)
-        GEO-->>APP: {ShouldPlay: true,\\nTriggeredPoi: {Title, AudioUrl, TtsScript},\\nNearbyPois: [...]}
+    note right of GEO: Kiểm tra Anti-Spam
+    GEO->>DB: Lấy lịch sử Trigger của thiết bị
+    DB-->>GEO: Lịch sử gọi GeofenceTrigger
+    GEO->>GEO: Kiểm tra Cooldown & Debounce (chống lặp rác)
     end
-    end
-
-    rect rgb(240, 255, 240)
-    note right of APP: Pha 3: Mobile xử lý kết quả Geofence
-    APP->>APP: Cập nhật NearbyPois trên bản đồ\\n(hiển thị tất cả POI gần)
-    APP->>APP: SeedLocalGeofenceStates()\\nLưu trạng thái Inside/Approaching\\ncho từng POI gần
-    alt ShouldPlay = true
-        APP->>APP: CanAutoPlay?\\n(AllowAutoPlay bật? Client cooldown hết?)
-        APP->>APP: ShouldAutoPlayForTriggerMode?\\n(Trạng thái chuyển từ ngoài → trong?)
-        alt Đủ điều kiện AutoPlay
-            APP->>APP: SelectedPoi = TriggeredPoi
-        end
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of AQ: Pha 4: Hàng đợi Audio (AudioQueueService)
-    APP->>AQ: EnqueueAsync(TriggeredPoi, "geofence", autoPlayed=true)
-    AQ->>AQ: Check trùng lặp:\\nĐang phát POI này? Đã có trong queue?
-    alt POI đã có trong queue hoặc đang phát
-        AQ-->>APP: Bỏ qua (tránh phát trùng)
-    else POI mới — thêm vào ConcurrentQueue
-        AQ->>AQ: Client-side cooldown check\\n(recentPlay[poiId] < CooldownSeconds?)
-        AQ->>AQ: _queue.Enqueue(request)
-        note right of AQ: ProcessQueue — tuần tự FIFO
-        AQ->>AQ: TryDequeue() lấy POI tiếp theo
-        AQ->>AQ: BeginPlaybackAsync() — lấy Audio Focus
-        alt AudioMode = "audio-priority" và có AudioUrl
-            AQ->>PLAY: AudioFallbackPlayer.TryPlayAsync(url)
-            alt Phát audio thành công
-                PLAY-->>V: Phát file audio thuyết minh
-            else Audio lỗi → Fallback TTS
-                AQ->>AQ: BuildTtsText()\\n(TtsScript → Description → Summary)
-                AQ->>PLAY: NarrationService.SpeakAsync(text, lang)
-                PLAY-->>V: Đọc TTS bằng giọng máy
-            end
-        else AudioMode = "tts" hoặc không có AudioUrl
-            AQ->>AQ: BuildTtsText()
-            AQ->>PLAY: NarrationService.SpeakAsync(text, lang)
-            PLAY-->>V: Đọc TTS
-        end
-        AQ->>AQ: EndPlaybackAsync() — trả Audio Focus
-        AQ->>AQ: Ghi recentPlay[poiId] = now
-        note right of AQ: Lưu lịch sử nghe
-        AQ->>GEO: POST /api/visit\\n{UserId, PoiId, Duration,\\nTriggerType, PlaybackMode,\\nWasAutoPlayed, WasCompleted}
-        GEO->>DB: INSERT VisitHistories
-    end
-    end
-    note over AQ: Nếu có thêm POI trong queue\\n→ tiếp tục TryDequeue() cho POI kế tiếp`
+    
+    alt Hợp lệ (Bên trong vùng & Thỏa Anti-Spam)
+        GEO->>DB: INSERT GeofenceTrigger (Gán cờ đã báo)
+        DB-->>GEO: Đã lưu dữ liệu
+        GEO-->>APP: 200 OK (Trả về URL Audio / Cấu hình TTS)
+        APP->>AUDIO: Đưa bài thuyết minh vào hàng đợi
+        AUDIO-->>V: Tự động phát âm thanh
+    else Không hợp lệ (Ngoài vùng hoặc Vi phạm Cooldown)
+        GEO-->>APP: 200 OK (Danh sách POI hiển thị, không trigger Audio)
+        APP-->>V: (Cập nhật bản đồ im lặng)
+    end`
             },
             {
                 id: "J03",
-                module: "Hanh trinh nguoi dung",
+                module: "H�nh tr�nh ngu?i d�ng",
                 title: "J03 — Admin vận hành nội dung  ",
                 actor: "Admin",
-                entry: "PRD Section 8 - Hanh trinh 3",
-                source: "PRD.md - Section 8 / Hanh trinh 3",
+                entry: "PRD Section 8 - H�nh tr�nh 3",
+                source: "PRD.md - Section 8 / H�nh tr�nh 3",
                 status: "ok",
                 summary: "Quản trị viên đăng nhập vào hệ thống, cập nhật dữ liệu (POI, Tours, Bản dịch), tải tệp âm thanh lên vùng lưu trữ hệ thống, và sau đó theo dõi dữ liệu Tracking.",
                 mermaid: `sequenceDiagram
@@ -1631,13 +1800,13 @@
             },
             {
                 id: "F01",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F01 — Quản lý POI  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F1",
                 source: "PRD.md - Section 9 / F1",
                 status: "ok",
-                summary: "Admin tao, sua, xoa va quan ly day du thuoc tinh noi dung, geofence va audio cua moi POI.",
+                summary: "Admin t?o, s?a, x�a v� qu?n l� d?y d? thu?c t�nh n?i dung, geofence v� audio c?a m?i POI.",
                 mermaid: `sequenceDiagram
     autonumber
     actor A as Admin
@@ -1669,7 +1838,7 @@
             },
             {
                 id: "F02",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F02 — Translation management  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F2",
@@ -1715,7 +1884,7 @@
             },
             {
                 id: "F03",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F03 — Tour management  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F3",
@@ -1753,7 +1922,7 @@
             },
             {
                 id: "F04",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F04 — Audio library  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F4",
@@ -1794,7 +1963,7 @@
             },
             {
                 id: "F09",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F09 — Analytics & dashboard  ",
                 actor: "Admin / Product Owner",
                 entry: "PRD Section 9 - F9",
@@ -1828,7 +1997,7 @@
             },
             {
                 id: "F11",
-                module: "Chuc nang quan tri",
+                module: "Ch?c nang qu?n tr?",
                 title: "F11 — Admin authentication  ",
                 actor: "Admin",
                 entry: "PRD Section 9 - F11",
@@ -1870,7 +2039,7 @@
             },
             {
                 id: "F05",
-                module: "Chuc nang runtime",
+                module: "Ch?c nang runtime",
                 title: "F05 — Bootstrap & map feed  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F5",
@@ -1909,7 +2078,7 @@
             },
             {
                 id: "F06",
-                module: "Chuc nang runtime",
+                module: "Ch?c nang runtime",
                 title: "F06 — Geofence & auto play  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F6",
@@ -1946,7 +2115,7 @@
             },
             {
                 id: "F07",
-                module: "Chuc nang runtime",
+                module: "Ch?c nang runtime",
                 title: "F07 — Tracking visitor  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F7",
@@ -1979,7 +2148,7 @@
             },
             {
                 id: "F08",
-                module: "Chuc nang runtime",
+                module: "Ch?c nang runtime",
                 title: "F08 — Visit history  ",
                 actor: "Mobile App",
                 entry: "PRD Section 9 - F8",
@@ -2014,7 +2183,7 @@
             },
             {
                 id: "F10",
-                module: "Chuc nang runtime",
+                module: "Ch?c nang runtime",
                 title: "F10 — QR code lookup  ",
                 actor: "Visitor / Mobile App",
                 entry: "PRD Section 9 - F10",
@@ -2049,386 +2218,242 @@
     end`
             },
             {
-                id: "F12",
-                module: "Chuc nang quan tri",
-                title: "F12 — Quản lý Visitor & Trạng thái Online  ",
-                actor: "Admin / CMS, Mobile App",
-                entry: "Cơ chế LastSeenAt",
-                source: "VisitorController.cs",
-                status: "ok",
-                summary: "Backend liên tục cập nhật LastSeenAt từ tracking của Mobile App, Admin CMS tính toán khoảng cách để xác định trạng thái Online.",
-                mermaid: `sequenceDiagram
-    autonumber
-    actor V as Visitor / Mobile App
-    participant APP as Mobile Background
-    participant API as Backend API
-    participant DB as SQL Server (Visitors)
-    actor A as Admin
-    participant CMS as VisitorController (CMS)
-    
-    rect rgb(240, 248, 255)
-    note right of V: Pha 1: Mobile App liên tục báo cáo hoạt động
-    V->>APP: Di chuyển (GPS Trigger) hoặc dùng App
-    APP->>API: Gọi /api/tracking (hoặc /api/geofence, /api/user)
-    API->>API: Gán user.LastSeenAt = DateTime.UtcNow
-    API->>DB: UPDATE Visitors SET LastSeenAt = ...
-    DB-->>API: Hoàn tất
-    API-->>APP: 200 OK
-    end
-    
-    rect rgb(255, 240, 245)
-    note right of A: Pha 2: Admin mở giao diện Quản lý Visitor
-    A->>CMS: Mở trang Dashboard /Visitor
-    CMS->>DB: Truy vấn Visitors\\nORDER BY LastSeenAt DESC
-    DB-->>CMS: Trả về danh sách Visitors
-    
-    loop Mỗi Visitor
-        CMS->>CMS: Tính: Delta = Now - LastSeenAt
-        alt Delta <= ActiveThreshold (5 phút)
-            CMS->>CMS: IsActive = true (Trạng thái Online)
-        else Delta > 5 phút
-            CMS->>CMS: IsActive = false (Offline, hiển thị "X phút trước")
-        end
-    end
-    
-    CMS-->>A: Render danh sách với Label "Online" màu xanh
-    end`
-            },
-            {
                 id: "QR01",
-                module: "Chuc nang quan tri",
-                title: "QR01 — Admin tạo & quản lý QR Code  ",
-                actor: "Admin",
-                entry: "QRCodeController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/QRCodeController.cs",
+                module: "Ch?c nang qu?n tr?",
+                title: "QR01 — QR Public Web — Visitor quét QR mở trang web POI",
+                actor: "Visitor (Mobile Browser)",
+                entry: "GET /QRCode/Open/{code}",
+                source: "QRCodeController.Open; TouchQrVisitorAsync; QrPublicPageViewModel",
                 status: "ok",
-                summary: "Admin tạo mã QR mới gán với POI, hệ thống sinh mã duy nhất, hiển thị danh sách QR và cho phép xóa.",
+                summary: "Khi visitor quét mã QR bằng điện thoại, Admin site render trang web công khai hiển thị nội dung POI, tạo cookie visitor ẩn danh, ghi VisitHistory (TriggerType=qr-public) và cung cấp deep link audiotour:// để mở thẳng vào app.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as Admin CMS
-    participant DB as SQL Server
-
-    rect rgb(240, 248, 255)
-    note right of A: Tạo mã QR mới
-    A->>CMS: Mở trang QR Management
-    CMS->>DB: SELECT QRCodes JOIN Pois
-    DB-->>CMS: Danh sách QR + POI mapping
-    CMS-->>A: Render danh sách QR hiện có
-
-    A->>CMS: Chọn POI, nhập Code / Note
-    CMS->>CMS: Normalize Code (UPPER, TRIM)
-    CMS->>DB: CHECK EXISTS QRCodes WHERE Code = input
-    alt Mã đã tồn tại
-        DB-->>CMS: Conflict
-        CMS-->>A: Cảnh báo "Mã QR đã tồn tại"
-    else Mã chưa có
-        CMS->>DB: INSERT QRCodes (Code, PoiId, Note)
-        DB-->>CMS: QR record mới
-        CMS-->>A: Xác nhận tạo QR thành công
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of A: Xóa mã QR
-    A->>CMS: Bấm Xóa QR
-    CMS->>DB: DELETE QRCodes WHERE Id = id
-    DB-->>CMS: Hoàn tất
-    CMS-->>A: Xác nhận xóa QR
+    participant V as Visitor (Browser)
+    participant QR as QRCodeController
+    participant DB as Shared DB
+    participant COOKIE as Cookie Store
+    V->>QR: GET /QRCode/Open/{code}?language=vi-VN
+    QR->>DB: Load QRCode + Poi + Translations
+    alt Mã không tồn tại
+        QR-->>V: 404 Not Found
+    else Mã hợp lệ
+        QR->>QR: SelectTranslation(language)
+        QR->>QR: Kiểm tra User-Agent có phải Mobile?
+        alt Mobile browser
+            QR->>COOKIE: Đọc visitor-id / device-id cookie
+            alt Cookie chưa có
+                QR->>COOKIE: Sinh visitorId + deviceId mới và ghi cookie 180 ngày
+            end
+            QR->>DB: Upsert VisitorProfile (DisplayName theo UA, Language)
+            QR->>DB: Insert VisitHistory (TriggerType=qr-public, PlaybackMode=web)
+        end
+        QR->>QR: BuildDeepLinkUrl(audiotour://qr?code=...&apiBaseUrl=...&visitorId=...)
+        QR-->>V: Render trang POI công khai (ảnh, mô tả, audio, nút mở app)
     end`
             },
             {
                 id: "QR02",
-                module: "Chuc nang quan tri",
-                title: "QR02 — Visitor quét QR mở trang công khai  ",
-                actor: "Visitor",
-                entry: "QRCodeController.Open (Admin CMS Public)",
-                source: "AudioGuideAdmin/Controllers/QRCodeController.cs",
+                module: "Ch?c nang qu?n tr?",
+                title: "QR02 — App Entry Deep Link — QR mã khởi động app kèm cấu hình server",
+                actor: "Operator, Visitor",
+                entry: "GET /QRCode/RenderAppEntryPng; audiotour://qr?entry=app",
+                source: "QRCodeController.RenderAppEntryPng; BuildAppEntryDeepLinkUrl",
                 status: "ok",
-                summary: "Visitor quét mã QR bằng camera, hệ thống tra cứu POI tương ứng, hiển thị trang công khai với nội dung đa ngôn ngữ và audio.",
+                summary: "Admin in mã QR đặc biệt APP-ENTRY. Khi visitor quét, scheme audiotour:// mở app kèm apiBaseUrl và language đã nhúng sẵn vào payload, cho phép app tự cấu hình server mà không cần người dùng nhập tay.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor V as Visitor
-    participant PHONE as Mobile Camera
-    participant CMS as QRCode Public Page
-    participant DB as SQL Server
-
-    V->>PHONE: Quét mã QR trên biển POI
-    PHONE->>CMS: GET /QRCode/Open/{code}?language={lang}
-
-    rect rgb(240, 248, 255)
-    note right of CMS: Tra cứu QR → POI
-    CMS->>DB: SELECT QRCodes WHERE Code = input
-    alt Mã không tồn tại
-        DB-->>CMS: Null
-        CMS-->>V: Trang lỗi "Mã QR không hợp lệ"
-    else Mã hợp lệ
-        DB-->>CMS: QRCode + PoiId
-        CMS->>DB: SELECT Pois JOIN PoiTranslations\\nWHERE Id = PoiId
-        DB-->>CMS: POI + Translations
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of CMS: Upsert Visitor & chọn ngôn ngữ
-    CMS->>DB: UPSERT Visitors (DeviceId, LastSeenAt)
-    CMS->>CMS: SelectTranslation(language)
-    CMS->>CMS: ResolvePublicAudioUrl()
-    CMS-->>V: Render trang công khai POI\\n(Title, Summary, Audio, Map, ảnh)
-    end
-
-    V->>CMS: Chọn ngôn ngữ khác
-    CMS->>CMS: Redirect với ?language=...
-    CMS-->>V: Re-render nội dung theo ngôn ngữ mới`
+    participant O as Operator
+    participant QR as QRCodeController
+    participant V as Visitor
+    participant APP as AudioTourApp
+    O->>QR: GET /QRCode/RenderAppEntryPng
+    QR->>QR: BuildAppEntryDeepLinkUrl()
+    note right of QR: audiotour://qr?entry=app&language=vi-VN&apiBaseUrl=...&source=qr-app-entry
+    QR-->>O: PNG mã QR (payload = deep link)
+    O->>O: In và đặt mã QR ở điểm tham quan
+    V->>V: Quét mã QR bằng camera điện thoại
+    V->>APP: Deep link audiotour://qr?entry=app&apiBaseUrl=http://...
+    APP->>APP: Lưu apiBaseUrl và language vào Preferences
+    APP->>APP: Trigger BootstrapAsync với cấu hình server mới
+    APP-->>V: App mở và tự động tải dữ liệu từ server`
             },
             {
                 id: "M15",
-                module: "Chuc nang quan tri",
-                title: "M15 — Quản lý Category (Danh mục POI)  ",
-                actor: "Admin",
-                entry: "CategoryController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/CategoryController.cs",
+                module: "Ch?c nang runtime",
+                title: "M15 — Đổi ngôn ngữ runtime và re-bootstrap theo ngôn ngữ mới",
+                actor: "Visitor",
+                entry: "MapPage, SettingsPage — Language Picker",
+                source: "MapPage.OnLanguageChanged; MainViewModel.ChangeLanguageAsync; BootstrapAsync; SyncVisitorSettingsAsync",
                 status: "ok",
-                summary: "Admin tạo, sửa, xóa danh mục POI. Hệ thống kiểm tra Slug unique và ngăn xóa Category đang được POI sử dụng.",
+                summary: "Khi visitor chọn ngôn ngữ khác, app đồng bộ language lên server rồi re-bootstrap toàn bộ POI và tour theo ngôn ngữ mới, reset filter và refresh map.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as Admin CMS
-    participant DB as SQL Server
-
-    A->>CMS: Mở trang Category
-    CMS->>DB: SELECT Categories ORDER BY SortOrder
-    DB-->>CMS: Danh sách Category
-    CMS-->>A: Render danh sách
-
-    rect rgb(240, 248, 255)
-    note right of A: Tạo Category mới
-    A->>CMS: Nhập Slug, Name, ThemeColor
-    CMS->>CMS: Normalize (Slug toLower, trim)
-    CMS->>DB: CHECK EXISTS WHERE Slug = input
-    alt Slug đã tồn tại
-        DB-->>CMS: Conflict
-        CMS-->>A: Lỗi "Mã danh mục đã tồn tại"
-    else Slug chưa có
-        CMS->>DB: INSERT Categories
-        DB-->>CMS: OK
-        CMS-->>A: Xác nhận tạo thành công
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of A: Xóa Category
-    A->>CMS: Bấm Xóa Category
-    CMS->>DB: COUNT Pois WHERE Category = slug
-    alt Có POI đang dùng
-        DB-->>CMS: poiCount > 0
-        CMS-->>A: Lỗi "Không thể xóa, có N POI đang sử dụng"
-    else Không có POI
-        CMS->>DB: DELETE Categories WHERE Id = id
-        DB-->>CMS: OK
-        CMS-->>A: Xác nhận xóa
-    end
-    end`
+    participant V as Visitor
+    participant MAP as MapPage / SettingsPage
+    participant VM as MainViewModel
+    participant API as Bootstrap + User API
+    participant DB as Shared DB
+    V->>MAP: Chọn ngôn ngữ khác trong Language Picker
+    MAP->>VM: ChangeLanguageAsync()
+    VM->>VM: Cập nhật SelectedLanguage
+    VM->>API: POST /api/user (đồng bộ language mới lên server)
+    API->>DB: Update visitor language
+    API-->>VM: VisitorProfile đã cập nhật
+    VM->>API: GET /api/bootstrap?language={newLang}
+    API->>DB: Load POI, Tour, Translation theo ngôn ngữ mới
+    API-->>VM: BootstrapResponse (nội dung đã dịch)
+    VM->>VM: Normalize content, reset filter, refresh map
+    VM-->>V: Toàn bộ POI/tour hiển thị theo ngôn ngữ mới`
             },
             {
                 id: "M16",
-                module: "Chuc nang quan tri",
-                title: "M16 — Quản lý Language (Ngôn ngữ)  ",
-                actor: "Admin",
-                entry: "LanguageController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/LanguageController.cs",
+                module: "Ch?c nang runtime",
+                title: "M16 — EnsureCurrentLocation — Lấy vị trí một lần",
+                actor: "App Runtime",
+                entry: "MapPage.OnAppearing, HomePage",
+                source: "MainViewModel.EnsureCurrentLocationAsync; Geolocation.GetLastKnownLocationAsync",
                 status: "ok",
-                summary: "Admin quản lý danh sách ngôn ngữ hỗ trợ. Hệ thống giới hạn 3 ngôn ngữ chính (vi-VN, en-US, zh-CN) và ngăn xóa ngôn ngữ đang được Translation sử dụng.",
+                summary: "Khi mở MapPage mà tracking chưa bật, app lấy một lần vị trí cuối cùng được cache bởi OS để hiển thị map ban đầu. Không bật foreground service, không ghi tracking lên server.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as Admin CMS
-    participant DB as SQL Server
-
-    A->>CMS: Mở trang Language
-    CMS->>DB: SELECT LanguageOptions\\nWHERE Code IN supported
-    DB-->>CMS: Danh sách ngôn ngữ
-    CMS-->>A: Render danh sách (vi-VN, en-US, zh-CN)
-
-    rect rgb(240, 248, 255)
-    note right of A: Chỉnh sửa ngôn ngữ
-    A->>CMS: Sửa NativeName, Locale, SortOrder, IsActive
-    CMS->>CMS: Normalize & Validate Code
-    alt Code không hỗ trợ
-        CMS-->>A: Lỗi "Bản demo chỉ hỗ trợ vi-VN, en-US, zh-CN"
-    else Code hợp lệ
-        CMS->>DB: UPDATE LanguageOptions SET fields...
-        DB-->>CMS: OK
-        CMS-->>A: Xác nhận cập nhật
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of A: Xóa ngôn ngữ
-    A->>CMS: Bấm Xóa
-    CMS->>CMS: Check SupportedCodes.Contains(code)
-    alt Là 1 trong 3 ngôn ngữ chính
-        CMS-->>A: Lỗi "Không xóa ngôn ngữ chính"
-    else Ngôn ngữ phụ
-        CMS->>DB: CHECK PoiTranslations / Pois dùng Code
-        alt Đang được sử dụng
-            DB-->>CMS: HasUsage = true
-            CMS-->>A: Lỗi "Đang được POI/Translation sử dụng"
-        else Không dùng
-            CMS->>DB: DELETE LanguageOptions
-            DB-->>CMS: OK
-            CMS-->>A: Xác nhận xóa
-        end
-    end
+    participant V as Visitor
+    participant MAP as MapPage
+    participant VM as MainViewModel
+    participant OS as Android GPS Cache
+    V->>MAP: Mở MapPage (tracking chưa bật)
+    MAP->>VM: EnsureCurrentLocationAsync()
+    VM->>OS: Geolocation.GetLastKnownLocationAsync()
+    alt Có vị trí cached sẵn trong OS
+        OS-->>VM: Location (lat, lng, accuracy)
+        VM->>VM: Lưu vào LatestLocation
+        VM->>VM: Refresh map với pin vị trí người dùng
+        VM-->>V: Map hiển thị vị trí hiện tại cùng các POI xung quanh
+    else Chưa có vị trí trong cache
+        OS-->>VM: Null
+        VM->>VM: Map dùng vị trí mặc định (10.7618, 106.7041 — TP.HCM)
+        VM-->>V: Map hiển thị khu vực mặc định, không có pin người dùng
     end`
             },
             {
                 id: "M17",
-                module: "Chuc nang quan tri",
-                title: "M17 — Quản lý Translation (Bản dịch POI)  ",
-                actor: "Admin",
-                entry: "TranslationController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/TranslationController.cs",
+                module: "Ch?c nang runtime",
+                title: "M17 — AudioInterruptionService — Xử lý ngắt audio do OS",
+                actor: "App Runtime / Android OS",
+                entry: "AudioInterruptionService — audio focus callback",
+                source: "AudioTourApp/Services/AudioInterruptionService.cs; AudioQueueService",
                 status: "ok",
-                summary: "Admin tạo bản dịch đa ngôn ngữ cho mỗi POI, quản lý Title/Summary/Description/TtsScript/AudioUrl theo từng ngôn ngữ.",
+                summary: "Khi có cuộc gọi đến hoặc ứng dụng khác giành audio focus, AudioInterruptionService dừng queue và TTS. Khi audio focus được trả lại, service quyết định có nên resume hay không dựa trên loại ngắt.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as Admin CMS
-    participant DB as SQL Server
-
-    A->>CMS: Mở chi tiết POI → Tab Translations
-    CMS->>DB: SELECT PoiTranslations\\nWHERE PoiId = id
-    DB-->>CMS: Danh sách bản dịch hiện có
-    CMS-->>A: Render danh sách Translations
-
-    rect rgb(240, 248, 255)
-    note right of A: Thêm bản dịch mới
-    A->>CMS: Chọn Language, nhập Title, Summary, Description
-    A->>CMS: Nhập TtsScript, AudioUrl (nếu có)
-    CMS->>DB: CHECK EXISTS WHERE PoiId AND Language
-    alt Đã có bản dịch cho ngôn ngữ này
-        DB-->>CMS: Conflict
-        CMS-->>A: Lỗi "Bản dịch ngôn ngữ này đã tồn tại"
-    else Chưa có
-        CMS->>DB: INSERT PoiTranslations\\n(PoiId, Language, Title, Summary,\\nDescription, TtsScript, AudioUrl,\\nIsPublished = false)
-        DB-->>CMS: OK
-        CMS-->>A: Xác nhận tạo bản dịch
-    end
-    end
-
-    rect rgb(255, 240, 245)
-    note right of A: Publish / Unpublish
-    A->>CMS: Toggle IsPublished
-    CMS->>DB: UPDATE PoiTranslations\\nSET IsPublished = toggle
-    DB-->>CMS: OK
-    CMS-->>A: Trạng thái cập nhật
-    note right of CMS: Chỉ Translation IsPublished = true\\nmới xuất hiện trong Bootstrap & QR
+    participant OS as Android OS
+    participant INT as AudioInterruptionService
+    participant QUEUE as AudioQueueService
+    participant TTS as NarrationService
+    participant AUDIO as AudioFallbackPlayer
+    OS->>INT: Audio focus lost (AUDIOFOCUS_LOSS hoặc LOSS_TRANSIENT)
+    INT->>QUEUE: RequestInterruptAsync()
+    QUEUE->>TTS: StopAsync()
+    QUEUE->>AUDIO: Stop current playback
+    QUEUE->>QUEUE: Đánh dấu trạng thái interrupted
+    OS->>INT: Audio focus regained (AUDIOFOCUS_GAIN)
+    alt Ngắt tạm thời (cuộc gọi kết thúc)
+        INT->>QUEUE: Kiểm tra trạng thái interrupted
+        alt Còn item trong hàng đợi
+            INT->>QUEUE: Resume từ đầu track hiện tại
+            QUEUE-->>OS: Phát tiếp audio
+        else Hàng đợi rỗng
+            INT->>INT: Không làm gì thêm
+        end
+    else Ngắt vĩnh viễn (app khác chiếm focus lâu dài)
+        INT->>QUEUE: Clear queue
+        INT-->>OS: Nhường audio focus hoàn toàn
     end`
             },
             {
                 id: "M18",
-                module: "Chuc nang quan tri",
-                title: "M18 — Analytics Dashboard & Heatmap  ",
-                actor: "Admin",
-                entry: "AnalyticsController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/AnalyticsController.cs",
+                module: "H�nh tr�nh ngu?i d�ng",
+                title: "M18 — PoiDetailPage — Xem chi tiết POI và chẩn đoán",
+                actor: "Visitor",
+                entry: "PoiDetailPage — mở từ POI list, MapPage hoặc tour stop",
+                source: "PoiDetailPage.cs; MainViewModel.OpenSelectedPoiDetailsAsync",
                 status: "ok",
-                summary: "Admin xem dashboard tổng quan: KPI cards, Top POI, Heatmap GPS, Route replay và bảng chi tiết GeofenceTrigger & VisitHistory.",
+                summary: "Visitor mở trang chi tiết POI để xem toàn bộ thông tin: ảnh, mô tả, địa chỉ, audio mode. Có thể chạy chẩn đoán audio/TTS, phát ngay hoặc mở bản đồ ngoài trực tiếp từ trang này.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as AnalyticsController
-    participant DB as SQL Server
-
-    A->>CMS: Mở trang Analytics
-    CMS->>DB: COUNT Pois, Tours, VisitHistories,\\nUserTrackings, GeofenceTriggers
-    CMS->>DB: SELECT DISTINCT UserId → UniqueVisitors
-    DB-->>CMS: Số liệu tổng quan
-    CMS-->>A: Render KPI Cards (Tổng POI, Visit, Visitors)
-
-    rect rgb(240, 248, 255)
-    note right of A: Heatmap & Route
-    CMS->>DB: SELECT UserTrackings\\nWHERE bounds & dateRange
-    DB-->>CMS: Raw GPS points
-    CMS->>CMS: SnapToGrid() → Tính cell intensity
-    CMS->>CMS: Weighted Score = samples + visitors*2.5\\n+ dwell/30
-    CMS-->>A: Render Heatmap trên Leaflet
-
-    CMS->>CMS: BuildRouteSessions()\\nGộp GPS thành phiên di chuyển
-    CMS-->>A: Render Route Replay trên bản đồ
+    participant V as Visitor
+    participant VM as MainViewModel
+    participant SHELL as Shell Navigation
+    participant DETAIL as PoiDetailPage
+    participant QUEUE as AudioQueueService
+    participant API as ApiClient
+    V->>VM: OpenSelectedPoiDetailsAsync()
+    VM->>SHELL: Push PoiDetailPage(selectedPoi)
+    SHELL-->>V: Render chi tiết POI (ảnh, title, summary, address, audio mode)
+    opt Chạy chẩn đoán audio
+        V->>DETAIL: Bấm chẩn đoán audio
+        DETAIL->>VM: RunSelectedPoiAudioDiagnosticsAsync()
+        VM->>API: ProbeUrlAsync(audioUrl) — HTTP HEAD check
+        API-->>VM: HTTP status, content-type, content-length
+        VM->>VM: GetDiagnosticsAsync(language, voiceName)
+        VM-->>DETAIL: Kết quả: URL sống/chết, TTS locale, voice khả dụng
+        DETAIL-->>V: Hiển thị log chẩn đoán đầy đủ
     end
-
-    rect rgb(255, 240, 245)
-    note right of A: Chi tiết Trigger & Visit
-    CMS->>DB: SELECT TOP GeofenceTriggers\\nORDER BY RecordedAt DESC
-    DB-->>CMS: Trigger gần đây
-    CMS->>DB: SELECT TOP VisitHistories\\nORDER BY EndTime DESC
-    DB-->>CMS: Visit gần đây
-    CMS-->>A: Render bảng chi tiết\\n(Visitor, POI, Duration, Mode)
+    opt Nghe thuyết minh
+        V->>DETAIL: Bấm Nghe ngay
+        DETAIL->>VM: PlaySelectedAsync()
+        VM->>QUEUE: Enqueue(manual, selectedPoi)
+        QUEUE-->>V: Phát audio file hoặc TTS
+    end
+    opt Mở bản đồ ngoài
+        V->>DETAIL: Bấm Mở bản đồ
+        DETAIL->>VM: OpenSelectedMapAsync()
+        VM-->>V: Launch Google Maps ngoài
     end`
             },
             {
                 id: "A14",
-                module: "Chuc nang quan tri",
-                title: "A14 — Quản lý Visitor & Tracking Monitor  ",
-                actor: "Admin",
-                entry: "VisitorController + TrackingController (Admin CMS)",
-                source: "AudioGuideAdmin/Controllers/VisitorController.cs",
+                module: "Ch?c nang qu?n tr?",
+                title: "A14 — CreateBusStopSet — Batch tạo QR cho điểm dừng xe buýt",
+                actor: "Operator",
+                entry: "QRCodeController.CreateBusStopSet",
+                source: "QRCodeController.CreateBusStopSet; FindBusStopPoi; QRCodes table",
                 status: "ok",
-                summary: "Admin xem danh sách Visitor với trạng thái Online/Offline, thống kê tracking/visit/trigger, chỉnh sửa thông tin và xem lịch sử GPS.",
+                summary: "Operator bấm một nút để hệ thống tự động tìm POI khớp tên điểm dừng xe buýt bằng keyword matching rồi tạo hoặc cập nhật bộ mã QR chuẩn BUS-KH-001, BUS-VH-002, BUS-XC-003.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor A as Admin
-    participant CMS as VisitorController
-    participant DB as SQL Server
-
-    A->>CMS: Mở trang /Visitor
-    CMS->>DB: SELECT Visitors ORDER BY LastSeenAt DESC
-    DB-->>CMS: Danh sách Visitors
-
-    rect rgb(240, 248, 255)
-    note right of CMS: Tính toán thống kê cho mỗi Visitor
-    CMS->>DB: COUNT UserTrackings GROUP BY UserId
-    CMS->>DB: COUNT VisitHistories GROUP BY UserId
-    CMS->>DB: COUNT GeofenceTriggers GROUP BY UserId
-    DB-->>CMS: TrackingCount, VisitCount, TriggerCount
-    end
-
-    rect rgb(255, 240, 245)
-    note right of CMS: Xác định trạng thái Online
-    loop Mỗi Visitor
-        CMS->>CMS: Delta = UtcNow - NormalizeStoredUtc(LastSeenAt)
-        alt Delta <= 5 phút (ActiveThreshold)
-            CMS->>CMS: IsActive = true → Badge "Online"
-        else Delta > 5 phút
-            CMS->>CMS: IsActive = false → "X phút/giờ trước"
+    participant O as Operator
+    participant QR as QRCodeController
+    participant DB as Pois + QRCodes
+    O->>QR: POST /QRCode/CreateBusStopSet
+    QR->>DB: Load toàn bộ danh sách POI
+    loop Với mỗi spec trong bộ bus stop
+        note right of QR: BUS-KH-001 Khánh Hội, BUS-VH-002 Vĩnh Hội, BUS-XC-003 Xuân Chiếu
+        QR->>QR: FindBusStopPoi(label) — so khớp keyword tên điểm với POI.Name
+        alt Tìm thấy POI phù hợp
+            QR->>DB: Check QRCode với code này đã tồn tại chưa
+            alt Chưa có
+                QR->>DB: INSERT QRCode mới (PoiId, Code, Note)
+            else Đã có
+                QR->>DB: UPDATE PoiId + Note (cập nhật liên kết)
+            end
+        else Không tìm thấy POI
+            QR->>QR: Thêm label vào danh sách missing
         end
-        CMS->>CMS: IsSyntheticData? (sim-device, Khách test)
     end
+    alt Có QR được tạo hoặc cập nhật
+        QR-->>O: TempData Success: "Đã tạo/cập nhật X QR xe buýt"
     end
-
-    CMS->>CMS: Sort: Active first → Real first → LastSeenAt DESC
-    CMS-->>A: Render bảng Visitor\\n(Online badge, stats, last seen)
-
-    rect rgb(240, 255, 240)
-    note right of A: Chỉnh sửa Visitor
-    A->>CMS: Bấm Edit Visitor
-    CMS->>DB: SELECT Visitors WHERE Id = id
-    DB-->>CMS: Visitor profile
-    CMS-->>A: Form chỉnh sửa
-    A->>CMS: Sửa DisplayName, Language, AutoPlay
-    CMS->>DB: UPDATE Visitors SET fields...
-    DB-->>CMS: OK
-    CMS-->>A: Redirect về danh sách
-    end`
+    alt Có POI chưa khớp
+        QR-->>O: TempData Error: "Chưa tìm thấy POI cho: [danh sách]"
+    end
+    QR-->>O: Redirect về trang Index QR`
             }
         ];
 
         const moduleDescriptions = {
-            "Hanh trinh nguoi dung": "3 sequence mô tả hành vi chính trong PRD: visitor bắt đầu, visitor đi ngang POI và admin vận hành nội dung.",
-            "Chuc nang quan tri": "Các sequence cho nhóm yêu cầu F1-F4, F9, F11-F12, QR01-QR02, M15-M18 và A14 trong PRD.",
-            "Chuc nang runtime": "Các sequence cho bootstrap, geofence, tracking, visit history và QR lookup trên mobile/backend."
+            "H�nh tr�nh ngu?i d�ng": "3 sequence m� t? h�nh vi ch�nh trong PRD: visitor b?t d?u, visitor di ngang POI v� admin v?n h�nh n?i dung.",
+            "Ch?c nang qu?n tr?": "C�c sequence cho nh�m y�u c?u F1, F2, F3, F4, F9 v� F11 trong PRD.",
+            "Ch?c nang runtime": "C�c sequence cho bootstrap, geofence, tracking, visit history v� QR lookup tr�n mobile/backend."
         };
 
         let mermaidApi = null;
@@ -2607,7 +2632,7 @@
                     <div class="section-head">
                         <div class="section-num">Section 03</div>
                         <h2>Inventory sequence theo PRD</h2>
-                        <p>Moi dong ben duoi la mot sequence UML duoc rut ra truc tiep tu hanh trinh nguoi dung va cac yeu cau F1-F11 trong PRD.</p>
+                        <p>Moi dong ben duoi la mot sequence UML duoc rut ra truc tiep tu H�nh tr�nh ngu?i d�ng va cac yeu cau F1-F11 trong PRD.</p>
                     </div>
                     <div class="section-body">
                         <div class="inventory-groups" id="inventoryGroups"></div>
@@ -2767,7 +2792,7 @@
                     <div class="section-head">
                         <div class="section-num">Section 07</div>
                         <h2>UML sequence catalog tu PRD</h2>
-                        <p>Danh sach ben duoi gom 14 sequence UML cho 3 hanh trinh chinh va 11 functional requirement trong PRD. Bam vao tung card de xem chi tiet.</p>
+                        <p>Danh sách bên dưới gồm 14 sequence UML cho 3 hành trình chính và 11 functional requirement trong PRD. Bấm vào từng card để xem chi tiết.</p>
                     </div>
                     <div class="section-body">
                         <div class="sequence-toolbar" id="sequenceToolbar"></div>
@@ -2826,7 +2851,7 @@
                     <div class="section-head">
                         <div class="section-num">Section 08</div>
                         <h2>Activity Diagram (UML)</h2>
-                        <p>6 luồng hoạt động chính — suy ra từ PRD, Sequence Diagrams (J01-J03, F01-F11) & Database</p>
+                        <p>8 luồng hoạt động chính — suy ra từ PRD, Sequence Diagrams (J01-J03, F01-F11, QR01-QR02, M15-M17) & Database</p>
                     </div>
                     <div class="section-body">
                         <div class="sequence-toolbar" id="activityTabBar"></div>
@@ -2841,7 +2866,7 @@
                     <div class="section-head">
                         <div class="section-num">Section 09</div>
                         <h2>Class Diagram (UML)</h2>
-                        <p>Thiết kế class dựa trên PRD, 14 Sequence Diagrams và kiến trúc 3 ứng dụng</p>
+                        <p>Thiết kế class dựa trên PRD, 21 Sequence Diagrams, 3 entity mới (Membership) và kiến trúc 3 ứng dụng</p>
                     </div>
                     <div class="section-body">
                         <div class="sequence-toolbar" id="classTabBar"></div>
@@ -2856,7 +2881,7 @@
                     <div class="section-head">
                         <div class="section-num">Section 10</div>
                         <h2>State Diagram (UML)</h2>
-                        <p>Biểu đồ trạng thái cho 8 đối tượng nghiệp vụ — suy ra từ PRD, Sequence Diagrams & Database</p>
+                        <p>Biểu đồ trạng thái cho 10 đối tượng nghiệp vụ — suy ra từ PRD, Sequence Diagrams & Database</p>
                     </div>
                     <div class="section-body">
                         <div class="sequence-toolbar" id="stateTabBar"></div>
@@ -3044,9 +3069,9 @@
                 sequences: 'J01, F05, F07',
                 actors: 'Visitor, Mobile App, Backend API, SQL Server',
                 meta: [
-                    { title: 'User Actions', items: ['Mở ứng dụng AudioTourApp','Nhập hoặc giữ nguyên API Base URL','Bấm nút Bootstrap / Bật Tracking','Cấp quyền vị trí khi OS hỏi'] },
-                    { title: 'System Processing', items: ['<code>POST /api/user</code> — Sync visitor profile','<code>GET /api/bootstrap?lang=</code> — Tải POI + Tour','Khởi động Foreground Service GPS','<code>POST /api/tracking</code> — Gửi batch GPS định kỳ'] },
-                    { title: 'Database Operations', items: ['<code>SELECT/INSERT Visitors</code> — Upsert visitor','<code>SELECT Pois WHERE IsActive=true</code>','<code>SELECT Tours WHERE IsActive=true</code>','<code>INSERT UserTrackings</code> — Lưu GPS points'] }
+                    { title: 'User Actions', items: ['Mở ứng dụng AudioTourApp', 'Nhập hoặc giữ nguyên API Base URL', 'Bấm nút Bootstrap / Bật Tracking', 'Cấp quyền vị trí khi OS hỏi'] },
+                    { title: 'System Processing', items: ['<code>POST /api/user</code> — Sync visitor profile', '<code>GET /api/bootstrap?lang=</code> — Tải POI + Tour', 'Khởi động Foreground Service GPS', '<code>POST /api/tracking</code> — Gửi batch GPS định kỳ'] },
+                    { title: 'Database Operations', items: ['<code>SELECT/INSERT Visitors</code> — Upsert visitor', '<code>SELECT Pois WHERE IsActive=true</code>', '<code>SELECT Tours WHERE IsActive=true</code>', '<code>INSERT UserTrackings</code> — Lưu GPS points'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Visitor mở AudioTourApp"]
@@ -3085,9 +3110,9 @@
                 sequences: 'J02, F06, F08',
                 actors: 'Mobile App, Backend API, SQL Server, Audio Engine',
                 meta: [
-                    { title: 'Decision Points', items: ['Distance <= Radius hay ApproachRadius?','TriggerMode = enter / nearby / manual / both?','CooldownUntil <= now? (hết cooldown chưa)','Debounce check: trigger gần nhất > debounceSeconds?','AudioUrl hay TtsScript để phát?'] },
-                    { title: 'Parallel Flows', items: ['Fork: App vừa phát audio, vừa tiếp tục tracking GPS','Fork: Phát audio xong, POST /api/visit song song với PlayNext()','Audio queue xử lý tuần tự nhưng tracking chạy song song'] },
-                    { title: 'Database Operations', items: ['<code>SELECT Pois WHERE IsActive</code> — Load POI gần','<code>SELECT GeofenceTriggers</code> — Check cooldown','<code>INSERT GeofenceTriggers</code> — Ghi trigger mới','<code>INSERT VisitHistories</code> — Ghi lượt nghe'] }
+                    { title: 'Decision Points', items: ['Distance <= Radius hay ApproachRadius?', 'TriggerMode = enter / nearby / manual / both?', 'CooldownUntil <= now? (hết cooldown chưa)', 'Debounce check: trigger gần nhất > debounceSeconds?', 'AudioUrl hay TtsScript để phát?'] },
+                    { title: 'Parallel Flows', items: ['Fork: App vừa phát audio, vừa tiếp tục tracking GPS', 'Fork: Phát audio xong, POST /api/visit song song với PlayNext()', 'Audio queue xử lý tuần tự nhưng tracking chạy song song'] },
+                    { title: 'Database Operations', items: ['<code>SELECT Pois WHERE IsActive</code> — Load POI gần', '<code>SELECT GeofenceTriggers</code> — Check cooldown', '<code>INSERT GeofenceTriggers</code> — Ghi trigger mới', '<code>INSERT VisitHistories</code> — Ghi lượt nghe'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["📱 Location update callback\\nlat, lng, accuracy"]
@@ -3137,9 +3162,9 @@
                 sequences: 'F11, J03 Pha 1',
                 actors: 'Admin, Browser, ASP.NET MVC, SQL Server',
                 meta: [
-                    { title: 'User Actions', items: ['Truy cập URL Admin site','Nhập Username + Password','Bấm Login hoặc Register','Bấm Logout khi muốn thoát'] },
-                    { title: 'System Processing', items: ['SessionMiddleware kiểm tra Cookie','SHA-256 hash password và so sánh','Tạo HttpOnly Session Cookie (8h)','Redirect về Login khi hết phiên'] },
-                    { title: 'Database Operations', items: ['<code>SELECT COUNT(*) FROM AdminUsers</code> — Check first boot','<code>SELECT AdminUsers WHERE Username</code> — Verify login','<code>INSERT AdminUsers</code> — Register admin đầu tiên'] }
+                    { title: 'User Actions', items: ['Truy cập URL Admin site', 'Nhập Username + Password', 'Bấm Login hoặc Register', 'Bấm Logout khi muốn thoát'] },
+                    { title: 'System Processing', items: ['SessionMiddleware kiểm tra Cookie', 'SHA-256 hash password và so sánh', 'Tạo HttpOnly Session Cookie (8h)', 'Redirect về Login khi hết phiên'] },
+                    { title: 'Database Operations', items: ['<code>SELECT COUNT(*) FROM AdminUsers</code> — Check first boot', '<code>SELECT AdminUsers WHERE Username</code> — Verify login', '<code>INSERT AdminUsers</code> — Register admin đầu tiên'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Admin truy cập\\nAdmin Site URL"]
@@ -3176,9 +3201,9 @@
                 sequences: 'F01, F02, F04, J03 Pha 2',
                 actors: 'Admin, Browser, ASP.NET MVC, SQL Server, Shared Storage',
                 meta: [
-                    { title: 'Decision Points', items: ['Tạo mới hay chỉnh sửa POI?','Toạ độ hợp lệ? Radius > 0?','Translation: UNIQUE(PoiId + Language)?','Audio: File hợp lệ (format + size)?','Xoá POI: Có Tour đang tham chiếu?'] },
-                    { title: 'Parallel / Sub-flows', items: ['Tạo POI → sau đó tạo Translation (sub-flow)','Upload Audio → gán vào POI hoặc Translation','Toggle IsActive ảnh hưởng Bootstrap runtime'] },
-                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Pois</code>','<code>INSERT/UPDATE PoiTranslations</code> + UNIQUE check','File lưu vào <code>SharedStorage/audio/</code>','<code>SELECT Categories, Languages</code> — populate dropdowns'] }
+                    { title: 'Decision Points', items: ['Tạo mới hay chỉnh sửa POI?', 'Toạ độ hợp lệ? Radius > 0?', 'Translation: UNIQUE(PoiId + Language)?', 'Audio: File hợp lệ (format + size)?', 'Xoá POI: Có Tour đang tham chiếu?'] },
+                    { title: 'Parallel / Sub-flows', items: ['Tạo POI → sau đó tạo Translation (sub-flow)', 'Upload Audio → gán vào POI hoặc Translation', 'Toggle IsActive ảnh hưởng Bootstrap runtime'] },
+                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Pois</code>', '<code>INSERT/UPDATE PoiTranslations</code> + UNIQUE check', 'File lưu vào <code>SharedStorage/audio/</code>', '<code>SELECT Categories, Languages</code> — populate dropdowns'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Admin vào trang\\nQuản lý POI"]
@@ -3233,9 +3258,9 @@
                 sequences: 'F03, J03 Pha 2',
                 actors: 'Admin, Browser, ASP.NET MVC, SQL Server',
                 meta: [
-                    { title: 'User Actions', items: ['Tạo Tour mới với tên, mô tả, ngôn ngữ','Chọn POI từ danh sách để thêm vào Tour','Sắp xếp thứ tự TourStop bằng SortOrder','Bật / tắt Tour cho Visitor'] },
-                    { title: 'Decision Points', items: ['Tour phải có ít nhất 1 Stop để publish','SortOrder phải unique trong cùng Tour','POI được chọn phải IsActive = true','Xoá Tour sẽ cascade xoá toàn bộ Stop'] },
-                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Tours</code>','<code>INSERT/UPDATE/DELETE TourStops</code>','<code>SELECT Pois WHERE IsActive</code> — cho dropdown','CHECK UNIQUE (<code>TourId + SortOrder</code>)'] }
+                    { title: 'User Actions', items: ['Tạo Tour mới với tên, mô tả, ngôn ngữ', 'Chọn POI từ danh sách để thêm vào Tour', 'Sắp xếp thứ tự TourStop bằng SortOrder', 'Bật / tắt Tour cho Visitor'] },
+                    { title: 'Decision Points', items: ['Tour phải có ít nhất 1 Stop để publish', 'SortOrder phải unique trong cùng Tour', 'POI được chọn phải IsActive = true', 'Xoá Tour sẽ cascade xoá toàn bộ Stop'] },
+                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Tours</code>', '<code>INSERT/UPDATE/DELETE TourStops</code>', '<code>SELECT Pois WHERE IsActive</code> — cho dropdown', 'CHECK UNIQUE (<code>TourId + SortOrder</code>)'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Admin vào trang\\nQuản lý Tour"]
@@ -3278,9 +3303,9 @@
                 sequences: 'F09, F10, J03 Pha 3',
                 actors: 'Visitor, Admin, Mobile App, Browser, Backend API, SQL Server',
                 meta: [
-                    { title: 'QR Lookup Flow', items: ['Visitor quét QR hoặc nhập mã thủ công','<code>GET /api/qrcode/{code}</code> tra cứu','Trả về POI + Translation + AudioUrl','App phát audio hoặc hiển thị bài đọc'] },
-                    { title: 'Analytics Flow', items: ['Admin vào Dashboard xem KPI tổng quan','<code>GET /api/analytics/overview</code>','<code>GET /api/analytics/top-poi</code> — Top POI','<code>GET /api/heatmap</code> — Heatmap tracking'] },
-                    { title: 'Database Queries', items: ['<code>SELECT QRCodes WHERE Code</code> → <code>JOIN Pois</code>','<code>COUNT(*) VisitHistories, UserTrackings</code>','<code>GROUP BY PoiId</code> → Top POI lượt nghe','<code>AVG(Duration)</code> → Thời lượng nghe TB'] }
+                    { title: 'QR Lookup Flow', items: ['Visitor quét QR hoặc nhập mã thủ công', '<code>GET /api/qrcode/{code}</code> tra cứu', 'Trả về POI + Translation + AudioUrl', 'App phát audio hoặc hiển thị bài đọc'] },
+                    { title: 'Analytics Flow', items: ['Admin vào Dashboard xem KPI tổng quan', '<code>GET /api/analytics/overview</code>', '<code>GET /api/analytics/top-poi</code> — Top POI', '<code>GET /api/heatmap</code> — Heatmap tracking'] },
+                    { title: 'Database Queries', items: ['<code>SELECT QRCodes WHERE Code</code> → <code>JOIN Pois</code>', '<code>COUNT(*) VisitHistories, UserTrackings</code>', '<code>GROUP BY PoiId</code> → Top POI lượt nghe', '<code>AVG(Duration)</code> → Thời lượng nghe TB'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> D0{"Ai đang dùng?"}
@@ -3317,6 +3342,94 @@
     AD8 --> DB6[("💾 SELECT lat, lng, COUNT\\nFROM UserTrackings\\nGROUP BY grid cell")]
     DB6 --> AD9["📄 Render Heatmap\\ntrên bản đồ Leaflet"]
     AD9 --> ENDA(("✅ Admin\\nxem xong Analytics"))`
+            },
+            {
+                id: 'qrpublic',
+                title: 'A07 — QR Public Web & Deep Link App Entry',
+                desc: 'Luồng Visitor quét QR bằng điện thoại mở trang web công khai hoặc deep link vào app native. Bao gồm luồng tạo cookie visitor ẩn danh, ghi visit history và cấu hình app qua deep link.',
+                sequences: 'QR01, QR02, M11, M12',
+                actors: 'Visitor, Mobile Browser, Admin Site, AudioTourApp',
+                meta: [
+                    { title: 'QR Public Web', items: ['Visitor quét QR bằng camera điện thoại', 'Mở trang web Admin: /QRCode/Open/{code}', 'Tạo cookie visitor-id + device-id (180 ngày)', 'Ghi VisitHistory TriggerType=qr-public', 'Hiển thị nội dung POI + nút mở app'] },
+                    { title: 'App Entry Deep Link', items: ['Operator in mã QR APP-ENTRY đặc biệt', 'Visitor quét → scheme audiotour:// mở app', 'App nhận apiBaseUrl + language từ deep link', 'Trigger BootstrapAsync với server mới'] },
+                    { title: 'Database Operations', items: ['<code>SELECT QRCodes JOIN Pois</code>', '<code>UPSERT Visitors</code> theo cookie', '<code>INSERT VisitHistories</code> web trigger', 'Cookie Store: Set-Cookie 180 ngày'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> D0{"Loại QR?"}
+    D0 -- "QR POI thường" --> V1["🧑 Visitor quét QR\\nbằng camera điện thoại"]
+    D0 -- "QR APP-ENTRY" --> AE1["🧑 Operator in mã QR\\nAPP-ENTRY đặc biệt"]
+    V1 --> V2["🌐 Mở trình duyệt\\nGET /QRCode/Open/{code}"]
+    V2 --> DB1[("💾 SELECT QRCodes\\nJOIN Pois + Translations")]
+    DB1 --> D1{"Mã QR\\ntồn tại?"}
+    D1 -- Không --> V3["⚠️ 404 Not Found"]
+    V3 --> ENDV(("❌ Kết thúc"))
+    D1 -- Có --> V4["⚙️ SelectTranslation\\ntheo language param"]
+    V4 --> D2{"User-Agent\\nlà Mobile?"}
+    D2 -- Không --> V7["📄 Render trang web POI\\nkhông ghi visitor"]
+    D2 -- Có --> V5["🍪 Đọc cookie\\nvisitor-id / device-id"]
+    V5 --> D3{"Cookie\\nđã có?"}
+    D3 -- Chưa --> V6["🍪 Sinh visitorId + deviceId\\nghi cookie 180 ngày"]
+    D3 -- Có --> DB2
+    V6 --> DB2[("💾 UPSERT Visitors\\nDisplayName theo UA")]
+    DB2 --> DB3[("💾 INSERT VisitHistory\\nTriggerType=qr-public")]
+    DB3 --> V7B["📄 Render trang POI\\n+ nút Mở App"]
+    V7B --> D4{"Visitor bấm\\nMở App?"}
+    D4 -- Có --> V8["📱 Launch deep link\\naudiotour://qr?code=..."]
+    D4 -- Không --> ENDWEB(("✅ Xem web xong"))
+    V8 --> APP1["📱 App nhận deep link\\nparse code + apiBaseUrl"]
+    APP1 --> APP2["📱 Lookup QR trong app\\nvà mở PoiDetailPage"]
+    APP2 --> ENDAPP(("✅ App hiển thị POI"))
+    V7 --> ENDWEB
+    AE1 --> AE2["⚙️ BuildAppEntryDeepLinkUrl\\naudiotour://qr?entry=app"]
+    AE2 --> AE3["🖨️ Render PNG QR\\nchứa deep link payload"]
+    AE3 --> AE4["🧑 Operator in và đặt\\nQR ở điểm tham quan"]
+    AE4 --> AE5["🧑 Visitor quét mã\\nAPP-ENTRY"]
+    AE5 --> AE6["📱 App nhận deep link\\nentry=app + apiBaseUrl"]
+    AE6 --> AE7["📱 Lưu apiBaseUrl\\nvào Preferences"]
+    AE7 --> AE8["📱 BootstrapAsync\\nvới server mới"]
+    AE8 --> ENDAPP2(("✅ App sẵn sàng"))`
+            },
+            {
+                id: 'changelang',
+                title: 'A08 — Đổi ngôn ngữ & Audio Interruption',
+                desc: 'Luồng Visitor đổi ngôn ngữ runtime kích hoạt re-bootstrap, và luồng xử lý khi audio bị ngắt bởi cuộc gọi hoặc app khác giành audio focus.',
+                sequences: 'M15, M16, M17',
+                actors: 'Visitor, Mobile App, Android OS, Backend API',
+                meta: [
+                    { title: 'Change Language', items: ['Visitor chọn ngôn ngữ mới từ picker', 'App POST /api/user đồng bộ language', 'App GET /api/bootstrap?lang=newLang', 'Normalize + reset filter + refresh map'] },
+                    { title: 'Audio Interruption', items: ['Android OS: Audio focus lost', 'AudioInterruptionService dừng playback', 'Audio focus regained → kiểm tra resume', 'LOSS_TRANSIENT → resume, LOSS → clear queue'] },
+                    { title: 'EnsureLocation', items: ['MapPage.OnAppearing gọi EnsureCurrentLocationAsync', 'Geolocation.GetLastKnownLocationAsync từ OS cache', 'Không bật foreground service'] }
+                ],
+                mermaid: `flowchart TD
+    START(( )) --> D0{"Sự kiện nào?"}
+    D0 -- "Đổi ngôn ngữ" --> L1["🧑 Visitor chọn ngôn ngữ mới\\ntrong Language Picker"]
+    D0 -- "Audio bị ngắt" --> I1["📱 Android OS:\\nAudio focus LOST"]
+    D0 -- "Mở MapPage" --> E1["📱 MapPage.OnAppearing\\ntracking chưa bật"]
+    L1 --> L2["📱 ChangeLanguageAsync()\\nCập nhật SelectedLanguage"]
+    L2 --> L3["📱 POST /api/user\\nđồng bộ language mới"]
+    L3 --> DB1[("💾 UPDATE Visitors\\nSET Language = newLang")]
+    DB1 --> L4["📱 GET /api/bootstrap\\n?language=newLang"]
+    L4 --> DB2[("💾 SELECT Pois, Tours\\nTranslations theo lang mới")]
+    DB2 --> L5["📱 Normalize content\\nreset filter, refresh map"]
+    L5 --> ENDL(("✅ Nội dung\\ntheo ngôn ngữ mới"))
+    I1 --> I2["📱 AudioInterruptionService\\nnhận callback"]
+    I2 --> I3["📱 RequestInterruptAsync()\\nDừng TTS + AudioPlayer"]
+    I3 --> I4["📱 Đánh dấu\\ntrạng thái interrupted"]
+    I4 --> D1{"Audio focus\\nregained?"}
+    D1 -- "GAIN (tạm thời)" --> D2{"Queue còn\\naudio?"}
+    D2 -- Có --> I5["📱 Resume từ\\nđầu track hiện tại"]
+    D2 -- Không --> I6["📱 Không làm gì"]
+    D1 -- "Không regain\\n(vĩnh viễn)" --> I7["📱 Clear queue\\nnhường audio focus"]
+    I5 --> ENDI(("✅ Tiếp tục phát"))
+    I6 --> ENDI
+    I7 --> ENDI
+    E1 --> E2["📱 EnsureCurrentLocationAsync()"]
+    E2 --> E3["📱 GetLastKnownLocationAsync\\ntừ Android GPS cache"]
+    E3 --> D3{"Có vị trí\\ncached?"}
+    D3 -- Có --> E4["📱 Lưu LatestLocation\\nRefresh map pin"]
+    D3 -- Không --> E5["📱 Dùng vị trí mặc định\\n10.7618, 106.7041 TP.HCM"]
+    E4 --> ENDE(("✅ Map hiển thị"))
+    E5 --> ENDE`
             }
         ];
 
@@ -3464,7 +3577,66 @@
     TourStop "0..*" --> "1" Poi : references
     Visitor "1" *-- "0..*" UserTracking : positions
     Visitor "1" *-- "0..*" GeofenceTrigger : history
-    Visitor "1" *-- "0..*" VisitHistory : records`,
+    Visitor "1" *-- "0..*" VisitHistory : records
+    class RegistrationPlan {
+        +int Id
+        +string Code
+        +string Name
+        +string Description
+        +string HighlightText
+        +int Price
+        +int DurationDays
+        +string Currency
+        +bool IsActive
+        +int SortOrder
+    }
+    class MembershipRegistration {
+        +string Id
+        +string VisitorId
+        +string DeviceId
+        +string FullName
+        +string Phone
+        +string Email
+        +string PreferredLanguage
+        +string Source
+        +string Status
+        +string PaymentStatus
+        +int RegistrationPlanId
+        +int Amount
+        +string Currency
+        +long OrderCode
+        +string PaymentLinkId
+        +string CheckoutUrl
+        +string QrCode
+        +string ReturnToken
+        +string Note
+        +string AdminNote
+        +DateTime CreatedAt
+        +DateTime UpdatedAt
+        +DateTime FormSubmittedAt
+        +DateTime PaidAt
+        +DateTime CancelledAt
+    }
+    class CustomerAccount {
+        +string Id
+        +string RegistrationId
+        +string FullName
+        +string Phone
+        +string Email
+        +string PreferredLanguage
+        +string PasswordHash
+        +string PasswordSalt
+        +bool IsActive
+        +bool IsPaid
+        +string Status
+        +string SessionToken
+        +DateTime SessionExpiresAt
+        +DateTime CreatedAt
+        +DateTime PaidAt
+        +DateTime LastLoginAt
+    }
+    RegistrationPlan "1" o-- "0..*" MembershipRegistration : has
+    MembershipRegistration "1" -- "0..1" CustomerAccount : creates`,
             entity: `classDiagram
     direction LR
     class Poi {
@@ -3551,7 +3723,34 @@
     TourStop "0..*" --> "1" Poi : association
     Visitor "1" *-- "0..*" UserTracking : compositions
     Visitor "1" *-- "0..*" GeofenceTrigger : compositions
-    Visitor "1" *-- "0..*" VisitHistory : compositions`,
+    Visitor "1" *-- "0..*" VisitHistory : compositions
+    class RegistrationPlan {
+        +int Id
+        +string Code
+        +string Name
+        +int Price
+        +int DurationDays
+        +bool IsActive
+    }
+    class MembershipRegistration {
+        +string Id
+        +string VisitorId
+        +string Status
+        +string PaymentStatus
+        +int RegistrationPlanId
+        +int Amount
+        +long OrderCode
+    }
+    class CustomerAccount {
+        +string Id
+        +string RegistrationId
+        +string Phone
+        +string Email
+        +bool IsActive
+        +string Status
+    }
+    RegistrationPlan "1" o-- "0..*" MembershipRegistration : plans
+    MembershipRegistration "1" -- "0..1" CustomerAccount : creates`,
             controller: `classDiagram
     direction TB
     class AuthController {
@@ -3602,9 +3801,73 @@
         <<Web API>>
         +Lookup(code) PoiPayload
     }
+    class TranslationController {
+        <<Admin MVC>>
+        +Index(poiId) ViewResult
+        +Create(data) ActionResult
+        +Edit(id, data) ActionResult
+        +Delete(id) ActionResult
+    }
+    class CategoryController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Create(data) ActionResult
+        +Edit(id, data) ActionResult
+        +Delete(id) ActionResult
+    }
+    class LanguageController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Create(data) ActionResult
+        +Edit(id, data) ActionResult
+        +Delete(id) ActionResult
+    }
+    class VisitorController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Detail(id) ViewResult
+        +ToggleAutoPlay(id) ActionResult
+    }
+    class ImageController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Upload(file) ActionResult
+        +Delete(filename) ActionResult
+    }
+    class AnalyticsAdminController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Heatmap() ViewResult
+        +RouteSession(visitorId) ViewResult
+    }
+    class QRCodeAdminController {
+        <<Admin MVC>>
+        +Index() ViewResult
+        +Create(data) ActionResult
+        +Open(code) ViewResult
+        +CreateBusStopSet() ActionResult
+        +RenderAppEntryPng() FileResult
+    }
+    class UserApiController {
+        <<Web API>>
+        +PostUser(userData) UserResult
+    }
+    class AnalyticsApiController {
+        <<Web API>>
+        +Overview() OverviewResult
+        +TopPoi() TopPoiResult
+        +AvgDuration() DurationResult
+    }
+    class HeatmapApiController {
+        <<Web API>>
+        +GetHeatmap() HeatmapResult
+    }
     AuthController --|> PoiController : same Admin area
     AuthController --|> TourController : same Admin area
-    AuthController --|> DashboardController : same Admin area`,
+    AuthController --|> DashboardController : same Admin area
+    AuthController --|> TranslationController : same Admin area
+    AuthController --|> CategoryController : same Admin area
+    AuthController --|> QRCodeAdminController : same Admin area`,
             service: `classDiagram
     direction TB
     class LocationService {
@@ -3638,9 +3901,58 @@
         <<Backend Utility>>
         +Normalize(start, end, duration) NormalizedVisit
     }
+    class NarrationService {
+        <<MAUI Android TTS>>
+        +InitializeAsync() Task
+        +SpeakAsync(text, lang, voice) Task
+        +StopAsync() void
+        +GetDiagnosticsAsync() DiagInfo
+        +GetAvailableVoicesAsync() VoiceList
+    }
+    class AudioFallbackPlayer {
+        <<MAUI Audio Player>>
+        +PlayAsync(url) Task
+        +Stop() void
+        +ProbeUrlAsync(url) HttpResult
+    }
+    class AudioInterruptionService {
+        <<Android Audio Focus>>
+        +BeginPlaybackAsync() bool
+        +EndPlaybackAsync() Task
+        +event Interrupted EventHandler
+    }
+    class AppPermissionService {
+        <<MAUI Permission>>
+        +GetStatusAsync() PermissionSnapshot
+        +RequestTrackingPermissionsAsync() PermissionSnapshot
+        +RequestCameraPermissionAsync() PermissionSnapshot
+        +OpenSystemSettingsAsync() Task
+    }
+    class TrackingForegroundBridge {
+        <<Android Foreground Service>>
+        +StartAsync(title, text) Task
+        +UpdateAsync(title, text) Task
+        +StopAsync() Task
+    }
+    class ApiClient {
+        <<MAUI HTTP Client>>
+        +BootstrapAsync(lang) BootstrapData
+        +PostUserAsync(data) UserResult
+        +PostTrackingAsync(data) StatusResult
+        +PostGeofenceAsync(data) GeofenceResult
+        +PostVisitAsync(data) StatusResult
+        +LookupQrAsync(code) QrResult
+        +GetNearbyAsync(lat, lng) NearbyResult
+    }
     LocationService ..> GeofenceClientService : sends position
     GeofenceClientService ..> AudioQueueService : triggers audio
-    BootstrapService ..> GeofenceClientService : provides POI list`
+    BootstrapService ..> GeofenceClientService : provides POI list
+    AudioQueueService ..> NarrationService : TTS playback
+    AudioQueueService ..> AudioFallbackPlayer : audio file playback
+    AudioQueueService ..> AudioInterruptionService : manages focus
+    LocationService ..> TrackingForegroundBridge : foreground notification
+    LocationService ..> AppPermissionService : checks permissions
+    BootstrapService ..> ApiClient : HTTP calls`
         };
         const classTabInfo = [
             { key: 'all', label: 'Toàn bộ hệ thống' },
@@ -3658,8 +3970,8 @@
                 desc: 'Vòng đời nội dung điểm thuyết minh — từ lúc tạo bản nháp đến khi xuất bản và có thể bị ẩn hoặc xoá.',
                 dbField: 'Pois.IsActive', sequences: 'F01, J03',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Draft</code> — Vừa tạo, chưa đủ dữ liệu','<code>Active</code> — IsActive = true, xuất hiện trong Bootstrap','<code>Inactive</code> — Admin tắt IsActive','<code>Deleted</code> — Xoá vĩnh viễn'] },
-                    { title: 'Điều kiện chuyển', items: ['Draft → Active: Toạ độ hợp lệ, Radius > 0','Active → Inactive: Admin toggle IsActive = false','Inactive → Active: Admin toggle lại'] }
+                    { title: 'Các trạng thái', items: ['<code>Draft</code> — Vừa tạo, chưa đủ dữ liệu', '<code>Active</code> — IsActive = true, xuất hiện trong Bootstrap', '<code>Inactive</code> — Admin tắt IsActive', '<code>Deleted</code> — Xoá vĩnh viễn'] },
+                    { title: 'Điều kiện chuyển', items: ['Draft → Active: Toạ độ hợp lệ, Radius > 0', 'Active → Inactive: Admin toggle IsActive = false', 'Inactive → Active: Admin toggle lại'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Draft : Admin tạo POI mới
@@ -3682,8 +3994,8 @@
                 desc: 'Vòng đời bản dịch đa ngôn ngữ — kiểm soát nội dung nào được phục vụ cho Visitor.',
                 dbField: 'PoiTranslations.IsPublished', sequences: 'F02, J03',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Unpublished</code> — Bản dịch đang soạn','<code>Published</code> — Sẵn sàng cho runtime','<code>Deleted</code> — Bị xoá'] },
-                    { title: 'Điều kiện chuyển', items: ['Unpublished → Published: Title không rỗng, UNIQUE OK','Published → Unpublished: Admin thu hồi'] }
+                    { title: 'Các trạng thái', items: ['<code>Unpublished</code> — Bản dịch đang soạn', '<code>Published</code> — Sẵn sàng cho runtime', '<code>Deleted</code> — Bị xoá'] },
+                    { title: 'Điều kiện chuyển', items: ['Unpublished → Published: Title không rỗng, UNIQUE OK', 'Published → Unpublished: Admin thu hồi'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Unpublished : Admin tạo Translation mới
@@ -3700,8 +4012,8 @@
                 desc: 'Vòng đời tuyến tham quan — từ thiết kế, gán trạm dừng, đến công bố cho Visitor.',
                 dbField: 'Tours.IsActive', sequences: 'F03, J03',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Designing</code> — Chưa có Stop','<code>Ready</code> — Có ≥ 1 TourStop','<code>Published</code> — IsActive = true','<code>Archived</code> — Tắt hiển thị','<code>Deleted</code> — Xoá hoàn toàn'] },
-                    { title: 'Điều kiện chuyển', items: ['Designing → Ready: TourStops ≥ 1','Ready → Published: Admin bật IsActive','Published → Archived: Admin tắt'] }
+                    { title: 'Các trạng thái', items: ['<code>Designing</code> — Chưa có Stop', '<code>Ready</code> — Có ≥ 1 TourStop', '<code>Published</code> — IsActive = true', '<code>Archived</code> — Tắt hiển thị', '<code>Deleted</code> — Xoá hoàn toàn'] },
+                    { title: 'Điều kiện chuyển', items: ['Designing → Ready: TourStops ≥ 1', 'Ready → Published: Admin bật IsActive', 'Published → Archived: Admin tắt'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Designing : Admin tạo Tour mới
@@ -3721,8 +4033,8 @@
                 desc: 'Vòng đời phiên tham quan của Visitor — từ mở app, cấp quyền, bootstrap đến tracking & audio.',
                 dbField: 'Visitors.LastSeenAt + AllowAutoPlay', sequences: 'J01, J02, F05, F06, F07',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>AppOpened</code> — Vừa mở app','<code>Bootstrapped</code> — Đã tải dữ liệu','<code>PermissionGranted</code> — Đã cấp quyền GPS','<code>Tracking</code> — GPS đang gửi toạ độ','<code>Exploring</code> — Đang nghe audio'] },
-                    { title: 'Actions', items: ['AppOpened → Bootstrapped: GET /api/bootstrap','Bootstrapped → PermissionGranted: OS.RequestPermission()','Tracking → Exploring: Geofence trigger'] }
+                    { title: 'Các trạng thái', items: ['<code>AppOpened</code> — Vừa mở app', '<code>Bootstrapped</code> — Đã tải dữ liệu', '<code>PermissionGranted</code> — Đã cấp quyền GPS', '<code>Tracking</code> — GPS đang gửi toạ độ', '<code>Exploring</code> — Đang nghe audio'] },
+                    { title: 'Actions', items: ['AppOpened → Bootstrapped: GET /api/bootstrap', 'Bootstrapped → PermissionGranted: OS.RequestPermission()', 'Tracking → Exploring: Geofence trigger'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> AppOpened : Visitor mở ứng dụng
@@ -3753,8 +4065,8 @@
                 desc: 'Máy trạng thái đánh giá geofence — kiểm tra khoảng cách, mode, cooldown và debounce.',
                 dbField: 'GeofenceTriggers.Status + CooldownUntil', sequences: 'J02, F06',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Ngoài vùng geofence','<code>Approaching</code> — Trong ApproachRadius','<code>InsideZone</code> — Trong Radius','<code>Triggered</code> — Đã ghi trigger + phát audio','<code>Cooldown</code> — Đang chờ hết cooldown','<code>Skipped</code> — Bị chặn'] },
-                    { title: 'Guards', items: ['Approaching → InsideZone: distance ≤ Radius','InsideZone → Triggered: Cooldown hết + Debounce OK','InsideZone → Skipped: CooldownUntil > now'] }
+                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Ngoài vùng geofence', '<code>Approaching</code> — Trong ApproachRadius', '<code>InsideZone</code> — Trong Radius', '<code>Triggered</code> — Đã ghi trigger + phát audio', '<code>Cooldown</code> — Đang chờ hết cooldown', '<code>Skipped</code> — Bị chặn'] },
+                    { title: 'Guards', items: ['Approaching → InsideZone: distance ≤ Radius', 'InsideZone → Triggered: Cooldown hết + Debounce OK', 'InsideZone → Skipped: CooldownUntil > now'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Idle : Visitor mở tracking
@@ -3783,8 +4095,8 @@
                 desc: 'Máy trạng thái điều khiển hàng đợi audio — quản lý phát tuần tự, TTS fallback và ghi visit history.',
                 dbField: 'VisitHistories (kết quả playback)', sequences: 'J02, F06, F08',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Không có audio trong queue','<code>Queued</code> — Có audio chờ phát','<code>Playing</code> — Đang phát audio file','<code>PlayingTTS</code> — Đang phát TTS','<code>Completed</code> — Phát xong, ghi visit'] },
-                    { title: 'Actions', items: ['Queued → Playing: MediaPlayer.Start(url)','Playing → Completed: POST /api/visit','Error → PlayingTTS: Fallback'] }
+                    { title: 'Các trạng thái', items: ['<code>Idle</code> — Không có audio trong queue', '<code>Queued</code> — Có audio chờ phát', '<code>Playing</code> — Đang phát audio file', '<code>PlayingTTS</code> — Đang phát TTS', '<code>Completed</code> — Phát xong, ghi visit'] },
+                    { title: 'Actions', items: ['Queued → Playing: MediaPlayer.Start(url)', 'Playing → Completed: POST /api/visit', 'Error → PlayingTTS: Fallback'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Idle : App khởi động
@@ -3807,8 +4119,8 @@
                 desc: 'Vòng đời phiên đăng nhập Admin — kiểm soát bảo mật và timeout session 8 giờ.',
                 dbField: 'AdminUsers + Session Cookie', sequences: 'F11, J03',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Anonymous</code> — Chưa đăng nhập','<code>FirstBoot</code> — Hệ thống rỗng','<code>Authenticated</code> — Đã login, session hợp lệ','<code>Expired</code> — Session hết hạn 8 giờ'] },
-                    { title: 'Guards', items: ['Anonymous → FirstBoot: AdminUsers.Count == 0','Anonymous → Authenticated: Hash(input) == PasswordHash','Authenticated → Expired: SessionAge > 8h'] }
+                    { title: 'Các trạng thái', items: ['<code>Anonymous</code> — Chưa đăng nhập', '<code>FirstBoot</code> — Hệ thống rỗng', '<code>Authenticated</code> — Đã login, session hợp lệ', '<code>Expired</code> — Session hết hạn 8 giờ'] },
+                    { title: 'Guards', items: ['Anonymous → FirstBoot: AdminUsers.Count == 0', 'Anonymous → Authenticated: Hash(input) == PasswordHash', 'Authenticated → Expired: SessionAge > 8h'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Anonymous : Truy cập Admin site
@@ -3833,8 +4145,8 @@
                 desc: 'Máy trạng thái dịch vụ GPS Foreground Service — quản lý chu kỳ thu thập và gửi toạ độ.',
                 dbField: 'UserTrackings (batch records)', sequences: 'J01, F07',
                 meta: [
-                    { title: 'Các trạng thái', items: ['<code>Stopped</code> — Service chưa chạy','<code>Starting</code> — Đang khởi động','<code>Collecting</code> — Đang lấy GPS','<code>Sending</code> — Đang POST batch','<code>Retrying</code> — Gửi thất bại, retry','<code>Paused</code> — App ra background'] },
-                    { title: 'Actions', items: ['Starting → Collecting: OS.StartLocationUpdates(interval)','Collecting → Sending: POST /api/tracking','Sending fail → Retrying: SaveToLocalCache()'] }
+                    { title: 'Các trạng thái', items: ['<code>Stopped</code> — Service chưa chạy', '<code>Starting</code> — Đang khởi động', '<code>Collecting</code> — Đang lấy GPS', '<code>Sending</code> — Đang POST batch', '<code>Retrying</code> — Gửi thất bại, retry', '<code>Paused</code> — App ra background'] },
+                    { title: 'Actions', items: ['Starting → Collecting: OS.StartLocationUpdates(interval)', 'Collecting → Sending: POST /api/tracking', 'Sending fail → Retrying: SaveToLocalCache()'] }
                 ],
                 mermaid: `stateDiagram-v2
     [*] --> Stopped : App khởi động
@@ -3858,6 +4170,58 @@
     Collecting --> Stopped : Bấm Tắt Tracking
     Paused --> Stopped : Bấm Tắt Tracking
     Stopped --> [*] : Tắt app`
+            },
+            {
+                id: 'membership', title: 'Membership Registration',
+                desc: 'Vòng đời đăng ký thành viên — từ điền form, chờ thanh toán, xác nhận thanh toán đến tạo tài khoản customer hoặc huỷ.',
+                dbField: 'MembershipRegistrations.Status + PaymentStatus', sequences: 'QR01, QR02',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>pending-form</code> — Visitor vừa tạo đăng ký, chưa điền form', '<code>pending-payment</code> — Form đã điền, chờ thanh toán', '<code>paid</code> — Thanh toán thành công, tạo CustomerAccount', '<code>cancelled</code> — Huỷ bởi visitor hoặc timeout', '<code>expired</code> — Quá hạn thanh toán'] },
+                    { title: 'Actions', items: ['pending-form → pending-payment: Visitor submit form đầy đủ', 'pending-payment → paid: PayOS webhook xác nhận', 'paid → CustomerAccount created: Tạo tài khoản tự động', 'pending-payment → cancelled: Visitor hoặc admin huỷ'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> PendingForm : Visitor bắt đầu đăng ký
+    PendingForm --> PendingPayment : Submit form đầy đủ\\n/ SET Status=pending-payment
+    PendingForm --> Cancelled : Timeout hoặc huỷ
+    PendingPayment --> Paid : PayOS webhook\\n/ SET PaymentStatus=PAID
+    PendingPayment --> Cancelled : Visitor huỷ đơn
+    PendingPayment --> Expired : Quá hạn thanh toán
+    Paid --> AccountCreated : Tạo CustomerAccount\\n/ INSERT CustomerAccount
+    state AccountCreated {
+        [*] --> Active
+        Active --> Inactive : Admin tắt tài khoản
+        Inactive --> Active : Admin kích hoạt lại
+    }
+    Cancelled --> [*]
+    Expired --> [*]`
+            },
+            {
+                id: 'qrcode', title: 'QR Code Lifecycle',
+                desc: 'Vòng đời mã QR — từ tạo mã, liên kết POI, đến các dạng đặc biệt như BatchBusStop và AppEntry.',
+                dbField: 'QRCodes.Code + PoiId', sequences: 'QR01, QR02, A14, F10',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Created</code> — Mã vừa tạo, liên kết POI', '<code>BusStop</code> — Mã batch xe buýt (BUS-KH-001)', '<code>AppEntry</code> — Mã đặc biệt APP-ENTRY, chứa deep link', '<code>Scanned</code> — Đã được visitor quét (web hoặc app)', '<code>Deleted</code> — Bị xoá'] },
+                    { title: 'Transitions', items: ['Created → Scanned: Visitor quét bằng app hoặc web', 'BusStop: Tạo bởi CreateBusStopSet batch', 'AppEntry: Tạo bởi RenderAppEntryPng'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Created : Admin tạo QR thủ công
+    [*] --> BusStop : CreateBusStopSet batch\\n/ INSERT QR BUS-KH-001
+    [*] --> AppEntry : RenderAppEntryPng\\n/ Deep link audiotour://
+    Created --> LinkedToPoi : Gán PoiId\\n[Code UNIQUE]
+    BusStop --> LinkedToPoi : FindBusStopPoi match\\n/ UPDATE PoiId
+    state LinkedToPoi {
+        [*] --> Waiting
+        Waiting --> ScannedWeb : Visitor quét bằng browser\\n/ TriggerType=qr-public
+        Waiting --> ScannedApp : Visitor quét bằng app\\n/ TriggerType=qr-scan
+        ScannedWeb --> Waiting : Sẵn sàng quét tiếp
+        ScannedApp --> Waiting : Sẵn sàng quét tiếp
+    }
+    AppEntry --> AppOpened : Visitor quét\\n/ App nhận deep link
+    AppOpened --> AppEntry : Sẵn sàng quét tiếp
+    LinkedToPoi --> Updated : Admin sửa PoiId hoặc Note
+    Updated --> LinkedToPoi : Lưu thành công
+    LinkedToPoi --> Deleted : Admin xoá QR
+    Deleted --> [*]`
             }
         ];
 
