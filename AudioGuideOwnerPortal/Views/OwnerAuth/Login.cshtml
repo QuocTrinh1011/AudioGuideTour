@@ -1,0 +1,31 @@
+@model OwnerLoginViewModel
+@{
+    Layout = "~/Views/Shared/_OwnerAuthLayout.cshtml";
+}
+
+<h2 class="mb-3">Đăng nhập chủ quán</h2>
+<p class="text-muted">Dùng số điện thoại hoặc email đã đăng ký để vào khu quản lý POI của bạn.</p>
+
+<form method="post">
+    @Html.AntiForgeryToken()
+    <input asp-for="ReturnUrl" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+    <div class="mb-3">
+        <label asp-for="Login" class="form-label">Số điện thoại hoặc email</label>
+        <input asp-for="Login" class="form-control" />
+        <span asp-validation-for="Login" class="text-danger small"></span>
+    </div>
+    <div class="mb-4">
+        <label asp-for="Password" class="form-label">Mật khẩu</label>
+        <input asp-for="Password" class="form-control" />
+        <span asp-validation-for="Password" class="text-danger small"></span>
+    </div>
+    <div class="d-grid gap-2">
+        <button class="btn btn-primary">Đăng nhập</button>
+        <a href="/OwnerAuth/Register" class="btn btn-outline-secondary">Đăng ký chủ quán</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

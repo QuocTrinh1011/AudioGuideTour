@@ -1,0 +1,52 @@
+@model OwnerRegisterViewModel
+@{
+    Layout = "~/Views/Shared/_OwnerAuthLayout.cshtml";
+}
+
+<h2 class="mb-3">Đăng ký tài khoản chủ quán</h2>
+<p class="text-muted">Sau khi gửi đăng ký, admin sẽ duyệt tài khoản trước khi bạn có thể gửi POI lên hệ thống.</p>
+
+<form method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="FullName" class="form-label">Họ tên</label>
+            <input asp-for="FullName" class="form-control" />
+            <span asp-validation-for="FullName" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="BusinessName" class="form-label">Tên quán/cơ sở</label>
+            <input asp-for="BusinessName" class="form-control" />
+            <span asp-validation-for="BusinessName" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Phone" class="form-label">Số điện thoại</label>
+            <input asp-for="Phone" class="form-control" />
+            <span asp-validation-for="Phone" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Email" class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Password" class="form-label">Mật khẩu</label>
+            <input asp-for="Password" class="form-control" />
+            <span asp-validation-for="Password" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="ConfirmPassword" class="form-label">Nhập lại mật khẩu</label>
+            <input asp-for="ConfirmPassword" class="form-control" />
+            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+        </div>
+        <div class="col-12 d-grid gap-2">
+            <button class="btn btn-primary">Gửi đăng ký</button>
+            <a href="/OwnerAuth/Login" class="btn btn-outline-secondary">Quay lại đăng nhập</a>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

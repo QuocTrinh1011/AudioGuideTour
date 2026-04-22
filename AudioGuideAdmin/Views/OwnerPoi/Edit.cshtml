@@ -1,0 +1,15 @@
+@model AudioGuideAdmin.Models.PoiSubmission
+@{
+    Layout = "~/Views/Shared/_OwnerLayout.cshtml";
+}
+
+<h2 class="mb-3">Cập nhật submission POI</h2>
+
+@if (!string.IsNullOrWhiteSpace(Model.ReviewNote))
+{
+    <div class="alert alert-warning">
+        <strong>Ghi chú review từ admin:</strong> @Model.ReviewNote
+    </div>
+}
+
+@await Html.PartialAsync("_PoiSubmissionForm", Model)

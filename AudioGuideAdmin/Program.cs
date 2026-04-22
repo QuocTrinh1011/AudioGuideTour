@@ -76,6 +76,7 @@ app.Use(async (context, next) =>
     var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
 
     if (path.StartsWith("/auth") ||
+        path.StartsWith("/ownerauth") ||
         path.StartsWith("/qrcode/open/") ||
         path.StartsWith("/qrcode/renderpng/") ||
         path.StartsWith("/qrcode/renderpngbycode") ||
@@ -86,9 +87,23 @@ app.Use(async (context, next) =>
         return;
     }
 
+    if (path.StartsWith("/ownerpoi"))
+    {
+        if (string.IsNullOrWhiteSpace(context.Session.GetString("ownerId")))
+        {
+            var returnUrl = context.Request.Path + context.Request.QueryString;
+            context.Response.Redirect($"/OwnerAuth/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            return;
+        }
+
+        await next();
+        return;
+    }
+
     if (string.IsNullOrWhiteSpace(context.Session.GetString("user")))
     {
-        context.Response.Redirect("/Auth/Login");
+        var returnUrl = context.Request.Path + context.Request.QueryString;
+        context.Response.Redirect($"/Auth/Login?returnUrl={Uri.EscapeDataString(returnUrl)}");
         return;
     }
 

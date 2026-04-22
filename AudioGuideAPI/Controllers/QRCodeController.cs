@@ -27,7 +27,7 @@ public class QRCodeController : ControllerBase
             .ToListAsync();
 
         var result = items
-            .Where(x => x.Poi != null)
+            .Where(x => x.Poi != null && x.Poi.IsActive)
             .Select(x =>
             {
                 var poi = x.Poi!;
@@ -86,7 +86,7 @@ public class QRCodeController : ControllerBase
         }
 
         var poi = qr.Poi;
-        if (poi == null)
+        if (poi == null || !poi.IsActive)
         {
             return NotFound();
         }

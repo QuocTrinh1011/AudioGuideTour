@@ -15,6 +15,7 @@ public static class AppDataInitializer
             await context.Database.EnsureCreatedAsync();
             await EnsureSqliteAdminUserTableAsync(context);
             await EnsureSqliteRegistrationTablesAsync(context);
+            await EnsureSqliteOwnerWorkflowTablesAsync(context);
             await SeedLanguagesAsync(context);
             await NormalizeUnsupportedLanguageReferencesAsync(context);
             await SeedRegistrationPlansAsync(context);
@@ -33,6 +34,7 @@ public static class AppDataInitializer
         await EnsureLanguageTableAsync(context);
         await EnsureQrCodeTableAsync(context);
         await EnsureRegistrationTablesAsync(context);
+        await EnsureOwnerWorkflowTablesAsync(context);
         await SeedLanguagesAsync(context);
         await NormalizeUnsupportedLanguageReferencesAsync(context);
         await SeedRegistrationPlansAsync(context);
@@ -66,6 +68,344 @@ public static class AppDataInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_AdminUsers_Username"
             ON "AdminUsers" ("Username");
             """);
+    }
+
+    private static async Task EnsureSqliteOwnerWorkflowTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "ShopOwners" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_ShopOwners" PRIMARY KEY,
+                "FullName" TEXT NOT NULL DEFAULT '',
+                "Phone" TEXT NOT NULL DEFAULT '',
+                "Email" TEXT NOT NULL DEFAULT '',
+                "BusinessName" TEXT NOT NULL DEFAULT '',
+                "PasswordHash" TEXT NOT NULL DEFAULT '',
+                "PasswordSalt" TEXT NOT NULL DEFAULT '',
+                "Status" TEXT NOT NULL DEFAULT 'pending',
+                "AdminNote" TEXT NOT NULL DEFAULT '',
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "ApprovedAt" TEXT NULL,
+                "LastLoginAt" TEXT NULL,
+                "ApprovedByAdminId" INTEGER NULL
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_ShopOwners_Status"
+            ON "ShopOwners" ("Status");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_ShopOwners_Phone"
+            ON "ShopOwners" ("Phone");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_ShopOwners_Email"
+            ON "ShopOwners" ("Email");
+            """);
+
+        if (!await SqliteColumnExistsAsync(context, "Pois", "OwnerId"))
+        {
+            await context.Database.ExecuteSqlRawAsync("""ALTER TABLE "Pois" ADD COLUMN "OwnerId" TEXT NULL;""");
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_Pois_OwnerId"
+            ON "Pois" ("OwnerId");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PoiSubmissions" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_PoiSubmissions" PRIMARY KEY,
+                "PoiId" INTEGER NULL,
+                "OwnerId" TEXT NOT NULL,
+                "SubmissionType" TEXT NOT NULL DEFAULT 'create',
+                "Status" TEXT NOT NULL DEFAULT 'draft',
+                "ReviewNote" TEXT NOT NULL DEFAULT '',
+                "Name" TEXT NOT NULL DEFAULT '',
+                "Category" TEXT NOT NULL DEFAULT 'food-street',
+                "Summary" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                "Address" TEXT NOT NULL DEFAULT '',
+                "Latitude" REAL NOT NULL DEFAULT 0,
+                "Longitude" REAL NOT NULL DEFAULT 0,
+                "Radius" INTEGER NOT NULL DEFAULT 0,
+                "ApproachRadiusMeters" INTEGER NOT NULL DEFAULT 90,
+                "Priority" INTEGER NOT NULL DEFAULT 1,
+                "DebounceSeconds" INTEGER NOT NULL DEFAULT 15,
+                "CooldownSeconds" INTEGER NOT NULL DEFAULT 120,
+                "TriggerMode" TEXT NOT NULL DEFAULT 'both',
+                "ImageUrl" TEXT NOT NULL DEFAULT '',
+                "MapUrl" TEXT NOT NULL DEFAULT '',
+                "IsActive" INTEGER NOT NULL DEFAULT 1,
+                "AudioMode" TEXT NOT NULL DEFAULT 'tts',
+                "AudioUrl" TEXT NOT NULL DEFAULT '',
+                "TtsScript" TEXT NOT NULL DEFAULT '',
+                "DefaultLanguage" TEXT NOT NULL DEFAULT 'vi-VN',
+                "EstimatedDurationSeconds" INTEGER NOT NULL DEFAULT 60,
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "SubmittedAt" TEXT NULL,
+                "ReviewedAt" TEXT NULL,
+                "ReviewedByAdminId" INTEGER NULL,
+                CONSTRAINT "FK_PoiSubmissions_Pois_PoiId"
+                    FOREIGN KEY ("PoiId") REFERENCES "Pois" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_PoiSubmissions_ShopOwners_OwnerId"
+                    FOREIGN KEY ("OwnerId") REFERENCES "ShopOwners" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_PoiSubmissions_OwnerId_Status"
+            ON "PoiSubmissions" ("OwnerId", "Status");
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PoiTranslationSubmissions" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PoiTranslationSubmissions" PRIMARY KEY AUTOINCREMENT,
+                "SubmissionId" TEXT NOT NULL,
+                "Language" TEXT NOT NULL DEFAULT 'vi-VN',
+                "Title" TEXT NOT NULL DEFAULT '',
+                "Summary" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                "AudioUrl" TEXT NOT NULL DEFAULT '',
+                "TtsScript" TEXT NOT NULL DEFAULT '',
+                "VoiceName" TEXT NOT NULL DEFAULT '',
+                "SortOrder" INTEGER NOT NULL DEFAULT 0,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "FK_PoiTranslationSubmissions_PoiSubmissions_SubmissionId"
+                    FOREIGN KEY ("SubmissionId") REFERENCES "PoiSubmissions" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PoiTranslationSubmissions_SubmissionId_Language"
+            ON "PoiTranslationSubmissions" ("SubmissionId", "Language");
+            """);
+    }
+
+    private static async Task EnsureOwnerWorkflowTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[ShopOwners]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [ShopOwners](
+                    [Id] nvarchar(64) NOT NULL,
+                    [FullName] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_FullName] DEFAULT N'',
+                    [Phone] nvarchar(50) NOT NULL CONSTRAINT [DF_ShopOwners_Phone] DEFAULT N'',
+                    [Email] nvarchar(150) NOT NULL CONSTRAINT [DF_ShopOwners_Email] DEFAULT N'',
+                    [BusinessName] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_BusinessName] DEFAULT N'',
+                    [PasswordHash] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_PasswordHash] DEFAULT N'',
+                    [PasswordSalt] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_PasswordSalt] DEFAULT N'',
+                    [Status] nvarchar(40) NOT NULL CONSTRAINT [DF_ShopOwners_Status] DEFAULT N'pending',
+                    [AdminNote] nvarchar(1000) NOT NULL CONSTRAINT [DF_ShopOwners_AdminNote] DEFAULT N'',
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ShopOwners_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_ShopOwners_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [ApprovedAt] datetime2 NULL,
+                    [LastLoginAt] datetime2 NULL,
+                    [ApprovedByAdminId] int NULL,
+                    CONSTRAINT [PK_ShopOwners] PRIMARY KEY ([Id])
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[ShopOwners]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_ShopOwners_Status' AND object_id = OBJECT_ID(N'[ShopOwners]')
+                )
+            BEGIN
+                CREATE INDEX [IX_ShopOwners_Status] ON [ShopOwners]([Status]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[ShopOwners]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_ShopOwners_Phone' AND object_id = OBJECT_ID(N'[ShopOwners]')
+                )
+            BEGIN
+                CREATE INDEX [IX_ShopOwners_Phone] ON [ShopOwners]([Phone]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[ShopOwners]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_ShopOwners_Email' AND object_id = OBJECT_ID(N'[ShopOwners]')
+                )
+            BEGIN
+                CREATE INDEX [IX_ShopOwners_Email] ON [ShopOwners]([Email]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[Pois]', N'U') IS NOT NULL
+               AND COL_LENGTH('Pois', 'OwnerId') IS NULL
+            BEGIN
+                ALTER TABLE [Pois] ADD [OwnerId] nvarchar(64) NULL;
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[Pois]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_Pois_OwnerId' AND object_id = OBJECT_ID(N'[Pois]')
+                )
+            BEGIN
+                CREATE INDEX [IX_Pois_OwnerId] ON [Pois]([OwnerId]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[PoiSubmissions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [PoiSubmissions](
+                    [Id] nvarchar(64) NOT NULL,
+                    [PoiId] int NULL,
+                    [OwnerId] nvarchar(64) NOT NULL,
+                    [SubmissionType] nvarchar(20) NOT NULL CONSTRAINT [DF_PoiSubmissions_SubmissionType] DEFAULT N'create',
+                    [Status] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_Status] DEFAULT N'draft',
+                    [ReviewNote] nvarchar(1000) NOT NULL CONSTRAINT [DF_PoiSubmissions_ReviewNote] DEFAULT N'',
+                    [Name] nvarchar(200) NOT NULL CONSTRAINT [DF_PoiSubmissions_Name] DEFAULT N'',
+                    [Category] nvarchar(100) NOT NULL CONSTRAINT [DF_PoiSubmissions_Category] DEFAULT N'food-street',
+                    [Summary] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Summary] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Description] DEFAULT N'',
+                    [Address] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Address] DEFAULT N'',
+                    [Latitude] float NOT NULL CONSTRAINT [DF_PoiSubmissions_Latitude] DEFAULT 0,
+                    [Longitude] float NOT NULL CONSTRAINT [DF_PoiSubmissions_Longitude] DEFAULT 0,
+                    [Radius] int NOT NULL CONSTRAINT [DF_PoiSubmissions_Radius] DEFAULT 0,
+                    [ApproachRadiusMeters] int NOT NULL CONSTRAINT [DF_PoiSubmissions_ApproachRadiusMeters] DEFAULT 90,
+                    [Priority] int NOT NULL CONSTRAINT [DF_PoiSubmissions_Priority] DEFAULT 1,
+                    [DebounceSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_DebounceSeconds] DEFAULT 15,
+                    [CooldownSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_CooldownSeconds] DEFAULT 120,
+                    [TriggerMode] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_TriggerMode] DEFAULT N'both',
+                    [ImageUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_ImageUrl] DEFAULT N'',
+                    [MapUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_MapUrl] DEFAULT N'',
+                    [IsActive] bit NOT NULL CONSTRAINT [DF_PoiSubmissions_IsActive] DEFAULT 1,
+                    [AudioMode] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_AudioMode] DEFAULT N'tts',
+                    [AudioUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_AudioUrl] DEFAULT N'',
+                    [TtsScript] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_TtsScript] DEFAULT N'',
+                    [DefaultLanguage] nvarchar(20) NOT NULL CONSTRAINT [DF_PoiSubmissions_DefaultLanguage] DEFAULT N'vi-VN',
+                    [EstimatedDurationSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_EstimatedDurationSeconds] DEFAULT 60,
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_PoiSubmissions_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_PoiSubmissions_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [SubmittedAt] datetime2 NULL,
+                    [ReviewedAt] datetime2 NULL,
+                    [ReviewedByAdminId] int NULL,
+                    CONSTRAINT [PK_PoiSubmissions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PoiSubmissions_Pois_PoiId] FOREIGN KEY ([PoiId]) REFERENCES [Pois]([Id]) ON DELETE SET NULL,
+                    CONSTRAINT [FK_PoiSubmissions_ShopOwners_OwnerId] FOREIGN KEY ([OwnerId]) REFERENCES [ShopOwners]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[PoiSubmissions]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_PoiSubmissions_OwnerId_Status' AND object_id = OBJECT_ID(N'[PoiSubmissions]')
+                )
+            BEGIN
+                CREATE INDEX [IX_PoiSubmissions_OwnerId_Status] ON [PoiSubmissions]([OwnerId], [Status]);
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[PoiTranslationSubmissions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [PoiTranslationSubmissions](
+                    [Id] int IDENTITY(1,1) NOT NULL,
+                    [SubmissionId] nvarchar(64) NOT NULL,
+                    [Language] nvarchar(20) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_Language] DEFAULT N'vi-VN',
+                    [Title] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_Title] DEFAULT N'',
+                    [Summary] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_Summary] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_Description] DEFAULT N'',
+                    [AudioUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_AudioUrl] DEFAULT N'',
+                    [TtsScript] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_TtsScript] DEFAULT N'',
+                    [VoiceName] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_VoiceName] DEFAULT N'',
+                    [SortOrder] int NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_SortOrder] DEFAULT 0,
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_PoiTranslationSubmissions_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    CONSTRAINT [PK_PoiTranslationSubmissions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PoiTranslationSubmissions_PoiSubmissions_SubmissionId] FOREIGN KEY ([SubmissionId]) REFERENCES [PoiSubmissions]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[PoiTranslationSubmissions]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_PoiTranslationSubmissions_SubmissionId_Language' AND object_id = OBJECT_ID(N'[PoiTranslationSubmissions]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_PoiTranslationSubmissions_SubmissionId_Language] ON [PoiTranslationSubmissions]([SubmissionId], [Language]);
+            END
+            """);
+    }
+
+    private static async Task<bool> SqliteColumnExistsAsync(AppDbContext context, string tableName, string columnName)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await connection.OpenAsync();
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 
     private static async Task EnsureSqliteRegistrationTablesAsync(AppDbContext context)
@@ -973,15 +1313,20 @@ public static class AppDataInitializer
         }
 
         var now = DateTime.UtcNow;
-        var poiMap = await context.Pois
-            .Where(x =>
-                x.Name == "Phố ẩm thực Vĩnh Khánh" ||
-                x.Name == "Cụm quán ốc Vĩnh Khánh" ||
-                x.Name == "Trạm xe buýt Khánh Hội" ||
-                x.Name == "Trạm xe buýt Vĩnh Hội" ||
-                x.Name == "Trạm xe buýt Xuân Chiếu" ||
-                x.Name == "Nhịp sống khu vực Vĩnh Khánh")
-            .ToDictionaryAsync(x => x.Name, x => x);
+        var poiMap = (await context.Pois
+                .Where(x =>
+                    x.OwnerId == null &&
+                    (x.Name == "Phố ẩm thực Vĩnh Khánh" ||
+                     x.Name == "Cụm quán ốc Vĩnh Khánh" ||
+                     x.Name == "Trạm xe buýt Khánh Hội" ||
+                     x.Name == "Trạm xe buýt Vĩnh Hội" ||
+                     x.Name == "Trạm xe buýt Xuân Chiếu" ||
+                     x.Name == "Nhịp sống khu vực Vĩnh Khánh"))
+                .OrderByDescending(x => x.UpdatedAt)
+                .ThenByDescending(x => x.Id)
+                .ToListAsync())
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
         if (poiMap.Count == 0)
         {
@@ -1084,7 +1429,7 @@ public static class AppDataInitializer
         };
 
         var pois = await context.Pois
-            .Where(x => poiImageMap.Keys.Contains(x.Name))
+            .Where(x => x.OwnerId == null && poiImageMap.Keys.Contains(x.Name))
             .ToListAsync();
 
         foreach (var poi in pois)
@@ -1159,7 +1504,7 @@ public static class AppDataInitializer
         };
 
         var pois = await context.Pois
-            .Where(x => translatedAudioMaps.Keys.Contains(x.Name))
+            .Where(x => x.OwnerId == null && translatedAudioMaps.Keys.Contains(x.Name))
             .Select(x => new { x.Id, x.Name })
             .ToListAsync();
 

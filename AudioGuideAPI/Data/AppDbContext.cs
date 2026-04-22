@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
     public DbSet<MembershipRegistration> MembershipRegistrations => Set<MembershipRegistration>();
     public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
+    public DbSet<ShopOwner> ShopOwners => Set<ShopOwner>();
+    public DbSet<PoiSubmission> PoiSubmissions => Set<PoiSubmission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +40,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Poi>()
             .Property(x => x.Category)
             .HasMaxLength(100);
+
+        modelBuilder.Entity<Poi>()
+            .Property(x => x.OwnerId)
+            .HasMaxLength(64);
 
         modelBuilder.Entity<Category>()
             .Property(x => x.Slug)
@@ -151,5 +157,17 @@ public class AppDbContext : DbContext
             .WithOne()
             .HasForeignKey<CustomerAccount>(x => x.RegistrationId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Phone);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Email);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Status);
+
+        modelBuilder.Entity<PoiSubmission>()
+            .HasIndex(x => new { x.OwnerId, x.Status });
     }
 }

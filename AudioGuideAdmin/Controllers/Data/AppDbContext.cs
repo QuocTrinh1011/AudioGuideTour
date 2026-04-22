@@ -24,6 +24,9 @@ public class AppDbContext : DbContext
     public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
     public DbSet<MembershipRegistration> MembershipRegistrations => Set<MembershipRegistration>();
     public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
+    public DbSet<ShopOwner> ShopOwners => Set<ShopOwner>();
+    public DbSet<PoiSubmission> PoiSubmissions => Set<PoiSubmission>();
+    public DbSet<PoiTranslationSubmission> PoiTranslationSubmissions => Set<PoiTranslationSubmission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,6 +59,12 @@ public class AppDbContext : DbContext
             .WithMany(x => x.Translations)
             .HasForeignKey(x => x.PoiId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Poi>()
+            .HasOne(x => x.Owner)
+            .WithMany(x => x.Pois)
+            .HasForeignKey(x => x.OwnerId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<QRCode>()
             .HasIndex(x => x.Code)
@@ -118,6 +127,40 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Registration)
             .WithOne()
             .HasForeignKey<CustomerAccount>(x => x.RegistrationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Phone);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Email);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Status);
+
+        modelBuilder.Entity<PoiSubmission>()
+            .HasIndex(x => new { x.OwnerId, x.Status });
+
+        modelBuilder.Entity<PoiSubmission>()
+            .HasOne(x => x.Owner)
+            .WithMany(x => x.Submissions)
+            .HasForeignKey(x => x.OwnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PoiSubmission>()
+            .HasOne(x => x.Poi)
+            .WithMany()
+            .HasForeignKey(x => x.PoiId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PoiTranslationSubmission>()
+            .HasIndex(x => new { x.SubmissionId, x.Language })
+            .IsUnique();
+
+        modelBuilder.Entity<PoiTranslationSubmission>()
+            .HasOne(x => x.Submission)
+            .WithMany(x => x.TranslationSubmissions)
+            .HasForeignKey(x => x.SubmissionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
