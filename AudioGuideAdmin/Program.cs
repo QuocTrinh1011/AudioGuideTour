@@ -1,8 +1,8 @@
 ﻿using AudioGuideAdmin.Helpers;
-using AudioGuideAdmin.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using AudioGuideAdmin.Controllers.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var sharedAudioRoot = SharedStoragePathHelper.ResolveAudioRoot(builder.Configuration, builder.Environment.ContentRootPath);

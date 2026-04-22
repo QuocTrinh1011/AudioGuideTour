@@ -1,7 +1,7 @@
 ﻿using AudioGuideAdmin.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace AudioGuideAdmin.Data;
+namespace AudioGuideAdmin.Controllers.Data;
 
 public static class AppDataInitializer
 {

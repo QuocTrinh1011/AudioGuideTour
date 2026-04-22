@@ -4,7 +4,7 @@
     <div>
         <h2 class="mb-1">Quản lý visitor mobile</h2>
         <p class="text-muted mb-0">Theo dõi thiết bị, trạng thái hoạt động và các tùy chọn auto-play/background tracking.</p>
-        <div class="small text-muted mt-1">Trang này tự làm mới sau mỗi 15 giây để phản ánh trạng thái hoạt động gần realtime.</div>
+        <div class="small text-muted mt-1">Trang này tự làm mới sau mỗi 5 giây để phản ánh trạng thái hoạt động gần realtime.</div>
     </div>
     <div class="d-flex gap-2">
         @if (Model.IncludeTestData)
@@ -50,7 +50,7 @@
 
 @section Scripts {
     <script>
-        setTimeout(() => window.location.reload(), 15000);
+        setTimeout(() => window.location.reload(), 5000);
     </script>
 }
 

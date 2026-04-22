@@ -1,4 +1,4 @@
-﻿using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Controllers.Data;
 using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;

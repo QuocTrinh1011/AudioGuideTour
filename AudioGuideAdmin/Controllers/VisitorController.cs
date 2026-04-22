@@ -1,4 +1,4 @@
-﻿using AudioGuideAdmin.Data;
+﻿using AudioGuideAdmin.Controllers.Data;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +7,7 @@ namespace AudioGuideAdmin.Controllers;
 
 public class VisitorController : Controller
 {
-    private static readonly TimeSpan ActiveThreshold = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan ActiveThreshold = TimeSpan.FromSeconds(15);
     private static readonly HashSet<string> SupportedCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         "vi-VN",

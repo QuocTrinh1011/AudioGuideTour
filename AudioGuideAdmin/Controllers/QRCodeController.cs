@@ -1,4 +1,4 @@
-using AudioGuideAdmin.Data;
+using AudioGuideAdmin.Controllers.Data;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
