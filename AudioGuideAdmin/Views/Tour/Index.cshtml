@@ -8,7 +8,7 @@
 <div class="card p-3">
     <div class="table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>Tour</th><th>Language</th><th>Stops</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Tour</th><th>Ngôn ngữ mặc định</th><th>Điểm dừng</th><th>Thời lượng</th><th>Trạng thái</th><th></th></tr></thead>
             <tbody>
             @foreach (var item in Model)
             {
@@ -16,16 +16,20 @@
                     <td>
                         <div class="fw-semibold">@item.Name</div>
                         <div class="text-muted small">@item.Description</div>
+                        @if (item.Translations.Any())
+                        {
+                            <div class="small text-muted mt-1">Có @item.Translations.Count bản dịch phụ</div>
+                        }
                     </td>
                     <td>@item.Language</td>
                     <td>@item.Stops.Count</td>
-                    <td>@item.EstimatedDurationMinutes min</td>
-                    <td>@(item.IsActive ? "Active" : "Inactive")</td>
+                    <td>@item.EstimatedDurationMinutes phút</td>
+                    <td>@(item.IsActive ? "Đang hoạt động" : "Tạm ẩn")</td>
                     <td class="text-end">
-                        <a href="/Tour/Edit/@item.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="/Tour/Edit/@item.Id" class="btn btn-sm btn-warning">Sửa</a>
                         <form method="post" action="/Tour/Delete/@item.Id" class="d-inline">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa tour này?')">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Xóa tour này?')">Xóa</button>
                         </form>
                     </td>
                 </tr>

@@ -13,8 +13,30 @@ public class DashboardController : Controller
 
     public IActionResult Index()
     {
-        var poiLookup = _context.Pois.ToDictionary(x => x.Id, x => x.Name);
-        var topPoiRows = _context.VisitHistories
+        var ownerManagedPoiQuery = _context.Pois
+            .Where(x => x.OwnerId != null && x.OwnerId != string.Empty);
+
+        var dashboardPoiQuery = ownerManagedPoiQuery.Any()
+            ? ownerManagedPoiQuery
+            : _context.Pois.AsQueryable();
+
+        var dashboardPois = dashboardPoiQuery
+            .Select(x => new { x.Id, x.Name })
+            .ToList();
+
+        var dashboardPoiIds = dashboardPois
+            .Select(x => x.Id)
+            .ToList();
+
+        var poiLookup = dashboardPois.ToDictionary(x => x.Id, x => x.Name);
+
+        var visitQuery = _context.VisitHistories
+            .Where(x => dashboardPoiIds.Contains(x.PoiId));
+
+        var triggerQuery = _context.GeofenceTriggers
+            .Where(x => dashboardPoiIds.Contains(x.PoiId));
+
+        var topPoiRows = visitQuery
             .GroupBy(x => x.PoiId)
             .Select(g => new
             {
@@ -26,19 +48,19 @@ public class DashboardController : Controller
             .Take(5)
             .ToList();
 
-        var recentTriggerRows = _context.GeofenceTriggers
+        var recentTriggerRows = triggerQuery
             .OrderByDescending(x => x.RecordedAt)
             .Take(10)
             .ToList();
 
         var model = new DashboardViewModel
         {
-            TotalPoi = _context.Pois.Count(),
-            TotalVisit = _context.VisitHistories.Count(),
+            TotalPoi = dashboardPois.Count,
+            TotalVisit = visitQuery.Count(),
             TotalTrackingPoint = _context.UserTrackings.Count(),
             TotalTour = _context.Tours.Count(),
-            UniqueVisitors = _context.VisitHistories.Select(x => x.UserId).Distinct().Count(),
-            AverageListenDuration = _context.VisitHistories.Select(x => (double?)x.Duration).Average() ?? 0
+            UniqueVisitors = visitQuery.Select(x => x.UserId).Distinct().Count(),
+            AverageListenDuration = visitQuery.Select(x => (double?)x.Duration).Average() ?? 0
         };
 
         model.TopPois = topPoiRows

@@ -84,7 +84,7 @@ app.Use(async (context, next) =>
         return;
     }
 
-    if (path.StartsWith("/ownerpoi"))
+    if (path.StartsWith("/ownerpoi") || path.StartsWith("/ownerdashboard"))
     {
         if (string.IsNullOrWhiteSpace(context.Session.GetString(OwnerSessionHelper.OwnerIdKey)))
         {
@@ -111,7 +111,12 @@ app.MapControllerRoute(
     defaults: new { controller = "OwnerPoi" });
 
 app.MapControllerRoute(
+    name: "owner-dashboard",
+    pattern: "OwnerDashboard/{action=Index}/{id?}",
+    defaults: new { controller = "OwnerDashboard" });
+
+app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=OwnerPoi}/{action=Index}/{id?}");
+    pattern: "{controller=OwnerDashboard}/{action=Index}/{id?}");
 
 app.Run();

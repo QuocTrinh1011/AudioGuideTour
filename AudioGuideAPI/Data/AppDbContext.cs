@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<UserTracking> UserTrackings => Set<UserTracking>();
     public DbSet<VisitHistory> VisitHistories => Set<VisitHistory>();
     public DbSet<Tour> Tours => Set<Tour>();
+    public DbSet<TourTranslation> TourTranslations => Set<TourTranslation>();
     public DbSet<TourStop> TourStops => Set<TourStop>();
     public DbSet<GeofenceTrigger> GeofenceTriggers => Set<GeofenceTrigger>();
     public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
@@ -90,6 +91,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Tour>()
             .Property(x => x.Name)
             .HasMaxLength(200);
+
+        modelBuilder.Entity<TourTranslation>()
+            .HasIndex(x => new { x.TourId, x.Language })
+            .IsUnique();
+
+        modelBuilder.Entity<TourTranslation>()
+            .HasOne(x => x.Tour)
+            .WithMany(x => x.Translations)
+            .HasForeignKey(x => x.TourId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<TourStop>()
             .HasIndex(x => new { x.TourId, x.SortOrder })

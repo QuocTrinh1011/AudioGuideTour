@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<PoiSubmission> PoiSubmissions => Set<PoiSubmission>();
     public DbSet<Poi> Pois => Set<Poi>();
     public DbSet<PoiTranslation> PoiTranslations => Set<PoiTranslation>();
+    public DbSet<VisitHistory> VisitHistories => Set<VisitHistory>();
     public DbSet<PoiTranslationSubmission> PoiTranslationSubmissions => Set<PoiTranslationSubmission>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<LanguageOption> LanguageOptions => Set<LanguageOption>();

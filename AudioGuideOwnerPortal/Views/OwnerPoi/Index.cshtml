@@ -54,6 +54,8 @@
                         <tbody>
                         @foreach (var item in Model.Submissions)
                         {
+                            var canOpen = item.Status != PoiSubmissionStatus.Approved && item.Status != PoiSubmissionStatus.Rejected;
+                            var canDelete = item.Status == PoiSubmissionStatus.Draft || item.Status == PoiSubmissionStatus.ChangesRequested;
                             <tr>
                                 <td>
                                     <div class="fw-semibold">@item.Name</div>
@@ -62,13 +64,21 @@
                                 <td>@(item.SubmissionType == "update" ? "Chỉnh sửa" : "Tạo mới")</td>
                                 <td><span class="badge text-bg-light border">@item.Status</span></td>
                                 <td class="text-end">
-                                    @if (item.Status != PoiSubmissionStatus.Approved && item.Status != PoiSubmissionStatus.Rejected)
+                                    @if (canOpen)
                                     {
                                         <a href="/OwnerPoi/Edit/@item.Id" class="btn btn-sm btn-outline-dark">Mở</a>
                                     }
                                     else
                                     {
                                         <span class="text-muted small">Đã khóa</span>
+                                    }
+
+                                    @if (canDelete)
+                                    {
+                                        <form method="post" action="/OwnerPoi/DeleteDraft/@item.Id" class="d-inline ms-1" onsubmit="return confirm('Xóa submission nháp này?');">
+                                            @Html.AntiForgeryToken()
+                                            <button class="btn btn-sm btn-outline-danger">Xóa nháp</button>
+                                        </form>
                                     }
                                 </td>
                             </tr>
@@ -111,6 +121,7 @@
                                 </td>
                                 <td>@poi.Category</td>
                                 <td class="text-end">
+                                    <a href="/OwnerPoi/Details/@poi.Id" class="btn btn-sm btn-outline-dark me-1">Xem chi tiết</a>
                                     <form method="post" action="/OwnerPoi/StartUpdate/@poi.Id" class="d-inline">
                                         @Html.AntiForgeryToken()
                                         <button class="btn btn-sm btn-outline-primary">Tạo submission sửa</button>

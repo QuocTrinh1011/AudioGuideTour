@@ -20,7 +20,7 @@ public class OwnerAuthController : Controller
     {
         if (!string.IsNullOrWhiteSpace(OwnerSessionHelper.GetOwnerId(HttpContext)))
         {
-            return RedirectToAction("Index", "OwnerPoi");
+            return RedirectToAction("Index", "OwnerDashboard");
         }
 
         return View(new OwnerLoginViewModel { ReturnUrl = returnUrl });
@@ -56,7 +56,7 @@ public class OwnerAuthController : Controller
             return Redirect(model.ReturnUrl);
         }
 
-        return RedirectToAction("Index", "OwnerPoi");
+        return RedirectToAction("Index", "OwnerDashboard");
     }
 
     public IActionResult Register()

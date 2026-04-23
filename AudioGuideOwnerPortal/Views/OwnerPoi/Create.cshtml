@@ -1,51 +1,8 @@
 @model PoiSubmission
 @{
     Layout = "~/Views/Shared/_OwnerLayout.cshtml";
-    var presets = ViewBag.TemplatePresets as List<OwnerPoiTemplatePresetViewModel> ?? new();
-    var selectedTemplateKey = ViewBag.SelectedTemplateKey as string ?? "";
-    var selectedTemplateTitle = ViewBag.SelectedTemplateTitle as string;
 }
 
 <h2 class="mb-3">Tạo submission POI mới</h2>
-
-@if (presets.Count > 0)
-{
-    <div class="card p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-            <div>
-                <h5 class="mb-1">Nạp nhanh dữ liệu mẫu từ bộ POI cũ</h5>
-                <div class="text-muted small">Mình đã đưa sẵn 5 preset từ tour demo cũ của admin. Bạn chọn một mẫu để form tự điền trước, rồi chỉnh lại nếu cần.</div>
-            </div>
-            <a href="/OwnerPoi/Create" class="btn btn-sm btn-outline-secondary">Form trống</a>
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(selectedTemplateTitle))
-        {
-            <div class="alert alert-success py-2 mb-3">
-                Đã nạp sẵn dữ liệu mẫu: <strong>@selectedTemplateTitle</strong>
-            </div>
-        }
-
-        <div class="row g-3">
-            @foreach (var preset in presets)
-            {
-                var isSelected = string.Equals(preset.Key, selectedTemplateKey, StringComparison.OrdinalIgnoreCase);
-                <div class="col-lg-4 col-md-6">
-                    <div class="border rounded-4 p-3 h-100 @(isSelected ? "border-success bg-success-subtle" : "border-light-subtle")">
-                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                            <div class="fw-semibold">@preset.Title</div>
-                            <span class="badge text-bg-light border">@preset.Category</span>
-                        </div>
-                        <div class="small text-muted mb-2">@preset.Summary</div>
-                        <div class="small text-muted mb-3">@preset.Address</div>
-                        <a href="/OwnerPoi/Create?templateKey=@preset.Key" class="btn btn-sm @(isSelected ? "btn-success" : "btn-outline-primary")">
-                            @(isSelected ? "Đang dùng mẫu này" : "Dùng mẫu này")
-                        </a>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-}
 
 @await Html.PartialAsync("_PoiSubmissionForm", Model)

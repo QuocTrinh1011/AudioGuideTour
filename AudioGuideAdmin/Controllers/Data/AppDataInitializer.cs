@@ -16,12 +16,14 @@ public static class AppDataInitializer
             await EnsureSqliteAdminUserTableAsync(context);
             await EnsureSqliteRegistrationTablesAsync(context);
             await EnsureSqliteOwnerWorkflowTablesAsync(context);
+            await EnsureSqliteTourTranslationTablesAsync(context);
             await SeedLanguagesAsync(context);
             await NormalizeUnsupportedLanguageReferencesAsync(context);
             await SeedRegistrationPlansAsync(context);
             await SeedCategoriesAsync(context);
             await SeedDemoContentAsync(context);
             await EnsureDemoTranslationCoverageAsync(context);
+            await EnsureDemoTourTranslationCoverageAsync(context);
             await EnsureDemoMediaLinksAsync(context);
             await EnsureDemoEnglishAudioLinksAsync(context);
             return;
@@ -35,12 +37,14 @@ public static class AppDataInitializer
         await EnsureQrCodeTableAsync(context);
         await EnsureRegistrationTablesAsync(context);
         await EnsureOwnerWorkflowTablesAsync(context);
+        await EnsureTourTranslationTablesAsync(context);
         await SeedLanguagesAsync(context);
         await NormalizeUnsupportedLanguageReferencesAsync(context);
         await SeedRegistrationPlansAsync(context);
         await SeedCategoriesAsync(context);
         await SeedDemoContentAsync(context);
         await EnsureDemoTranslationCoverageAsync(context);
+        await EnsureDemoTourTranslationCoverageAsync(context);
         await EnsureDemoMediaLinksAsync(context);
         await EnsureDemoEnglishAudioLinksAsync(context);
     }
@@ -197,6 +201,33 @@ public static class AppDataInitializer
             """
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PoiTranslationSubmissions_SubmissionId_Language"
             ON "PoiTranslationSubmissions" ("SubmissionId", "Language");
+            """);
+    }
+
+    private static async Task EnsureSqliteTourTranslationTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "TourTranslations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TourTranslations" PRIMARY KEY AUTOINCREMENT,
+                "TourId" INTEGER NOT NULL,
+                "Language" TEXT NOT NULL DEFAULT 'vi-VN',
+                "Title" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                CONSTRAINT "FK_TourTranslations_Tours_TourId"
+                    FOREIGN KEY ("TourId") REFERENCES "Tours" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_TourTranslations_TourId_Language"
+            ON "TourTranslations" ("TourId", "Language");
             """);
     }
 
@@ -370,6 +401,37 @@ public static class AppDataInitializer
                 )
             BEGIN
                 CREATE UNIQUE INDEX [IX_PoiTranslationSubmissions_SubmissionId_Language] ON [PoiTranslationSubmissions]([SubmissionId], [Language]);
+            END
+            """);
+    }
+
+    private static async Task EnsureTourTranslationTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [TourTranslations](
+                    [Id] int IDENTITY(1,1) NOT NULL,
+                    [TourId] int NOT NULL,
+                    [Language] nvarchar(20) NOT NULL CONSTRAINT [DF_TourTranslations_Language] DEFAULT N'vi-VN',
+                    [Title] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Title] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Description] DEFAULT N'',
+                    CONSTRAINT [PK_TourTranslations] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_TourTranslations_Tours_TourId] FOREIGN KEY ([TourId]) REFERENCES [Tours]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_TourTranslations_TourId_Language' AND object_id = OBJECT_ID(N'[TourTranslations]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_TourTranslations_TourId_Language] ON [TourTranslations]([TourId], [Language]);
             END
             """);
     }
@@ -1398,6 +1460,49 @@ public static class AppDataInitializer
             translation.TtsScript = definition.TtsScript;
             translation.IsPublished = true;
             translation.UpdatedAt = now;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public static async Task EnsureDemoTourTranslationCoverageAsync(AppDbContext context)
+    {
+        var tour = await context.Tours.FirstOrDefaultAsync(x => x.Name == "Đêm Vĩnh Khánh 45 phút");
+        if (tour == null)
+        {
+            return;
+        }
+
+        var existingTranslations = await context.TourTranslations
+            .Where(x => x.TourId == tour.Id)
+            .ToListAsync();
+
+        var definitions = new (string Language, string Title, string Description)[]
+        {
+            ("en-US", "Vinh Khanh Night Walk - 45 Minutes", "A demo walking route from the bus stop through the food street and the street-life stops in Vinh Khanh."),
+            ("zh-CN", "永庆夜游 45 分钟", "这是一条从公交车站进入永庆街区，途经美食街与街区生活点位的步行体验路线。")
+        };
+
+        foreach (var definition in definitions)
+        {
+            var translation = existingTranslations.FirstOrDefault(x => string.Equals(x.Language, definition.Language, StringComparison.OrdinalIgnoreCase));
+            if (translation == null)
+            {
+                context.TourTranslations.Add(new TourTranslation
+                {
+                    TourId = tour.Id,
+                    Language = definition.Language,
+                    Title = definition.Title,
+                    Description = definition.Description
+                });
+                continue;
+            }
+
+            translation.Title = definition.Title;
+            translation.Description = definition.Description;
         }
 
         if (context.ChangeTracker.HasChanges())

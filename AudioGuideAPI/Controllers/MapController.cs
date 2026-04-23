@@ -20,7 +20,7 @@ public class MapController : ControllerBase
     [HttpPost("nearby")]
     public async Task<IActionResult> GetNearby(LocationRequest request)
     {
-        var pois = await _context.Pois
+        var pois = await ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Include(x => x.Translations.Where(t => t.IsPublished))
             .Where(x => x.IsActive)
@@ -71,7 +71,7 @@ public class MapController : ControllerBase
     [HttpGet("feed")]
     public async Task<IActionResult> Feed([FromQuery] string language = "vi-VN")
     {
-        var pois = await _context.Pois
+        var pois = await ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Include(x => x.Translations.Where(t => t.IsPublished))
             .Where(x => x.IsActive)

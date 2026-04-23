@@ -24,7 +24,7 @@ public class PoiController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool activeOnly = false)
     {
-        var query = _context.Pois
+        var query = ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Include(x => x.Translations)
             .AsQueryable();
@@ -45,7 +45,7 @@ public class PoiController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var poi = await _context.Pois
+        var poi = await ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .Include(x => x.Translations)
             .Include(x => x.TourStops)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -61,7 +61,7 @@ public class PoiController : ControllerBase
     [HttpGet("{id}/image")]
     public async Task<IActionResult> GetImage(int id)
     {
-        var poi = await _context.Pois
+        var poi = await ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Where(x => x.Id == id)
             .Select(x => new { x.Name, x.ImageUrl })

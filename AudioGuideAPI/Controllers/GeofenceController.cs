@@ -24,7 +24,7 @@ public class GeofenceController : ControllerBase
         var now = request.RecordedAt == default ? DateTime.UtcNow : request.RecordedAt.ToUniversalTime();
         var user = await EnsureUserAsync(request, now);
 
-        var pois = await _context.Pois
+        var pois = await ApiPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Include(x => x.Translations.Where(t => t.IsPublished))
             .Where(x => x.IsActive)

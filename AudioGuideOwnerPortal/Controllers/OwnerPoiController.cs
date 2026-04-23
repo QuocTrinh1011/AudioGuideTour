@@ -228,8 +228,8 @@ public class OwnerPoiController : Controller
             DefaultLanguage = "vi-VN",
             EstimatedDurationSeconds = 60,
             ImageUrl = "/images/poi-vinh-khanh-street-life.png",
-            AudioMode = "tts",
-            AudioUrl = "",
+            AudioMode = "tts-fallback",
+            AudioUrl = "/audio/poi-vinh-khanh-street-life-vi.wav",
             Translations =
             [
                 new PoiTemplateTranslationPreset
@@ -238,7 +238,8 @@ public class OwnerPoiController : Controller
                     Title = "Nhịp sống khu vực Vĩnh Khánh",
                     Summary = "Điểm kể chuyện về không khí đường phố, sinh hoạt và nhịp sống về đêm.",
                     Description = "Ngoài ẩm thực, khu vực này còn hấp dẫn nhờ sự nhộn nhịp của người bán, khách đi bộ và không gian sinh hoạt sát nhau trên vỉa hè.",
-                    TtsScript = "Điểm này giúp visitor hiểu thêm về đời sống phố phường ở Quận 4. Không chỉ có món ăn, Vĩnh Khánh còn là nơi thể hiện nhịp sống và văn hóa giao tiếp rất riêng."
+                    TtsScript = "Điểm này giúp visitor hiểu thêm về đời sống phố phường ở Quận 4. Không chỉ có món ăn, Vĩnh Khánh còn là nơi thể hiện nhịp sống và văn hóa giao tiếp rất riêng.",
+                    AudioUrl = "/audio/poi-vinh-khanh-street-life-vi.wav"
                 },
                 new PoiTemplateTranslationPreset
                 {
@@ -357,6 +358,39 @@ public class OwnerPoiController : Controller
         return View(model);
     }
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var owner = await GetCurrentOwnerAsync();
+        if (owner == null)
+        {
+            return RedirectToAction("Login", "OwnerAuth");
+        }
+
+        var poi = await _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations)
+            .FirstOrDefaultAsync(x => x.Id == id && x.OwnerId == owner.Id);
+
+        if (poi == null)
+        {
+            return NotFound();
+        }
+
+        var model = new OwnerPoiDetailsViewModel
+        {
+            Owner = owner,
+            Poi = poi,
+            Languages = await _context.LanguageOptions
+                .AsNoTracking()
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.SortOrder)
+                .ThenBy(x => x.Name)
+                .ToListAsync()
+        };
+
+        return View(model);
+    }
+
     public async Task<IActionResult> Create(string? templateKey = null)
     {
         var owner = await RequireApprovedOwnerAsync();
@@ -372,6 +406,7 @@ public class OwnerPoiController : Controller
 
         var submission = new PoiSubmission
         {
+            Id = Guid.NewGuid().ToString("N"),
             OwnerId = owner.Id,
             SubmissionType = "create",
             Status = PoiSubmissionStatus.Draft
@@ -386,6 +421,10 @@ public class OwnerPoiController : Controller
             activeLanguages,
             submission.DefaultLanguage,
             submission.TranslationSubmissions);
+        foreach (var translation in submission.TranslationSubmissions)
+        {
+            translation.SubmissionId = submission.Id;
+        }
         PopulateTranslationLanguageOptions(activeLanguages, submission.DefaultLanguage);
 
         return View(submission);
@@ -448,7 +487,7 @@ public class OwnerPoiController : Controller
         submission.EstimatedDurationSeconds = preset.EstimatedDurationSeconds;
         submission.ImageUrl = preset.ImageUrl;
         submission.AudioMode = preset.AudioMode;
-        submission.AudioUrl = preset.AudioUrl;
+        submission.AudioUrl = ResolvePresetAudioUrl(preset.Key, preset.DefaultLanguage, preset.AudioUrl);
         submission.IsActive = true;
         submission.TranslationSubmissions = preset.Translations
             .Select((translation, index) => new PoiTranslationSubmission
@@ -458,13 +497,51 @@ public class OwnerPoiController : Controller
                 Summary = translation.Summary,
                 Description = translation.Description,
                 TtsScript = translation.TtsScript,
-                AudioUrl = translation.AudioUrl,
-                VoiceName = translation.VoiceName,
+                AudioUrl = ResolvePresetAudioUrl(preset.Key, translation.Language, translation.AudioUrl),
+                VoiceName = ResolvePresetVoiceName(translation.Language, translation.VoiceName),
                 SortOrder = index,
                 UpdatedAt = DateTime.UtcNow
             })
             .ToList();
         return true;
+    }
+
+    private static string ResolvePresetVoiceName(string language, string currentVoiceName)
+    {
+        if (!string.IsNullOrWhiteSpace(currentVoiceName))
+        {
+            return currentVoiceName;
+        }
+
+        return language switch
+        {
+            "vi-VN" => "vi-VN-NamMinhNeural",
+            "en-US" => "en-US-JennyNeural",
+            "zh-CN" => "zh-CN-XiaoxiaoNeural",
+            _ => string.Empty
+        };
+    }
+
+    private static string ResolvePresetAudioUrl(string presetKey, string language, string currentAudioUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(currentAudioUrl))
+        {
+            return currentAudioUrl;
+        }
+
+        return (presetKey, language) switch
+        {
+            ("bus-khanh-hoi", "vi-VN") => "/audio/poi-khanh-hoi-bus-stop-vi.wav",
+            ("bus-khanh-hoi", "en-US") => "/audio/poi-khanh-hoi-bus-stop-en.wav",
+            ("food-street", "en-US") => "/audio/poi-vinh-khanh-food-street-en.wav",
+            ("seafood-cluster", "vi-VN") => "/audio/poi-vinh-khanh-seafood-cluster-vi.wav",
+            ("seafood-cluster", "en-US") => "/audio/poi-vinh-khanh-seafood-cluster-en.wav",
+            ("street-life", "vi-VN") => "/audio/poi-vinh-khanh-street-life-vi.wav",
+            ("street-life", "en-US") => "/audio/poi-vinh-khanh-street-life-en.wav",
+            ("bus-vinh-hoi", "vi-VN") => "/audio/poi-vinh-hoi-bus-stop-vi.wav",
+            ("bus-vinh-hoi", "en-US") => "/audio/poi-vinh-hoi-bus-stop-en.wav",
+            _ => string.Empty
+        };
     }
 
     private void PopulateTemplateOptions(string? selectedKey = null)
@@ -505,11 +582,17 @@ public class OwnerPoiController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        await BackfillUpdateSubmissionIfNeededAsync(submission, owner.Id);
+
         var activeLanguages = await GetActiveLanguagesAsync();
         submission.TranslationSubmissions = PoiWorkflowHelper.EnsureSubmissionTranslations(
             activeLanguages,
             submission.DefaultLanguage,
             submission.TranslationSubmissions);
+        foreach (var translation in submission.TranslationSubmissions)
+        {
+            translation.SubmissionId = submission.Id;
+        }
 
         ViewBag.Categories = await BuildCategoryOptionsAsync(submission.Category);
         ViewBag.Languages = await BuildLanguageOptionsAsync(submission.DefaultLanguage);
@@ -603,6 +686,38 @@ public class OwnerPoiController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteDraft(string id)
+    {
+        var owner = await RequireApprovedOwnerAsync();
+        if (owner == null)
+        {
+            return RedirectToAction(nameof(Index));
+        }
+
+        var submission = await _context.PoiSubmissions
+            .FirstOrDefaultAsync(x => x.Id == id && x.OwnerId == owner.Id);
+
+        if (submission == null)
+        {
+            return NotFound();
+        }
+
+        if (submission.Status != PoiSubmissionStatus.Draft &&
+            submission.Status != PoiSubmissionStatus.ChangesRequested)
+        {
+            TempData["Error"] = "Chỉ có thể xóa submission nháp hoặc bản bị trả sửa.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        _context.PoiSubmissions.Remove(submission);
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = "Đã xóa submission nháp.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> StartUpdate(int id)
     {
         var owner = await RequireApprovedOwnerAsync();
@@ -620,6 +735,7 @@ public class OwnerPoiController : Controller
         }
 
         var existingDraft = await _context.PoiSubmissions
+            .Include(x => x.TranslationSubmissions)
             .FirstOrDefaultAsync(x =>
                 x.OwnerId == owner.Id &&
                 x.PoiId == id &&
@@ -627,6 +743,7 @@ public class OwnerPoiController : Controller
 
         if (existingDraft != null)
         {
+            await BackfillUpdateSubmissionIfNeededAsync(existingDraft, owner.Id, poi);
             TempData["Success"] = "Đã mở submission chỉnh sửa hiện có cho POI này.";
             return RedirectToAction(nameof(Edit), new { id = existingDraft.Id });
         }
@@ -647,6 +764,15 @@ public class OwnerPoiController : Controller
     private async Task PrepareSubmissionAsync(PoiSubmission submission, string ownerId, PoiSubmission? existing, string submitAction)
     {
         submission.OwnerId = ownerId;
+        submission.Name = submission.Name?.Trim() ?? string.Empty;
+        submission.Category = submission.Category?.Trim() ?? string.Empty;
+        submission.Summary = submission.Summary?.Trim() ?? string.Empty;
+        submission.Description = submission.Description?.Trim() ?? string.Empty;
+        submission.Address = submission.Address?.Trim() ?? string.Empty;
+        submission.MapUrl = submission.MapUrl?.Trim() ?? string.Empty;
+        submission.AudioUrl = submission.AudioUrl?.Trim() ?? string.Empty;
+        submission.TtsScript = submission.TtsScript?.Trim() ?? string.Empty;
+        submission.DefaultLanguage = submission.DefaultLanguage?.Trim() ?? "vi-VN";
         submission.AudioMode = PoiWorkflowHelper.NormalizeAudioMode(submission.AudioMode, submission.AudioUrl);
         submission.TranslationSubmissions ??= new List<PoiTranslationSubmission>();
 
@@ -679,10 +805,16 @@ public class OwnerPoiController : Controller
         {
             var translation = submission.TranslationSubmissions[index];
             translation.SubmissionId = submission.Id;
+            translation.Language = translation.Language?.Trim() ?? submission.DefaultLanguage;
+            translation.Title = translation.Title?.Trim() ?? string.Empty;
+            translation.Summary = translation.Summary?.Trim() ?? string.Empty;
+            translation.Description = translation.Description?.Trim() ?? string.Empty;
+            translation.TtsScript = translation.TtsScript?.Trim() ?? string.Empty;
+            translation.VoiceName = translation.VoiceName?.Trim() ?? string.Empty;
             translation.SortOrder = index;
             translation.AudioUrl = await PoiAudioStorageHelper.SaveAudioAsync(
                 translation.AudioFile,
-                translation.AudioUrl,
+                translation.AudioUrl?.Trim() ?? string.Empty,
                 _audioStorageOptions);
             translation.UpdatedAt = DateTime.UtcNow;
         }
@@ -695,6 +827,104 @@ public class OwnerPoiController : Controller
         submission.ReviewedAt = null;
         submission.ReviewedByAdminId = null;
         submission.ReviewNote = existing?.Status == PoiSubmissionStatus.ChangesRequested ? existing.ReviewNote : string.Empty;
+    }
+
+    private async Task BackfillUpdateSubmissionIfNeededAsync(PoiSubmission submission, string ownerId, Poi? livePoi = null)
+    {
+        if (!string.Equals(submission.SubmissionType, "update", StringComparison.OrdinalIgnoreCase) ||
+            submission.PoiId is null ||
+            !NeedsInitialUpdateSeed(submission))
+        {
+            return;
+        }
+
+        livePoi ??= await _context.Pois
+            .AsNoTracking()
+            .Include(x => x.Translations)
+            .FirstOrDefaultAsync(x => x.Id == submission.PoiId.Value && x.OwnerId == ownerId);
+
+        if (livePoi == null)
+        {
+            return;
+        }
+
+        var hydrated = PoiWorkflowHelper.CreateSubmissionFromPoi(livePoi, ownerId);
+        var existingTranslationIds = submission.TranslationSubmissions
+            .Where(x => x.Id > 0)
+            .ToDictionary(x => x.Language, x => x.Id, StringComparer.OrdinalIgnoreCase);
+
+        submission.Name = hydrated.Name;
+        submission.Category = hydrated.Category;
+        submission.Summary = hydrated.Summary;
+        submission.Description = hydrated.Description;
+        submission.Address = hydrated.Address;
+        submission.Latitude = hydrated.Latitude;
+        submission.Longitude = hydrated.Longitude;
+        submission.Radius = hydrated.Radius;
+        submission.ApproachRadiusMeters = hydrated.ApproachRadiusMeters;
+        submission.Priority = hydrated.Priority;
+        submission.DebounceSeconds = hydrated.DebounceSeconds;
+        submission.CooldownSeconds = hydrated.CooldownSeconds;
+        submission.TriggerMode = hydrated.TriggerMode;
+        submission.ImageUrl = hydrated.ImageUrl;
+        submission.MapUrl = hydrated.MapUrl;
+        submission.IsActive = hydrated.IsActive;
+        submission.AudioMode = hydrated.AudioMode;
+        submission.AudioUrl = hydrated.AudioUrl;
+        submission.TtsScript = hydrated.TtsScript;
+        submission.DefaultLanguage = hydrated.DefaultLanguage;
+        submission.EstimatedDurationSeconds = hydrated.EstimatedDurationSeconds;
+        submission.TranslationSubmissions = hydrated.TranslationSubmissions
+            .Select((translation, index) => new PoiTranslationSubmission
+            {
+                Id = existingTranslationIds.TryGetValue(translation.Language, out var translationId) ? translationId : 0,
+                SubmissionId = submission.Id,
+                Language = translation.Language,
+                Title = translation.Title,
+                Summary = translation.Summary,
+                Description = translation.Description,
+                AudioUrl = translation.AudioUrl,
+                TtsScript = translation.TtsScript,
+                VoiceName = translation.VoiceName,
+                SortOrder = index,
+                UpdatedAt = DateTime.UtcNow
+            })
+            .ToList();
+        submission.UpdatedAt = DateTime.UtcNow;
+
+        if (_context.Entry(submission).State != EntityState.Detached)
+        {
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    private static bool NeedsInitialUpdateSeed(PoiSubmission submission)
+    {
+        var hasCoreContent =
+            !string.IsNullOrWhiteSpace(submission.Name) ||
+            !string.IsNullOrWhiteSpace(submission.Category) ||
+            !string.IsNullOrWhiteSpace(submission.Address) ||
+            !string.IsNullOrWhiteSpace(submission.Summary) ||
+            !string.IsNullOrWhiteSpace(submission.Description) ||
+            !string.IsNullOrWhiteSpace(submission.MapUrl) ||
+            !string.IsNullOrWhiteSpace(submission.AudioUrl) ||
+            !string.IsNullOrWhiteSpace(submission.TtsScript) ||
+            Math.Abs(submission.Latitude) > 0.000001 ||
+            Math.Abs(submission.Longitude) > 0.000001;
+
+        if (hasCoreContent)
+        {
+            return false;
+        }
+
+        return submission.TranslationSubmissions.Count == 0 ||
+               submission.TranslationSubmissions.All(x =>
+                   string.IsNullOrWhiteSpace(x.Title) &&
+                   string.IsNullOrWhiteSpace(x.Summary) &&
+                   string.IsNullOrWhiteSpace(x.Description) &&
+                   string.IsNullOrWhiteSpace(x.AudioUrl) &&
+                   string.IsNullOrWhiteSpace(x.TtsScript) &&
+                   string.IsNullOrWhiteSpace(x.VoiceName));
     }
 
     private async Task<ShopOwner?> GetCurrentOwnerAsync()

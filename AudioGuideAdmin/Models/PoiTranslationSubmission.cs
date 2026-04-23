@@ -16,12 +16,12 @@ public class PoiTranslationSubmission
     [MaxLength(20)]
     public string Language { get; set; } = "vi-VN";
 
-    public string Title { get; set; } = "";
-    public string Summary { get; set; } = "";
-    public string Description { get; set; } = "";
-    public string AudioUrl { get; set; } = "";
-    public string TtsScript { get; set; } = "";
-    public string VoiceName { get; set; } = "";
+    public string? Title { get; set; } = "";
+    public string? Summary { get; set; } = "";
+    public string? Description { get; set; } = "";
+    public string? AudioUrl { get; set; } = "";
+    public string? TtsScript { get; set; } = "";
+    public string? VoiceName { get; set; } = "";
     public int SortOrder { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

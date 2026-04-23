@@ -19,6 +19,11 @@ public class BootstrapController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] string language = "vi-VN")
     {
+        var scopedPoiQuery = ApiPoiScopeHelper.GetScopedPoiQuery(_context);
+        var scopedPoiIds = await scopedPoiQuery
+            .Select(x => x.Id)
+            .ToListAsync();
+
         var languages = await _context.LanguageOptions
             .AsNoTracking()
             .Where(x => x.IsActive)
@@ -33,7 +38,7 @@ public class BootstrapController : ControllerBase
             .ThenBy(x => x.Name)
             .ToListAsync();
 
-        var pois = await _context.Pois
+        var pois = await scopedPoiQuery
             .AsNoTracking()
             .Include(x => x.Translations.Where(t => t.IsPublished))
             .Where(x => x.IsActive)
@@ -43,10 +48,11 @@ public class BootstrapController : ControllerBase
 
         var tours = await _context.Tours
             .AsNoTracking()
+            .Include(x => x.Translations)
             .Include(x => x.Stops.OrderBy(s => s.SortOrder))
             .ThenInclude(x => x.Poi)
             .ThenInclude(x => x!.Translations.Where(t => t.IsPublished))
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && x.Stops.Any(s => scopedPoiIds.Contains(s.PoiId)))
             .OrderBy(x => x.Name)
             .ToListAsync();
 
@@ -82,15 +88,20 @@ public class BootstrapController : ControllerBase
             };
         });
 
-        var tourData = tours.Select(tour => new
+        var tourData = tours.Select(tour =>
         {
-            tour.Id,
-            tour.Name,
-            tour.Description,
-            tour.Language,
-            tour.CoverImageUrl,
-            tour.EstimatedDurationMinutes,
-            stops = tour.Stops
+            var translation = TourTranslationSelector.Select(tour.Translations, language);
+
+            return new
+            {
+                tour.Id,
+                Name = string.IsNullOrWhiteSpace(translation?.Title) ? tour.Name : translation.Title,
+                Description = string.IsNullOrWhiteSpace(translation?.Description) ? tour.Description : translation.Description,
+                Language = translation?.Language ?? tour.Language,
+                tour.CoverImageUrl,
+                tour.EstimatedDurationMinutes,
+                stops = tour.Stops
+                .Where(s => scopedPoiIds.Contains(s.PoiId))
                 .OrderBy(s => s.SortOrder)
                 .Select(stop =>
                 {
@@ -141,6 +152,7 @@ public class BootstrapController : ControllerBase
                     };
                 })
                 .ToList()
+            };
         });
 
         return Ok(new

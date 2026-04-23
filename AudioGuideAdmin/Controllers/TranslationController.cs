@@ -1,4 +1,5 @@
-﻿using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -18,8 +19,10 @@ public class TranslationController : Controller
 
     public async Task<IActionResult> Index()
     {
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
         var data = await _context.PoiTranslations
             .Include(x => x.Poi)
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .OrderBy(x => x.Poi!.Name)
             .ThenBy(x => x.Language)
             .ToListAsync();
@@ -84,11 +87,6 @@ public class TranslationController : Controller
             _context.PoiTranslations.Add(model);
             await _context.SaveChangesAsync();
             TempData["Success"] = "Đã thêm bản dịch thành công.";
-            if (contextLocked)
-            {
-                return RedirectToAction(nameof(EditForPoi), new { poiId = model.PoiId, language = model.Language });
-            }
-
             return RedirectToAction(nameof(EditForPoi), new { poiId = model.PoiId, language = model.Language });
         }
         catch (Exception ex)
@@ -113,7 +111,8 @@ public class TranslationController : Controller
 
     public async Task<IActionResult> EditForPoi(int poiId, string? language = null)
     {
-        var poi = await _context.Pois.FindAsync(poiId);
+        var poi = await AdminPoiScopeHelper.GetScopedPoiQuery(_context)
+            .FirstOrDefaultAsync(x => x.Id == poiId);
         if (poi == null)
         {
             return NotFound();
@@ -188,12 +187,7 @@ public class TranslationController : Controller
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            TempData["Success"] = "Đã cấp nhat ban dich thanh cong.";
-            if (contextLocked)
-            {
-                return RedirectToAction(nameof(EditForPoi), new { poiId = existing.PoiId, language = existing.Language });
-            }
-
+            TempData["Success"] = "Đã cập nhật bản dịch thành công.";
             return RedirectToAction(nameof(EditForPoi), new { poiId = existing.PoiId, language = existing.Language });
         }
         catch (Exception ex)
@@ -238,7 +232,7 @@ public class TranslationController : Controller
             : new List<TranslationLanguageLinkViewModel>();
         ViewBag.ContextLocked = contextLocked;
         ViewBag.ContextPoiName = poiId.HasValue
-            ? _context.Pois.Where(x => x.Id == poiId.Value).Select(x => x.Name).FirstOrDefault()
+            ? AdminPoiScopeHelper.GetScopedPoiQuery(_context).Where(x => x.Id == poiId.Value).Select(x => x.Name).FirstOrDefault()
             : null;
     }
 
@@ -248,10 +242,10 @@ public class TranslationController : Controller
 
         if (!contextLocked)
         {
-            items.Add(new SelectListItem("Chon POI", "", !selectedPoiId.HasValue || selectedPoiId.Value <= 0));
+            items.Add(new SelectListItem("Chọn POI", "", !selectedPoiId.HasValue || selectedPoiId.Value <= 0));
         }
 
-        items.AddRange(_context.Pois
+        items.AddRange(AdminPoiScopeHelper.GetScopedPoiQuery(_context)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem(x.Name, x.Id.ToString(), selectedPoiId.HasValue && x.Id == selectedPoiId.Value))
             .ToList());

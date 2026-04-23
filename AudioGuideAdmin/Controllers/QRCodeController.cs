@@ -1,4 +1,5 @@
 using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,7 @@ public class QRCodeController : Controller
     private const string AppEntryQrCode = "APP-ENTRY-ANDROID";
     private const string QrVisitorCookieName = "audio-guide-qr-visitor-id";
     private const string QrDeviceCookieName = "audio-guide-qr-device-id";
+
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
@@ -31,8 +33,10 @@ public class QRCodeController : Controller
 
     public async Task<IActionResult> Index()
     {
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
         var items = await _context.QRCodes
             .Include(x => x.Poi)
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .OrderBy(x => x.Code)
             .ToListAsync();
 
@@ -53,6 +57,10 @@ public class QRCodeController : Controller
     public async Task<IActionResult> Create(QRCode model)
     {
         Normalize(model);
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
+        var duplicateQr = string.IsNullOrWhiteSpace(model.Code)
+            ? null
+            : await _context.QRCodes.FirstOrDefaultAsync(x => x.Code == model.Code);
 
         if (model.PoiId <= 0)
         {
@@ -64,12 +72,12 @@ public class QRCodeController : Controller
             ModelState.AddModelError(nameof(model.Code), "Mã QR không được để trống.");
         }
 
-        if (!_context.Pois.Any(x => x.Id == model.PoiId))
+        if (!AdminPoiScopeHelper.GetScopedPoiQuery(_context).Any(x => x.Id == model.PoiId))
         {
             ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.Code) && _context.QRCodes.Any(x => x.Code == model.Code))
+        if (duplicateQr != null && scopedPoiIds.Contains(duplicateQr.PoiId))
         {
             ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
@@ -83,10 +91,19 @@ public class QRCodeController : Controller
 
         try
         {
+            if (duplicateQr != null)
+            {
+                duplicateQr.PoiId = model.PoiId;
+                duplicateQr.Note = model.Note;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Đã tái sử dụng QR cũ cho POI hiện tại.";
+                return RedirectToAction(nameof(Index));
+            }
+
             _context.QRCodes.Add(model);
-        await _context.SaveChangesAsync();
-        TempData["Success"] = "Đã tạo QR mới.";
-        return RedirectToAction(nameof(Index));
+            await _context.SaveChangesAsync();
+            TempData["Success"] = "Đã tạo QR mới.";
+            return RedirectToAction(nameof(Index));
         }
         catch (DbUpdateException)
         {
@@ -99,7 +116,8 @@ public class QRCodeController : Controller
 
     public async Task<IActionResult> Edit(int id)
     {
-        var item = await _context.QRCodes.FindAsync(id);
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
+        var item = await _context.QRCodes.FirstOrDefaultAsync(x => x.Id == id && scopedPoiIds.Contains(x.PoiId));
         if (item == null)
         {
             return NotFound();
@@ -115,6 +133,10 @@ public class QRCodeController : Controller
     public async Task<IActionResult> Edit(QRCode model)
     {
         Normalize(model);
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
+        var duplicateQr = string.IsNullOrWhiteSpace(model.Code)
+            ? null
+            : await _context.QRCodes.FirstOrDefaultAsync(x => x.Id != model.Id && x.Code == model.Code);
 
         if (model.PoiId <= 0)
         {
@@ -126,12 +148,12 @@ public class QRCodeController : Controller
             ModelState.AddModelError(nameof(model.Code), "Mã QR không được để trống.");
         }
 
-        if (!_context.Pois.Any(x => x.Id == model.PoiId))
+        if (!AdminPoiScopeHelper.GetScopedPoiQuery(_context).Any(x => x.Id == model.PoiId))
         {
             ModelState.AddModelError(nameof(model.PoiId), "POI không hợp lệ.");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.Code) && _context.QRCodes.Any(x => x.Id != model.Id && x.Code == model.Code))
+        if (duplicateQr != null && scopedPoiIds.Contains(duplicateQr.PoiId))
         {
             ModelState.AddModelError(nameof(model.Code), "Mã QR đã tồn tại.");
         }
@@ -143,10 +165,20 @@ public class QRCodeController : Controller
             return View(model);
         }
 
-        var existing = await _context.QRCodes.FindAsync(model.Id);
+        var existing = await _context.QRCodes.FirstOrDefaultAsync(x => x.Id == model.Id && scopedPoiIds.Contains(x.PoiId));
         if (existing == null)
         {
             return NotFound();
+        }
+
+        if (duplicateQr != null)
+        {
+            duplicateQr.PoiId = model.PoiId;
+            duplicateQr.Note = model.Note;
+            _context.QRCodes.Remove(existing);
+            await _context.SaveChangesAsync();
+            TempData["Success"] = "Đã gộp QR cũ vào bộ dữ liệu hiện tại.";
+            return RedirectToAction(nameof(Index));
         }
 
         existing.PoiId = model.PoiId;
@@ -177,27 +209,52 @@ public class QRCodeController : Controller
         var translation = SelectTranslation(poi.Translations, language);
         var resolvedLanguage = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language;
         var qrVisitor = await TouchQrVisitorAsync(qr, poi, resolvedLanguage);
-        var model = new QrPublicPageViewModel
-        {
-            Code = qr.Code,
-            Note = qr.Note,
-            Title = translation?.Title ?? poi.Name,
-            Summary = translation?.Summary ?? poi.Summary,
-            Description = translation?.Description ?? poi.Description,
-            Address = poi.Address,
-            ImageUrl = NormalizeAssetUrl(poi.ImageUrl),
-            AudioUrl = NormalizeAssetUrl(ResolvePublicAudioUrl(poi, translation)),
-            MapUrl = NormalizeMapUrl(poi.MapUrl, poi.Latitude, poi.Longitude),
-            Language = resolvedLanguage,
-            LanguageDisplayName = GetLanguageDisplayName(resolvedLanguage),
-            NarrationText = ResolveNarrationText(poi, translation),
-            NarrationSource = ResolveNarrationSource(poi, translation),
-            DeepLinkUrl = BuildQrDeepLinkUrl(qr.Code, resolvedLanguage, qrVisitor?.Id, qrVisitor?.DeviceId)
-        };
+        var model = BuildPublicPageModel(
+            poi,
+            normalizedCode,
+            qr.Note,
+            resolvedLanguage,
+            translation,
+            BuildQrDeepLinkUrl(qr.Code, resolvedLanguage, qrVisitor?.Id, qrVisitor?.DeviceId));
         model.AvailableLanguages = BuildLanguageOptions(qr.Code, poi, resolvedLanguage);
 
         ViewBag.HideAdminChrome = true;
         return View(model);
+    }
+
+    [HttpGet("/QRCode/PreviewOpen")]
+    public async Task<IActionResult> PreviewOpen([FromQuery] int poiId, [FromQuery] string code, [FromQuery] string? note = null, [FromQuery] string language = "vi-VN")
+    {
+        var normalizedCode = code?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (poiId <= 0 || string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return NotFound();
+        }
+
+        var poi = await AdminPoiScopeHelper.GetScopedPoiQuery(_context)
+            .AsNoTracking()
+            .Include(x => x.Translations)
+            .FirstOrDefaultAsync(x => x.Id == poiId);
+
+        if (poi == null)
+        {
+            return NotFound();
+        }
+
+        var translation = SelectTranslation(poi.Translations, language);
+        var resolvedLanguage = string.IsNullOrWhiteSpace(translation?.Language) ? poi.DefaultLanguage : translation!.Language;
+        var model = BuildPublicPageModel(
+            poi,
+            normalizedCode,
+            note ?? string.Empty,
+            resolvedLanguage,
+            translation,
+            BuildQrDeepLinkUrl(normalizedCode, resolvedLanguage, null, null));
+        model.AvailableLanguages = BuildPreviewLanguageOptions(poi, normalizedCode, note ?? string.Empty, resolvedLanguage);
+
+        ViewBag.HideAdminChrome = true;
+        ViewBag.IsPreview = true;
+        return View("Open", model);
     }
 
     [HttpGet("/QRCode/RenderSvg/{id:int}")]
@@ -269,6 +326,18 @@ public class QRCodeController : Controller
         return BuildQrPngResult(normalizedCode, BuildQrPayloadUrl(normalizedCode));
     }
 
+    [HttpGet("/QRCode/RenderPreviewPng")]
+    public IActionResult RenderPreviewPng([FromQuery] int poiId, [FromQuery] string code, [FromQuery] string? note = null)
+    {
+        if (poiId <= 0 || string.IsNullOrWhiteSpace(code))
+        {
+            return NotFound();
+        }
+
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        return BuildQrPngResult(normalizedCode, BuildPreviewPayloadUrl(poiId, normalizedCode, note));
+    }
+
     [HttpGet("/QRCode/DownloadPng/{id:int}")]
     public async Task<IActionResult> DownloadPng(int id)
     {
@@ -323,69 +392,9 @@ public class QRCodeController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateBusStopSet()
-    {
-        var pois = await _context.Pois
-            .AsNoTracking()
-            .OrderBy(x => x.Name)
-            .ToListAsync();
-
-        var specs = new[]
-        {
-            new { Code = "BUS-KH-001", Label = "Khánh Hội", Note = "Điểm dừng xe buýt phường Khánh Hội" },
-            new { Code = "BUS-VH-002", Label = "Vĩnh Hội", Note = "Điểm dừng xe buýt phường Vĩnh Hội" },
-            new { Code = "BUS-XC-003", Label = "Xuân Chiếu", Note = "Điểm dừng xe buýt phường Xuân Chiếu / Xóm Chiếu" }
-        };
-
-        var created = 0;
-        var missing = new List<string>();
-
-        foreach (var spec in specs)
-        {
-            var poi = FindBusStopPoi(pois, spec.Label);
-            if (poi == null)
-            {
-                missing.Add(spec.Label);
-                continue;
-            }
-
-            var existing = await _context.QRCodes.FirstOrDefaultAsync(x => x.Code == spec.Code);
-            if (existing == null)
-            {
-                _context.QRCodes.Add(new QRCode
-                {
-                    PoiId = poi.Id,
-                    Code = spec.Code,
-                    Note = spec.Note
-                });
-                created++;
-                continue;
-            }
-
-            existing.PoiId = poi.Id;
-            existing.Note = spec.Note;
-        }
-
-        await _context.SaveChangesAsync();
-
-        if (created > 0)
-        {
-            TempData["Success"] = $"Đã tạo/cập nhật bộ QR xe buýt. Tạo mới: {created}.";
-        }
-
-        if (missing.Count > 0)
-        {
-            TempData["Error"] = $"Chưa tìm thấy POI cho: {string.Join(", ", missing)}. Hãy tạo POI thật rồi bấm lại.";
-        }
-
-        return RedirectToAction(nameof(Index));
-    }
-
     private void PreparePoiOptions(int? selectedPoiId = null)
     {
-        ViewBag.PoiOptions = _context.Pois
+        ViewBag.PoiOptions = AdminPoiScopeHelper.GetScopedPoiQuery(_context)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem
             {
@@ -444,6 +453,23 @@ public class QRCodeController : Controller
     private string BuildQrPayloadUrl(string code)
     {
         return $"{ResolvePublicQrBaseUrl().TrimEnd('/')}/QRCode/Open/{Uri.EscapeDataString(code.Trim().ToUpperInvariant())}";
+    }
+
+    private string BuildPreviewPayloadUrl(int poiId, string code, string? note)
+    {
+        var baseUrl = $"{ResolvePublicQrBaseUrl().TrimEnd('/')}/QRCode/PreviewOpen";
+        var query = new List<string>
+        {
+            $"poiId={poiId}",
+            $"code={Uri.EscapeDataString(code.Trim().ToUpperInvariant())}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(note))
+        {
+            query.Add($"note={Uri.EscapeDataString(note.Trim())}");
+        }
+
+        return $"{baseUrl}?{string.Join("&", query)}";
     }
 
     private string BuildQrDeepLinkUrl(string code, string? language, string? visitorId, string? deviceId)
@@ -602,6 +628,27 @@ public class QRCodeController : Controller
         }
 
         return "Thiết bị quét QR";
+    }
+
+    private QrPublicPageViewModel BuildPublicPageModel(Poi poi, string code, string note, string language, PoiTranslation? translation, string deepLinkUrl)
+    {
+        return new QrPublicPageViewModel
+        {
+            Code = code,
+            Note = note,
+            Title = translation?.Title ?? poi.Name,
+            Summary = translation?.Summary ?? poi.Summary,
+            Description = translation?.Description ?? poi.Description,
+            Address = poi.Address,
+            ImageUrl = NormalizeAssetUrl(poi.ImageUrl),
+            AudioUrl = NormalizeAssetUrl(ResolvePublicAudioUrl(poi, translation)),
+            MapUrl = NormalizeMapUrl(poi.MapUrl, poi.Latitude, poi.Longitude),
+            Language = language,
+            LanguageDisplayName = GetLanguageDisplayName(language),
+            NarrationText = ResolveNarrationText(poi, translation),
+            NarrationSource = ResolveNarrationSource(poi, translation),
+            DeepLinkUrl = deepLinkUrl
+        };
     }
 
     private string ResolvePublicQrBaseUrl()
@@ -823,7 +870,7 @@ public class QRCodeController : Controller
     {
         if (!string.IsNullOrWhiteSpace(translation?.TtsScript))
         {
-            return "TTS Script theo ngôn ngữ đang chọn";
+            return "TTS script theo ngôn ngữ đang chọn";
         }
 
         if (!string.IsNullOrWhiteSpace(translation?.Description) || !string.IsNullOrWhiteSpace(translation?.Summary))
@@ -833,7 +880,7 @@ public class QRCodeController : Controller
 
         if (!string.IsNullOrWhiteSpace(poi.TtsScript))
         {
-            return "TTS Script mặc định của POI";
+            return "TTS script mặc định của POI";
         }
 
         return "Mô tả mặc định của POI";
@@ -856,7 +903,51 @@ public class QRCodeController : Controller
             {
                 Code = normalized,
                 Label = GetLanguageDisplayName(normalized),
-                Url = Url.Action(nameof(Open), "QRCode", new { code, language = normalized }) ?? $"/QRCode/Open/{Uri.EscapeDataString(code)}?language={Uri.EscapeDataString(normalized)}",
+                Url = Url.Action(nameof(Open), "QRCode", new { code, language = normalized })
+                    ?? $"/QRCode/Open/{Uri.EscapeDataString(code)}?language={Uri.EscapeDataString(normalized)}",
+                IsSelected = normalized.Equals(selectedLanguage, StringComparison.OrdinalIgnoreCase)
+            });
+        }
+
+        AddLanguage(poi.DefaultLanguage);
+
+        foreach (var translation in poi.Translations.Where(x => x.IsPublished))
+        {
+            AddLanguage(translation.Language);
+        }
+
+        return items
+            .OrderBy(x => GetLanguageSortOrder(x.Code))
+            .ThenBy(x => x.Label, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private List<QrPublicLanguageOption> BuildPreviewLanguageOptions(Poi poi, string code, string note, string selectedLanguage)
+    {
+        var items = new List<QrPublicLanguageOption>();
+        var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddLanguage(string? languageCode)
+        {
+            var normalized = NormalizeLanguageCode(languageCode);
+            if (string.IsNullOrWhiteSpace(normalized) || !seenCodes.Add(normalized))
+            {
+                return;
+            }
+
+            var url = Url.Action(nameof(PreviewOpen), "QRCode", new
+            {
+                poiId = poi.Id,
+                code,
+                note,
+                language = normalized
+            }) ?? $"/QRCode/PreviewOpen?poiId={poi.Id}&code={Uri.EscapeDataString(code)}&language={Uri.EscapeDataString(normalized)}";
+
+            items.Add(new QrPublicLanguageOption
+            {
+                Code = normalized,
+                Label = GetLanguageDisplayName(normalized),
+                Url = url,
                 IsSelected = normalized.Equals(selectedLanguage, StringComparison.OrdinalIgnoreCase)
             });
         }
@@ -956,24 +1047,7 @@ public class QRCodeController : Controller
 
         return latitude == 0 || longitude == 0
             ? string.Empty
-            : $"https://www.google.com/maps/search/?api=1&query={latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)},{longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-    }
-
-    private static Poi? FindBusStopPoi(IEnumerable<Poi> pois, string label)
-    {
-        var keywords = label.ToLowerInvariant() switch
-        {
-            "khánh hội" => new[] { "khanh hoi", "khánh hội" },
-            "vĩnh hội" => new[] { "vinh hoi", "vĩnh hội" },
-            "xuân chiếu" => new[] { "xuan chieu", "xuân chiếu", "xom chieu", "xóm chiếu" },
-            _ => new[] { label.ToLowerInvariant() }
-        };
-
-        return pois.FirstOrDefault(p =>
-        {
-            var name = $"{p.Name} {p.Address}".ToLowerInvariant();
-            return keywords.Any(name.Contains);
-        });
+            : $"https://www.google.com/maps/search/?api=1&query={latitude.ToString(CultureInfo.InvariantCulture)},{longitude.ToString(CultureInfo.InvariantCulture)}";
     }
 
     private static bool IsLoopbackHost(string host)

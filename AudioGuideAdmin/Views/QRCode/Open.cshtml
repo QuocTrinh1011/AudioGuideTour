@@ -5,6 +5,7 @@
         ? $"{Model.Summary} {Model.Description}".Trim()
         : Model.NarrationText;
     var preferBrowserNarrationOnly = string.Equals(Model.Language, "vi-VN", System.StringComparison.OrdinalIgnoreCase);
+    var isPreview = ViewBag.IsPreview as bool? == true;
 }
 
 <style>
@@ -92,6 +93,13 @@
         </div>
 
         <div class="qr-public-content">
+            @if (isPreview)
+            {
+                <div class="alert alert-warning mb-3">
+                    Đây là trang xem trước theo dữ liệu đang nhập trên form tạo QR. Sau khi lưu, mã QR sẽ dùng link chính thức trong hệ thống.
+                </div>
+            }
+
             @if (Model.AvailableLanguages.Count > 1)
             {
                 <div class="qr-public-language-switch">

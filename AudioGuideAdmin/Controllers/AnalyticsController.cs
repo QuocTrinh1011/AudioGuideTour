@@ -1,4 +1,5 @@
 using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -49,7 +50,8 @@ public class AnalyticsController : Controller
         {
 
         var windowStart = DateTime.UtcNow.AddDays(-days);
-        var poiLookup = _context.Pois
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
+        var poiLookup = AdminPoiScopeHelper.GetScopedPoiQuery(_context)
             .AsNoTracking()
             .Select(x => new PoiLookupItem
             {
@@ -65,6 +67,7 @@ public class AnalyticsController : Controller
 
         var triggerRows = _context.GeofenceTriggers
             .AsNoTracking()
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .Where(x => x.RecordedAt >= windowStart)
             .OrderByDescending(x => x.RecordedAt)
             .ToList()
@@ -74,6 +77,7 @@ public class AnalyticsController : Controller
 
         var rawVisitRows = _context.VisitHistories
             .AsNoTracking()
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .Where(x => x.EndTime >= windowStart)
             .ToList()
             .Where(x => IsWithinHourWindow(x.EndTime, startHour, endHour))

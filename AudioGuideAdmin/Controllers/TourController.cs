@@ -23,6 +23,7 @@ public class TourController : Controller
     public IActionResult Index()
     {
         var tours = _context.Tours
+            .Include(x => x.Translations)
             .Include(x => x.Stops)
             .OrderBy(x => x.Name)
             .ToList();
@@ -40,6 +41,7 @@ public class TourController : Controller
     public async Task<IActionResult> Create(TourFormViewModel model)
     {
         var stopConfigs = ParseStopConfigs(model.StopConfigJson, model.StopPoiIds);
+        var translationInputs = NormalizeTourTranslationInputs(model.Translations, model.Tour.Language, model.Tour.Name, model.Tour.Description);
         model.StopPoiIds = string.Join(",", stopConfigs.Select(x => x.PoiId));
         model.StopConfigJson = SerializeStopConfigs(stopConfigs);
         ModelState.Remove(nameof(model.StopPoiIds));
@@ -47,17 +49,19 @@ public class TourController : Controller
         if (string.IsNullOrWhiteSpace(model.StopPoiIds))
         {
             ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
+            ModelState.AddModelError(string.Empty, "Tour chưa có điểm dừng nào. Hãy thêm ít nhất một POI vào danh sách điểm dừng trước khi lưu.");
         }
 
         if (!ModelState.IsValid)
         {
-            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson));
+            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson, translationInputs));
         }
 
         model.Tour.CoverImageUrl = await SaveImageAsync(model.CoverImageFile, model.Tour.CoverImageUrl);
         model.Tour.CreatedAt = DateTime.UtcNow;
         model.Tour.UpdatedAt = DateTime.UtcNow;
         model.Tour.Stops = BuildStops(stopConfigs, model.Tour.Id);
+        model.Tour.Translations = BuildTranslations(translationInputs, model.Tour.Language, model.Tour.Id);
 
         _context.Tours.Add(model.Tour);
         await _context.SaveChangesAsync();
@@ -67,6 +71,7 @@ public class TourController : Controller
     public async Task<IActionResult> Edit(int id)
     {
         var tour = await _context.Tours
+            .Include(x => x.Translations)
             .Include(x => x.Stops.OrderBy(s => s.SortOrder))
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -91,6 +96,7 @@ public class TourController : Controller
     public async Task<IActionResult> Edit(TourFormViewModel model)
     {
         var stopConfigs = ParseStopConfigs(model.StopConfigJson, model.StopPoiIds);
+        var translationInputs = NormalizeTourTranslationInputs(model.Translations, model.Tour.Language, model.Tour.Name, model.Tour.Description);
         model.StopPoiIds = string.Join(",", stopConfigs.Select(x => x.PoiId));
         model.StopConfigJson = SerializeStopConfigs(stopConfigs);
         ModelState.Remove(nameof(model.StopPoiIds));
@@ -98,14 +104,16 @@ public class TourController : Controller
         if (string.IsNullOrWhiteSpace(model.StopPoiIds))
         {
             ModelState.AddModelError(nameof(model.StopPoiIds), "Hãy chọn ít nhất một POI cho tour.");
+            ModelState.AddModelError(string.Empty, "Tour chưa có điểm dừng nào. Hãy thêm ít nhất một POI vào danh sách điểm dừng trước khi lưu.");
         }
 
         if (!ModelState.IsValid)
         {
-            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson));
+            return View(BuildForm(model.Tour, model.StopPoiIds, model.StopConfigJson, translationInputs));
         }
 
         var existing = await _context.Tours
+            .Include(x => x.Translations)
             .Include(x => x.Stops)
             .FirstOrDefaultAsync(x => x.Id == model.Tour.Id);
 
@@ -124,6 +132,8 @@ public class TourController : Controller
 
         _context.TourStops.RemoveRange(existing.Stops);
         existing.Stops = BuildStops(stopConfigs, existing.Id);
+        _context.TourTranslations.RemoveRange(existing.Translations);
+        existing.Translations = BuildTranslations(translationInputs, existing.Language, existing.Id);
 
         await _context.SaveChangesAsync();
         return RedirectToAction(nameof(Index));
@@ -143,15 +153,16 @@ public class TourController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private TourFormViewModel BuildForm(Tour tour, string stopPoiIds = "", string? stopConfigJson = null)
+    private TourFormViewModel BuildForm(Tour tour, string stopPoiIds = "", string? stopConfigJson = null, List<TourTranslationInputViewModel>? translations = null)
     {
         var normalizedStopConfigs = ParseStopConfigs(stopConfigJson, stopPoiIds);
+        var translationInputs = translations ?? BuildTranslationInputs(tour);
         return new TourFormViewModel
         {
             Tour = tour,
             StopPoiIds = string.Join(",", normalizedStopConfigs.Select(x => x.PoiId)),
             StopConfigJson = SerializeStopConfigs(normalizedStopConfigs),
-            PoiOptions = _context.Pois
+            PoiOptions = AdminPoiScopeHelper.GetScopedPoiQuery(_context)
                 .OrderBy(x => x.Name)
                 .Select(x => new SelectListItem($"{x.Name} (#{x.Id})", x.Id.ToString()))
                 .ToList(),
@@ -160,8 +171,92 @@ public class TourController : Controller
                 .OrderBy(x => x.SortOrder)
                 .ThenBy(x => x.Name)
                 .Select(x => new SelectListItem($"{x.Name} ({x.Code})", x.Code, x.Code == tour.Language))
-                .ToList()
+                .ToList(),
+            Translations = translationInputs
         };
+    }
+
+    private List<TourTranslationInputViewModel> BuildTranslationInputs(Tour tour)
+    {
+        var languages = _context.LanguageOptions
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .ToList();
+
+        return languages.Select(language =>
+        {
+            var existing = tour.Translations.FirstOrDefault(x => string.Equals(x.Language, language.Code, StringComparison.OrdinalIgnoreCase));
+            var isDefault = string.Equals(language.Code, tour.Language, StringComparison.OrdinalIgnoreCase);
+            return new TourTranslationInputViewModel
+            {
+                Language = language.Code,
+                LanguageLabel = string.IsNullOrWhiteSpace(language.NativeName)
+                    ? $"{language.Name} ({language.Code})"
+                    : $"{language.Name} - {language.NativeName} ({language.Code})",
+                Title = isDefault ? tour.Name : existing?.Title ?? string.Empty,
+                Description = isDefault ? tour.Description : existing?.Description ?? string.Empty
+            };
+        }).ToList();
+    }
+
+    private static List<TourTranslationInputViewModel> NormalizeTourTranslationInputs(
+        IEnumerable<TourTranslationInputViewModel>? inputs,
+        string defaultLanguage,
+        string defaultTitle,
+        string defaultDescription)
+    {
+        var normalized = (inputs ?? Enumerable.Empty<TourTranslationInputViewModel>())
+            .Where(x => !string.IsNullOrWhiteSpace(x.Language))
+            .GroupBy(x => x.Language.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var item = group.First();
+                return new TourTranslationInputViewModel
+                {
+                    Language = item.Language.Trim(),
+                    LanguageLabel = item.LanguageLabel?.Trim() ?? string.Empty,
+                    Title = item.Title?.Trim() ?? string.Empty,
+                    Description = item.Description?.Trim() ?? string.Empty
+                };
+            })
+            .ToList();
+
+        var defaultEntry = normalized.FirstOrDefault(x => string.Equals(x.Language, defaultLanguage, StringComparison.OrdinalIgnoreCase));
+        if (defaultEntry == null)
+        {
+            normalized.Add(new TourTranslationInputViewModel
+            {
+                Language = defaultLanguage,
+                Title = defaultTitle?.Trim() ?? string.Empty,
+                Description = defaultDescription?.Trim() ?? string.Empty
+            });
+        }
+        else
+        {
+            defaultEntry.Title = defaultTitle?.Trim() ?? string.Empty;
+            defaultEntry.Description = defaultDescription?.Trim() ?? string.Empty;
+        }
+
+        return normalized;
+    }
+
+    private static List<TourTranslation> BuildTranslations(
+        IEnumerable<TourTranslationInputViewModel> inputs,
+        string defaultLanguage,
+        int tourId)
+    {
+        return inputs
+            .Where(x => !string.Equals(x.Language, defaultLanguage, StringComparison.OrdinalIgnoreCase))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Title) || !string.IsNullOrWhiteSpace(x.Description))
+            .Select(x => new TourTranslation
+            {
+                TourId = tourId,
+                Language = x.Language,
+                Title = x.Title?.Trim() ?? string.Empty,
+                Description = x.Description?.Trim() ?? string.Empty
+            })
+            .ToList();
     }
 
     private static List<TourStop> BuildStops(IEnumerable<TourStopDraft> stopConfigs, int tourId)

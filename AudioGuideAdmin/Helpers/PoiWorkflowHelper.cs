@@ -141,12 +141,12 @@ public static class PoiWorkflowHelper
             }
 
             liveTranslation.Language = language;
-            liveTranslation.Title = translationSubmission.Title.Trim();
-            liveTranslation.Summary = translationSubmission.Summary.Trim();
-            liveTranslation.Description = translationSubmission.Description.Trim();
-            liveTranslation.AudioUrl = translationSubmission.AudioUrl.Trim();
-            liveTranslation.TtsScript = translationSubmission.TtsScript.Trim();
-            liveTranslation.VoiceName = translationSubmission.VoiceName.Trim();
+            liveTranslation.Title = translationSubmission.Title?.Trim() ?? string.Empty;
+            liveTranslation.Summary = translationSubmission.Summary?.Trim() ?? string.Empty;
+            liveTranslation.Description = translationSubmission.Description?.Trim() ?? string.Empty;
+            liveTranslation.AudioUrl = translationSubmission.AudioUrl?.Trim() ?? string.Empty;
+            liveTranslation.TtsScript = translationSubmission.TtsScript?.Trim() ?? string.Empty;
+            liveTranslation.VoiceName = translationSubmission.VoiceName?.Trim() ?? string.Empty;
             liveTranslation.IsPublished = true;
             liveTranslation.UpdatedAt = DateTime.UtcNow;
         }

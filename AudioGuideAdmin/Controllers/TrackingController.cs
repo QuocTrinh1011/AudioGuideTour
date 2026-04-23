@@ -1,9 +1,9 @@
-﻿using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Controllers.Data;
+using AudioGuideAdmin.Helpers;
 using AudioGuideAdmin.Models;
 using AudioGuideAdmin.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 
 public class TrackingController : Controller
 {
@@ -16,11 +16,12 @@ public class TrackingController : Controller
 
     public IActionResult Index(string? userId, int? poiId, string? triggerType, DateTime? dateFrom, DateTime? dateTo)
     {
-        var poiLookup = _context.Pois.ToDictionary(x => x.Id, x => x.Name);
+        var scopedPoiIds = AdminPoiScopeHelper.GetScopedPoiIds(_context);
+        var poiLookup = AdminPoiScopeHelper.GetScopedPoiQuery(_context).ToDictionary(x => x.Id, x => x.Name);
 
         IQueryable<UserTracking> trackingQuery = _context.UserTrackings.AsQueryable();
-        IQueryable<VisitHistory> visitQuery = _context.VisitHistories.AsQueryable();
-        IQueryable<GeofenceTrigger> triggerQuery = _context.GeofenceTriggers.AsQueryable();
+        IQueryable<VisitHistory> visitQuery = _context.VisitHistories.Where(x => scopedPoiIds.Contains(x.PoiId));
+        IQueryable<GeofenceTrigger> triggerQuery = _context.GeofenceTriggers.Where(x => scopedPoiIds.Contains(x.PoiId));
 
         if (!string.IsNullOrWhiteSpace(userId))
         {
@@ -148,7 +149,7 @@ public class TrackingController : Controller
             new("Tất cả POI", "", !selected.HasValue)
         };
 
-        items.AddRange(_context.Pois
+        items.AddRange(AdminPoiScopeHelper.GetScopedPoiQuery(_context)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem(x.Name, x.Id.ToString(), x.Id == selected))
             .ToList());

@@ -15,6 +15,7 @@ public static class AppDataInitializer
             await context.Database.EnsureCreatedAsync();
             await EnsureSqliteRegistrationTablesAsync(context);
             await EnsureSqliteOwnerWorkflowTablesAsync(context);
+            await EnsureSqliteTourTranslationTablesAsync(context);
             await SeedCoreDataAsync(context);
             return;
         }
@@ -23,6 +24,7 @@ public static class AppDataInitializer
         await EnsureLanguageTableAsync(context);
         await EnsureRegistrationTablesAsync(context);
         await EnsureOwnerWorkflowTablesAsync(context);
+        await EnsureTourTranslationTablesAsync(context);
         await context.Database.ExecuteSqlRawAsync(
             """
             IF OBJECT_ID(N'[Categories]', N'U') IS NULL
@@ -132,6 +134,33 @@ public static class AppDataInitializer
             """);
     }
 
+    private static async Task EnsureSqliteTourTranslationTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "TourTranslations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TourTranslations" PRIMARY KEY AUTOINCREMENT,
+                "TourId" INTEGER NOT NULL,
+                "Language" TEXT NOT NULL DEFAULT 'vi-VN',
+                "Title" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                CONSTRAINT "FK_TourTranslations_Tours_TourId"
+                    FOREIGN KEY ("TourId") REFERENCES "Tours" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_TourTranslations_TourId_Language"
+            ON "TourTranslations" ("TourId", "Language");
+            """);
+    }
+
     private static async Task EnsureOwnerWorkflowTablesAsync(AppDbContext context)
     {
         await context.Database.ExecuteSqlRawAsync(
@@ -212,6 +241,37 @@ public static class AppDataInitializer
             """);
     }
 
+    private static async Task EnsureTourTranslationTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [TourTranslations](
+                    [Id] int IDENTITY(1,1) NOT NULL,
+                    [TourId] int NOT NULL,
+                    [Language] nvarchar(20) NOT NULL CONSTRAINT [DF_TourTranslations_Language] DEFAULT N'vi-VN',
+                    [Title] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Title] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Description] DEFAULT N'',
+                    CONSTRAINT [PK_TourTranslations] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_TourTranslations_Tours_TourId] FOREIGN KEY ([TourId]) REFERENCES [Tours]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_TourTranslations_TourId_Language' AND object_id = OBJECT_ID(N'[TourTranslations]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_TourTranslations_TourId_Language] ON [TourTranslations]([TourId], [Language]);
+            END
+            """);
+    }
+
     private static async Task<bool> SqliteColumnExistsAsync(AppDbContext context, string tableName, string columnName)
     {
         var connection = context.Database.GetDbConnection();
@@ -265,8 +325,95 @@ public static class AppDataInitializer
 
         await SeedDemoContentAsync(context);
         await EnsureDemoTranslationCoverageAsync(context);
+        await EnsureDemoTourTranslationCoverageAsync(context);
         await EnsureDemoMediaLinksAsync(context);
         await EnsureDemoEnglishAudioLinksAsync(context);
+        await CleanupLegacyOwnerlessDemoDataAsync(context);
+    }
+
+    private static async Task CleanupLegacyOwnerlessDemoDataAsync(AppDbContext context)
+    {
+        var hasOwnerPois = await context.Pois.AnyAsync(x => x.OwnerId != null && x.OwnerId != string.Empty);
+        if (!hasOwnerPois)
+        {
+            return;
+        }
+
+        var legacyDemoPoiNames = new[]
+        {
+            "Phố ẩm thực Vĩnh Khánh",
+            "Cụm quán ốc Vĩnh Khánh",
+            "Trạm xe buýt Khánh Hội",
+            "Trạm xe buýt Vĩnh Hội",
+            "Trạm xe buýt Xuân Chiếu",
+            "Nhịp sống khu vực Vĩnh Khánh"
+        };
+
+        var legacyPois = await context.Pois
+            .Where(x => x.OwnerId == null && legacyDemoPoiNames.Contains(x.Name))
+            .ToListAsync();
+
+        if (legacyPois.Count == 0)
+        {
+            return;
+        }
+
+        var legacyPoiIds = legacyPois.Select(x => x.Id).ToList();
+
+        var qrCodes = await context.QRCodes
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var translations = await context.PoiTranslations
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var tourStops = await context.TourStops
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var visits = await context.VisitHistories
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var triggers = await context.GeofenceTriggers
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+
+        if (qrCodes.Count > 0)
+        {
+            context.QRCodes.RemoveRange(qrCodes);
+        }
+
+        if (translations.Count > 0)
+        {
+            context.PoiTranslations.RemoveRange(translations);
+        }
+
+        if (tourStops.Count > 0)
+        {
+            context.TourStops.RemoveRange(tourStops);
+        }
+
+        if (visits.Count > 0)
+        {
+            context.VisitHistories.RemoveRange(visits);
+        }
+
+        if (triggers.Count > 0)
+        {
+            context.GeofenceTriggers.RemoveRange(triggers);
+        }
+
+        context.Pois.RemoveRange(legacyPois);
+        await context.SaveChangesAsync();
+
+        var emptyTours = await context.Tours
+            .Include(x => x.Stops)
+            .Where(x => !x.Stops.Any())
+            .ToListAsync();
+
+        if (emptyTours.Count > 0)
+        {
+            context.Tours.RemoveRange(emptyTours);
+            await context.SaveChangesAsync();
+        }
     }
 
     private static async Task EnsureSupportedLanguagesAsync(AppDbContext context)
@@ -1112,6 +1259,49 @@ public static class AppDataInitializer
             translation.TtsScript = definition.TtsScript;
             translation.IsPublished = true;
             translation.UpdatedAt = now;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsureDemoTourTranslationCoverageAsync(AppDbContext context)
+    {
+        var tour = await context.Tours.FirstOrDefaultAsync(x => x.Name == "Đêm Vĩnh Khánh 45 phút");
+        if (tour == null)
+        {
+            return;
+        }
+
+        var existingTranslations = await context.TourTranslations
+            .Where(x => x.TourId == tour.Id)
+            .ToListAsync();
+
+        var definitions = new (string Language, string Title, string Description)[]
+        {
+            ("en-US", "Vinh Khanh Night Walk - 45 Minutes", "A demo walking route from the bus stop through the food street and the street-life stops in Vinh Khanh."),
+            ("zh-CN", "永庆夜游 45 分钟", "这是一条从公交车站进入永庆街区，途经美食街与街区生活点位的步行体验路线。")
+        };
+
+        foreach (var definition in definitions)
+        {
+            var translation = existingTranslations.FirstOrDefault(x => string.Equals(x.Language, definition.Language, StringComparison.OrdinalIgnoreCase));
+            if (translation == null)
+            {
+                context.TourTranslations.Add(new TourTranslation
+                {
+                    TourId = tour.Id,
+                    Language = definition.Language,
+                    Title = definition.Title,
+                    Description = definition.Description
+                });
+                continue;
+            }
+
+            translation.Title = definition.Title;
+            translation.Description = definition.Description;
         }
 
         if (context.ChangeTracker.HasChanges())
