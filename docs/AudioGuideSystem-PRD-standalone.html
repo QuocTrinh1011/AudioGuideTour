@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 
 <head>
@@ -1632,40 +1632,65 @@
             {
                 id: "F01",
                 module: "Chuc nang quan tri",
-                title: "F01 — Quản lý POI  ",
-                actor: "Admin",
-                entry: "PRD Section 9 - F1",
-                source: "PRD.md - Section 9 / F1",
+                title: "F01 — Quản lý POI (qua luồng duyệt Submission)  ",
+                actor: "ShopOwner / Admin",
+                entry: "OwnerPoiController + PoiReviewController",
+                source: "AudioGuideAdmin/Controllers/PoiReviewController.cs",
                 status: "ok",
-                summary: "Admin tao, sua, xoa va quan ly day du thuoc tinh noi dung, geofence va audio cua moi POI.",
+                summary: "ShopOwner gửi Submission (draft/submit), Admin duyệt qua PoiReview — Approve áp dụng lên POI live, RequestChanges trả về chủ quán, Reject kết thúc vòng duyệt.",
                 mermaid: `sequenceDiagram
     autonumber
+    actor O as ShopOwner
     actor A as Admin
-    participant CMS as POI Manager
-    participant VAL as Business Rules
-    participant DB as POI Store
-    
-    A->>CMS: Khởi tạo/Chỉnh sửa POI (Nhập Toạ độ, Bán kính, Media)
-    CMS->>VAL: Gửi dữ liệu để Validate
-    
+    participant CMS as OwnerPoiController
+    participant REV as PoiReviewController
+    participant DB as SQL Server
+
     rect rgb(240, 248, 255)
-    note right of CMS: Kiểm tra Toạ độ & Geofence
-    VAL->>VAL: Kiểm tra Bán kính (Radius > 0), Toạ độ hợp lệ
+    note right of O: Pha 1: ShopOwner tạo/sửa Submission
+    O->>CMS: Mở trang /OwnerPoi/Create
+    CMS->>DB: SELECT Categories, Languages (active)
+    DB-->>CMS: Danh sách lựa chọn
+    CMS-->>O: Render form POI
+
+    O->>CMS: Điền thông tin POI, upload ảnh, bấm "Gửi duyệt"
+    CMS->>CMS: NormalizeAudioMode(audioMode, audioUrl)
+    CMS->>CMS: submission.Status = PendingReview
+    CMS->>DB: INSERT PoiSubmissions (OwnerId, Status, SubmittedAt)
+    DB-->>CMS: OK
+    CMS-->>O: "Đã gửi POI lên cho admin duyệt"
     end
-    
-    alt Lỗi Validate
-        VAL-->>CMS: Return 400 (Invalid Data)
-        CMS-->>A: Hiện cảnh báo lỗi nhập liệu
-    else Hợp lệ
-        VAL-->>CMS: Dữ liệu chuẩn hoá
-        CMS->>DB: INSERT/UPDATE Entity POI
-        DB-->>CMS: Trả về POI ID (200 OK)
-        CMS-->>A: Toast: Lấy thông tin POI thành công
+
+    rect rgb(255, 240, 245)
+    note right of A: Pha 2: Admin xét duyệt
+    A->>REV: Mở /PoiReview?status=PendingReview
+    REV->>DB: SELECT PoiSubmissions WHERE Status = PendingReview\\nINCLUDE Owner, Poi, TranslationSubmissions
+    DB-->>REV: Danh sách Submission chờ duyệt
+    REV-->>A: Render danh sách
+
+    A->>REV: Mở Review (id)
+    REV-->>A: Hiển thị chi tiết Submission vs POI live
+
+    alt Admin Approve
+        A->>REV: POST /PoiReview/Approve (id, reviewNote)
+        REV->>REV: PoiWorkflowHelper.ApplySubmissionToPoi(livePoi, submission)
+        REV->>REV: ApplyTranslationSubmissionsToPoi(...)
+        REV->>DB: UPSERT Pois (tạo mới hoặc cập nhật live)
+        REV->>DB: UPDATE PoiSubmissions SET Status=Approved, ReviewedAt=now
+        DB-->>REV: OK
+        REV-->>A: "Đã duyệt submission và cập nhật POI live"
+    else Admin yêu cầu chỉnh sửa
+        A->>REV: POST /PoiReview/RequestChanges (id, reviewNote)
+        REV->>DB: UPDATE Status=ChangesRequested, ReviewNote=note
+        DB-->>REV: OK
+        REV-->>A: "Đã trả submission về cho chủ quán chỉnh sửa"
+    else Admin Reject
+        A->>REV: POST /PoiReview/Reject (id, reviewNote)
+        REV->>DB: UPDATE Status=Rejected
+        DB-->>REV: OK
+        REV-->>A: "Đã từ chối submission"
     end
-    
-    A->>CMS: Cập nhật cờ IsActive / Xoá POI (Soft Delete)
-    CMS->>DB: Thay đổi trạng thái bản ghi
-    DB-->>CMS: 204 No Content`
+    end`
             },
             {
                 id: "F02",
@@ -1842,29 +1867,41 @@
     participant MID as Session Middleware
     participant DB as Password Vault
     
-    A->>UI: Submit thông tin Email & Password
-    UI->>MID: Yêu cầu Cấp phép Auth Token / Login Cookie
-    
+    A->>UI: POST /Auth/Login {username, password}
+    UI->>MID: Gọi AuthController.Login()
+
     rect rgb(255, 240, 245)
-    note right of MID: Kiểm tra Admin Tồn tại & Hash
-    MID->>DB: Lấy User Record đầu tiên
+    note right of MID: Kiểm tra DB Admin có tài khoản chưa
+    MID->>DB: _context.Users.Any() — HasAnyAdmin?
     end
-    
-    alt Hệ thống Rỗng (First Boot)
-        DB-->>MID: Bàng DB Admin Trống
-        MID-->>UI: Chuyển hướng Form "Đăng ký Chủ App đầu tiên"
-        UI-->>A: Mở màn hình đăng ký ban đầu
-    else Có Tài khoản
-        DB-->>MID: Mang mật khẩu đã Hash để check
-        MID->>MID: Compare(Hash, Input)
-        
-        alt Sai mật khẩu
-            MID-->>UI: 401 Error Login
-            UI-->>A: Cảnh báo Nhập sai mật khẩu
-        else Mật khẩu Đúng
-            MID->>MID: Server sinh HttpOnly Cookie (Cookie Auth)
-            MID-->>UI: Trả Về Header Cấp Quyền Đã Logged In
-            UI-->>A: Admin Panel Mở Ra
+
+    alt Hệ thống rỗng (First Boot)
+        MID-->>UI: RedirectToAction("Register")
+        UI-->>A: Mở trang /Auth/Register (tạo tài khoản đầu tiên)
+        A->>UI: Nhập username + password mới
+        UI->>MID: AuthController.Register(model)
+        MID->>MID: HashPassword(SHA256)
+        MID->>DB: INSERT AdminUsers (Username, Password hash, CreatedAt)
+        DB-->>MID: OK
+        MID-->>UI: RedirectToAction("Login")
+    else Đã có tài khoản
+        MID->>DB: FirstOrDefault WHERE Username = input
+        alt Username không tồn tại
+            DB-->>MID: null
+            MID-->>UI: ViewBag.Error = "Sai tài khoản hoặc mật khẩu"
+            UI-->>A: Hiển thị lỗi đăng nhập
+        else Username tồn tại
+            DB-->>MID: AdminUser (Password hash)
+            MID->>MID: SHA256.HashData(password) == stored hash?
+            alt Sai mật khẩu
+                MID-->>UI: ViewBag.Error = "Sai tài khoản hoặc mật khẩu"
+                UI-->>A: Hiển thị lỗi
+            else Đúng mật khẩu
+                MID->>MID: Session.SetString("user", username)
+                note right of MID: Session timeout 8h\\n(không dùng Cookie Auth)
+                MID-->>UI: RedirectToAction("Index", "Dashboard")
+                UI-->>A: Admin Panel mở ra
+            end
         end
     end`
             },
@@ -2054,9 +2091,9 @@
                 title: "F12 — Quản lý Visitor & Trạng thái Online  ",
                 actor: "Admin / CMS, Mobile App",
                 entry: "Cơ chế LastSeenAt",
-                source: "VisitorController.cs",
+                source: "AudioGuideAdmin/Controllers/VisitorController.cs",
                 status: "ok",
-                summary: "Backend liên tục cập nhật LastSeenAt từ tracking của Mobile App, Admin CMS tính toán khoảng cách để xác định trạng thái Online.",
+                summary: "Mobile App cập nhật LastSeenAt qua /api/geofence hoặc /api/user. Admin CMS tính delta để xác định Online (≤ 15 giây) — không phải 5 phút.",
                 mermaid: `sequenceDiagram
     autonumber
     actor V as Visitor / Mobile App
@@ -2065,33 +2102,40 @@
     participant DB as SQL Server (Visitors)
     actor A as Admin
     participant CMS as VisitorController (CMS)
-    
+
     rect rgb(240, 248, 255)
-    note right of V: Pha 1: Mobile App liên tục báo cáo hoạt động
+    note right of V: Pha 1: Mobile App báo cáo hoạt động
     V->>APP: Di chuyển (GPS Trigger) hoặc dùng App
-    APP->>API: Gọi /api/tracking (hoặc /api/geofence, /api/user)
-    API->>API: Gán user.LastSeenAt = DateTime.UtcNow
-    API->>DB: UPDATE Visitors SET LastSeenAt = ...
+    APP->>API: POST /api/geofence hoặc POST /api/user
+    API->>API: existing.LastSeenAt = DateTime.UtcNow
+    API->>DB: UPDATE Visitors SET LastSeenAt = UtcNow
     DB-->>API: Hoàn tất
     API-->>APP: 200 OK
     end
-    
+
     rect rgb(255, 240, 245)
-    note right of A: Pha 2: Admin mở giao diện Quản lý Visitor
-    A->>CMS: Mở trang Dashboard /Visitor
-    CMS->>DB: Truy vấn Visitors\\nORDER BY LastSeenAt DESC
-    DB-->>CMS: Trả về danh sách Visitors
-    
+    note right of A: Pha 2: Admin mở trang /Visitor
+    A->>CMS: GET /Visitor?includeTest=false
+    CMS->>DB: SELECT Visitors ORDER BY LastSeenAt DESC
+    CMS->>DB: COUNT UserTrackings GROUP BY UserId
+    CMS->>DB: COUNT VisitHistories GROUP BY UserId
+    CMS->>DB: COUNT GeofenceTriggers GROUP BY UserId
+    DB-->>CMS: Visitors + stats
+
     loop Mỗi Visitor
-        CMS->>CMS: Tính: Delta = Now - LastSeenAt
-        alt Delta <= ActiveThreshold (5 phút)
-            CMS->>CMS: IsActive = true (Trạng thái Online)
-        else Delta > 5 phút
-            CMS->>CMS: IsActive = false (Offline, hiển thị "X phút trước")
+        CMS->>CMS: NormalizeStoredUtc(LastSeenAt)
+        CMS->>CMS: Delta = UtcNow - NormalizedLastSeenAt
+        alt Delta <= 15 giây (ActiveThreshold)
+            CMS->>CMS: IsActive = true → Badge "Online"
+        else Delta > 15 giây
+            CMS->>CMS: IsActive = false → FormatLastSeenAgo()
         end
+        CMS->>CMS: IsSyntheticData? (sim-device / Khách test)
     end
-    
-    CMS-->>A: Render danh sách với Label "Online" màu xanh
+
+    CMS->>CMS: Sort: Active first → Real first → LastSeenAt DESC
+    note right of CMS: includeTest=false → lọc bỏ Synthetic visitors
+    CMS-->>A: Render bảng Visitor\\n(Online badge, TrackCount, VisitCount, TriggerCount)
     end`
             },
             {
@@ -2102,39 +2146,56 @@
                 entry: "QRCodeController (Admin CMS)",
                 source: "AudioGuideAdmin/Controllers/QRCodeController.cs",
                 status: "ok",
-                summary: "Admin tạo mã QR mới gán với POI, hệ thống sinh mã duy nhất, hiển thị danh sách QR và cho phép xóa.",
+                summary: "Admin tạo mã QR gán với POI. Nếu mã trùng thì tái sử dụng QR cũ (update POI mới). Có thể render SVG/PNG để in hoặc preview trang công khai.",
                 mermaid: `sequenceDiagram
     autonumber
     actor A as Admin
-    participant CMS as Admin CMS
+    participant CMS as QRCodeController
     participant DB as SQL Server
+    participant GEN as QRCoder Library
 
     rect rgb(240, 248, 255)
-    note right of A: Tạo mã QR mới
-    A->>CMS: Mở trang QR Management
-    CMS->>DB: SELECT QRCodes JOIN Pois
-    DB-->>CMS: Danh sách QR + POI mapping
-    CMS-->>A: Render danh sách QR hiện có
+    note right of A: Xem danh sách QR
+    A->>CMS: GET /QRCode
+    CMS->>DB: SELECT QRCodes JOIN Pois\nWHERE PoiId IN scopedPoiIds
+    DB-->>CMS: Danh sách QR + POI
+    CMS-->>A: Render bảng QR + nút Preview/Download
+    end
 
-    A->>CMS: Chọn POI, nhập Code / Note
-    CMS->>CMS: Normalize Code (UPPER, TRIM)
+    rect rgb(255, 250, 205)
+    note right of A: Tạo mã QR mới
+    A->>CMS: POST /QRCode/Create {PoiId, Code, Note}
+    CMS->>CMS: Normalize(model): Code.ToUpperInvariant().Trim()
     CMS->>DB: CHECK EXISTS QRCodes WHERE Code = input
-    alt Mã đã tồn tại
-        DB-->>CMS: Conflict
-        CMS-->>A: Cảnh báo "Mã QR đã tồn tại"
-    else Mã chưa có
+
+    alt Mã trùng nhưng POI khác (re-use)
+        DB-->>CMS: duplicateQr != null\n(thuộc scopedPoiIds)
+        CMS->>DB: UPDATE duplicateQr SET PoiId=new, Note=new
+        DB-->>CMS: OK
+        CMS-->>A: TempData "Đã tái sử dụng QR cũ cho POI hiện tại"
+    else Mã chưa có — tạo mới
         CMS->>DB: INSERT QRCodes (Code, PoiId, Note)
         DB-->>CMS: QR record mới
-        CMS-->>A: Xác nhận tạo QR thành công
+        CMS-->>A: TempData "Đã tạo QR mới"
     end
+    end
+
+    rect rgb(240, 255, 240)
+    note right of A: Render QR image để in
+    A->>CMS: GET /QRCode/RenderPng/{id}
+    CMS->>DB: SELECT QRCodes WHERE Id = id
+    CMS->>CMS: BuildQrPayloadUrl(code)\n→ "http://host/QRCode/Open/{CODE}"
+    CMS->>GEN: QRCodeGenerator.CreateQrCode(url, ECCLevel.Q)
+    GEN-->>CMS: PNG bytes
+    CMS-->>A: image/png (inline hoặc download)
     end
 
     rect rgb(255, 240, 245)
     note right of A: Xóa mã QR
-    A->>CMS: Bấm Xóa QR
+    A->>CMS: POST /QRCode/Delete {id}
     CMS->>DB: DELETE QRCodes WHERE Id = id
     DB-->>CMS: Hoàn tất
-    CMS-->>A: Xác nhận xóa QR
+    CMS-->>A: TempData "Đã xóa QR"
     end`
             },
             {
@@ -2145,40 +2206,59 @@
                 entry: "QRCodeController.Open (Admin CMS Public)",
                 source: "AudioGuideAdmin/Controllers/QRCodeController.cs",
                 status: "ok",
-                summary: "Visitor quét mã QR bằng camera, hệ thống tra cứu POI tương ứng, hiển thị trang công khai với nội dung đa ngôn ngữ và audio.",
+                summary: "Visitor quét QR → trang công khai POI. Nếu là mobile: tự động upsert Visitor profile + ghi VisitHistory + tạo deep link audiotour:// để mở app.",
                 mermaid: `sequenceDiagram
     autonumber
-    actor V as Visitor
-    participant PHONE as Mobile Camera
-    participant CMS as QRCode Public Page
+    actor V as Visitor (Mobile)
+    participant PHONE as Mobile Browser
+    participant CMS as QRCodeController.Open
     participant DB as SQL Server
 
     V->>PHONE: Quét mã QR trên biển POI
-    PHONE->>CMS: GET /QRCode/Open/{code}?language={lang}
+    PHONE->>CMS: GET /QRCode/Open/{code}?language=vi-VN
 
     rect rgb(240, 248, 255)
     note right of CMS: Tra cứu QR → POI
-    CMS->>DB: SELECT QRCodes WHERE Code = input
-    alt Mã không tồn tại
-        DB-->>CMS: Null
-        CMS-->>V: Trang lỗi "Mã QR không hợp lệ"
+    CMS->>CMS: Normalize: code.Trim().ToUpperInvariant()
+    CMS->>DB: SELECT QRCodes WHERE Code = input\nINCLUDE Poi.Translations
+    alt Mã không tồn tại hoặc POI null
+        DB-->>CMS: null
+        CMS-->>V: HTTP 404 Not Found
     else Mã hợp lệ
-        DB-->>CMS: QRCode + PoiId
-        CMS->>DB: SELECT Pois JOIN PoiTranslations\\nWHERE Id = PoiId
-        DB-->>CMS: POI + Translations
+        DB-->>CMS: QRCode + Poi + Translations
+        CMS->>CMS: SelectTranslation(translations, language)
+        CMS->>CMS: resolvedLanguage = translation?.Language ?? poi.DefaultLanguage
     end
     end
 
     rect rgb(255, 240, 245)
-    note right of CMS: Upsert Visitor & chọn ngôn ngữ
-    CMS->>DB: UPSERT Visitors (DeviceId, LastSeenAt)
-    CMS->>CMS: SelectTranslation(language)
-    CMS->>CMS: ResolvePublicAudioUrl()
-    CMS-->>V: Render trang công khai POI\\n(Title, Summary, Audio, Map, ảnh)
+    note right of CMS: TouchQrVisitorAsync (chỉ khi Mobile UA)
+    CMS->>CMS: IsLikelyMobileUserAgent(UserAgent)?\n(Android / iPhone / iPad / Mobile)
+    alt Là mobile user-agent
+        CMS->>CMS: Đọc cookie "audio-guide-qr-visitor-id"\nvà "audio-guide-qr-device-id"
+        alt Cookie chưa có → tạo mới GUID/hex
+            CMS->>CMS: Set cookie 180 ngày (HttpOnly)
+        end
+        CMS->>DB: SELECT Visitors WHERE Id=visitorId OR DeviceId=deviceId
+        alt Visitor chưa tồn tại
+            CMS->>DB: INSERT Visitors\n(Id, DeviceId, DisplayName="Android quét QR",\nLanguage, LastSeenAt=now)
+        else Visitor đã có
+            CMS->>DB: UPDATE Visitors SET LastSeenAt=now, Language=lang
+        end
+        CMS->>DB: INSERT VisitHistories\n(UserId, PoiId, TriggerType="qr-public",\nPlaybackMode="web", WasCompleted=true)
+        DB-->>CMS: OK
+    end
+    end
+
+    rect rgb(240, 255, 240)
+    note right of CMS: Build deep link & render trang
+    CMS->>CMS: BuildQrDeepLinkUrl(code, language,\nvisitorId, deviceId)\n→ "audiotour://qr?code=...&language=...\n   &apiBaseUrl=...&visitorId=..."
+    CMS->>CMS: ResolvePublicAudioUrl() + NormalizeMapUrl()
+    CMS-->>V: Render trang công khai POI\n(Title, Summary, Audio, Map, ảnh,\nnút "Mở trong AudioTour App")
     end
 
     V->>CMS: Chọn ngôn ngữ khác
-    CMS->>CMS: Redirect với ?language=...
+    CMS->>CMS: Redirect /QRCode/Open/{code}?language=en-US
     CMS-->>V: Re-render nội dung theo ngôn ngữ mới`
             },
             {
@@ -2373,22 +2453,22 @@
                 module: "Chuc nang quan tri",
                 title: "A14 — Quản lý Visitor & Tracking Monitor  ",
                 actor: "Admin",
-                entry: "VisitorController + TrackingController (Admin CMS)",
+                entry: "VisitorController (Admin CMS)",
                 source: "AudioGuideAdmin/Controllers/VisitorController.cs",
                 status: "ok",
-                summary: "Admin xem danh sách Visitor với trạng thái Online/Offline, thống kê tracking/visit/trigger, chỉnh sửa thông tin và xem lịch sử GPS.",
+                summary: "Admin xem danh sách Visitor với trạng thái Online (≤ 15 giây), thống kê tracking/visit/trigger, lọc synthetic data và chỉnh sửa DisplayName/Language/AutoPlay/BackgroundTracking.",
                 mermaid: `sequenceDiagram
     autonumber
     actor A as Admin
     participant CMS as VisitorController
     participant DB as SQL Server
 
-    A->>CMS: Mở trang /Visitor
+    A->>CMS: GET /Visitor?includeTest=false
     CMS->>DB: SELECT Visitors ORDER BY LastSeenAt DESC
     DB-->>CMS: Danh sách Visitors
 
     rect rgb(240, 248, 255)
-    note right of CMS: Tính toán thống kê cho mỗi Visitor
+    note right of CMS: Thống kê song song theo UserId
     CMS->>DB: COUNT UserTrackings GROUP BY UserId
     CMS->>DB: COUNT VisitHistories GROUP BY UserId
     CMS->>DB: COUNT GeofenceTriggers GROUP BY UserId
@@ -2398,37 +2478,504 @@
     rect rgb(255, 240, 245)
     note right of CMS: Xác định trạng thái Online
     loop Mỗi Visitor
-        CMS->>CMS: Delta = UtcNow - NormalizeStoredUtc(LastSeenAt)
-        alt Delta <= 5 phút (ActiveThreshold)
+        CMS->>CMS: NormalizeStoredUtc(LastSeenAt)
+        CMS->>CMS: Delta = UtcNow - NormalizedLastSeenAt
+        alt Delta <= 15 giây (ActiveThreshold = TimeSpan.FromSeconds(15))
             CMS->>CMS: IsActive = true → Badge "Online"
-        else Delta > 5 phút
-            CMS->>CMS: IsActive = false → "X phút/giờ trước"
+        else Delta > 15 giây
+            CMS->>CMS: IsActive = false → FormatLastSeenAgo()\\n("Vừa xong" / "X phút trước" / "X giờ trước")
         end
-        CMS->>CMS: IsSyntheticData? (sim-device, Khách test)
+        CMS->>CMS: IsSyntheticData?\\n(DeviceId starts "sim-device" / DisplayName "Khách test")
     end
     end
 
-    CMS->>CMS: Sort: Active first → Real first → LastSeenAt DESC
-    CMS-->>A: Render bảng Visitor\\n(Online badge, stats, last seen)
+    CMS->>CMS: Sort: Active DESC → IsSynthetic ASC → LastSeenAt DESC
+    CMS->>CMS: includeTest=false → lọc bỏ SyntheticData visitors
+    CMS-->>A: Render bảng Visitor\\n(Online badge, TrackCount, VisitCount, TriggerCount, LastSeen)
 
     rect rgb(240, 255, 240)
     note right of A: Chỉnh sửa Visitor
-    A->>CMS: Bấm Edit Visitor
-    CMS->>DB: SELECT Visitors WHERE Id = id
-    DB-->>CMS: Visitor profile
-    CMS-->>A: Form chỉnh sửa
-    A->>CMS: Sửa DisplayName, Language, AutoPlay
-    CMS->>DB: UPDATE Visitors SET fields...
+    A->>CMS: GET /Visitor/Edit/{id}
+    CMS->>DB: FindAsync(id)
+    DB-->>CMS: VisitorProfile
+    CMS-->>A: Form (DisplayName, Language, AllowAutoPlay, AllowBackgroundTracking)
+
+    A->>CMS: POST /Visitor/Edit (model)
+    CMS->>CMS: NormalizeLanguage(language)\\n→ chỉ chấp nhận vi-VN, en-US, zh-CN
+    CMS->>DB: UPDATE Visitors SET\\nDisplayName, Language, AllowAutoPlay,\\nAllowBackgroundTracking
     DB-->>CMS: OK
-    CMS-->>A: Redirect về danh sách
+    CMS-->>A: TempData "Đã cập nhật visitor cho mobile app"\\nRedirect → /Visitor
+    end`
+            },
+            {
+                id: "OP01",
+                module: "Owner Portal",
+                title: "OP01 — Owner đăng ký & đăng nhập  ",
+                actor: "ShopOwner",
+                entry: "OwnerAuthController (AudioGuideOwnerPortal)",
+                source: "AudioGuideOwnerPortal/Controllers/OwnerAuthController.cs",
+                status: "ok",
+                summary: "ShopOwner đăng ký tài khoản (Pending) qua OwnerPortal riêng. Sau khi Admin duyệt (Approved) mới có thể đăng nhập và quản lý POI.",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor O as ShopOwner
+    participant PORTAL as OwnerPortal (ASP.NET MVC)
+    participant DB as SQL Server (ShopOwners)
+
+    rect rgb(240, 248, 255)
+    note right of O: Luồng 1: Đăng ký tài khoản
+    O->>PORTAL: GET /OwnerAuth/Register
+    PORTAL-->>O: Render form đăng ký
+
+    O->>PORTAL: POST /OwnerAuth/Register\\n{FullName, Phone, Email, BusinessName, Password}
+    PORTAL->>PORTAL: Normalize phone (Trim)\\nNormalize email (ToLowerInvariant)
+    PORTAL->>DB: AnyAsync WHERE Phone = input
+    PORTAL->>DB: AnyAsync WHERE Email = input
+    alt Phone hoặc Email đã tồn tại
+        DB-->>PORTAL: true
+        PORTAL-->>O: ModelState.Error "Số điện thoại/Email đã được dùng"
+    else Hợp lệ
+        PORTAL->>PORTAL: PasswordHashHelper.HashPassword(password)\\n→ (PasswordHash, PasswordSalt)
+        PORTAL->>DB: INSERT ShopOwners\\n(Id=GUID, Status=Pending, CreatedAt=now)
+        DB-->>PORTAL: OK
+        PORTAL-->>O: TempData "Đã gửi đăng ký. Chờ admin duyệt để đăng nhập."\\nRedirect → /OwnerAuth/Login
+    end
+    end
+
+    rect rgb(255, 240, 245)
+    note right of O: Luồng 2: Đăng nhập (sau khi được duyệt)
+    O->>PORTAL: POST /OwnerAuth/Login {Login=phone/email, Password}
+    PORTAL->>DB: FirstOrDefault WHERE Phone=input OR Email=input
+    alt Owner không tồn tại hoặc sai mật khẩu
+        PORTAL->>PORTAL: PasswordHashHelper.VerifyPassword() → false
+        PORTAL-->>O: ModelState.Error "Sai tài khoản hoặc mật khẩu"
+    else Đúng mật khẩu
+        PORTAL->>DB: UPDATE LastLoginAt = UtcNow
+        PORTAL->>PORTAL: OwnerSessionHelper.SignIn(ownerId, businessName)
+        PORTAL-->>O: RedirectToAction("Index", "OwnerDashboard")
+    end
+    end
+
+    rect rgb(230, 255, 230)
+    note right of O: Luồng 3: Đăng xuất
+    O->>PORTAL: GET /OwnerAuth/Logout
+    PORTAL->>PORTAL: OwnerSessionHelper.SignOut(HttpContext)
+    PORTAL-->>O: Redirect → /OwnerAuth/Login
+    end`
+            },
+            {
+                id: "OP02",
+                module: "Owner Portal",
+                title: "OP02 — Owner quản lý POI Submission  ",
+                actor: "ShopOwner",
+                entry: "OwnerPoiController (AudioGuideOwnerPortal)",
+                source: "AudioGuideOwnerPortal/Controllers/OwnerPoiController.cs",
+                status: "ok",
+                summary: "Owner tạo Submission POI kèm gói translation/audio cho từng ngôn ngữ. Có thể dùng template preset. Gửi duyệt → Admin xét → Approved cập nhật POI live. Owner có thể chỉnh sửa hoặc xóa nháp.",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor O as ShopOwner (Approved)
+    participant PORTAL as OwnerPoiController
+    participant DB as SQL Server
+
+    rect rgb(240, 248, 255)
+    note right of O: Tạo Submission mới (có Template Preset)
+    O->>PORTAL: GET /OwnerPoi/Create?templateKey=bus-khanh-hoi
+    PORTAL->>PORTAL: RequireApprovedOwnerAsync()
+    PORTAL->>DB: SELECT Categories, Languages (active)
+    PORTAL->>PORTAL: TryApplyCreatePreset(submission, templateKey)\\n→ điền sẵn tọa độ, script, translation cho 3 ngôn ngữ
+    PORTAL->>PORTAL: EnsureSubmissionTranslations(activeLanguages)
+    PORTAL-->>O: Form đã điền sẵn từ template
+
+    O->>PORTAL: POST /OwnerPoi/Create (submission, submitAction="submit")
+    PORTAL->>PORTAL: PrepareSubmissionAsync()\\n- NormalizeAudioMode()\\n- SaveImageAsync() nếu có upload\\n- submission.Status = PendingReview
+    PORTAL->>DB: INSERT PoiSubmissions (Status=PendingReview)\\nINSERT PoiTranslationSubmissions (3 ngôn ngữ)
+    DB-->>PORTAL: OK
+    PORTAL-->>O: TempData "Đã gửi POI cùng gói bản dịch/audio cho admin duyệt"
+    end
+
+    rect rgb(255, 240, 245)
+    note right of O: Chỉnh sửa Submission bị trả về (ChangesRequested)
+    O->>PORTAL: GET /OwnerPoi/Edit/{id}
+    PORTAL->>DB: SELECT PoiSubmissions INCLUDE TranslationSubmissions\\nWHERE Id=id AND OwnerId=owner.Id
+    alt Status = Approved/Rejected
+        PORTAL-->>O: TempData.Error "Submission đã kết thúc vòng duyệt"\\nRedirect → Index
+    else Status = Draft/ChangesRequested
+        PORTAL->>PORTAL: BackfillUpdateSubmissionIfNeeded()
+        PORTAL->>PORTAL: EnsureSubmissionTranslations(activeLanguages)
+        PORTAL-->>O: Form chỉnh sửa + ReviewNote từ Admin
+    end
+
+    O->>PORTAL: POST /OwnerPoi/Edit (submission, submitAction="submit")
+    PORTAL->>DB: UPDATE PoiSubmissions SET fields...\\nREMOVE old TranslationSubmissions\\nINSERT new TranslationSubmissions
+    PORTAL-->>O: TempData "Đã gửi lại cho admin duyệt"
+    end
+
+    rect rgb(240, 255, 240)
+    note right of O: Khởi tạo update từ POI live
+    O->>PORTAL: POST /OwnerPoi/StartUpdate/{poiId}
+    PORTAL->>DB: SELECT Pois WHERE Id=poiId AND OwnerId=owner.Id
+    PORTAL->>DB: SELECT PoiSubmissions WHERE PoiId=poiId AND Status IN (Draft/ChangesRequested/PendingReview)
+    alt Đã có draft đang mở
+        PORTAL-->>O: Redirect sang Edit(existingDraft.Id)
+    else Chưa có draft
+        PORTAL->>PORTAL: PoiWorkflowHelper.CreateSubmissionFromPoi(poi, owner.Id)
+        PORTAL->>DB: INSERT PoiSubmissions (type=update, Status=Draft)
+        PORTAL-->>O: Redirect sang Edit(draft.Id)
+    end
+    end
+
+    rect rgb(255, 250, 205)
+    note right of O: Xóa bản nháp
+    O->>PORTAL: POST /OwnerPoi/DeleteDraft/{id}
+    PORTAL->>DB: SELECT PoiSubmissions WHERE Id=id AND OwnerId=owner.Id
+    alt Status không phải Draft/ChangesRequested
+        PORTAL-->>O: TempData.Error "Chỉ xóa được nháp hoặc bản bị trả sửa"
+    else Hợp lệ
+        PORTAL->>DB: DELETE PoiSubmissions (cascade TranslationSubmissions)
+        PORTAL-->>O: TempData "Đã xóa submission nháp"
+    end
+    end`
+            },
+            {
+                id: "OP03",
+                module: "Owner Portal",
+                title: "OP03 — Owner Dashboard & Content Health  ",
+                actor: "ShopOwner",
+                entry: "OwnerDashboardController (AudioGuideOwnerPortal)",
+                source: "AudioGuideOwnerPortal/Controllers/OwnerDashboardController.cs",
+                status: "ok",
+                summary: "Owner xem KPI riêng của mình: số POI live, lượt nghe, unique visitor, top POI, tỉ lệ ngôn ngữ, và Content Health (POI thiếu translation/audio/ảnh).",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor O as ShopOwner
+    participant PORTAL as OwnerDashboardController
+    participant DB as SQL Server
+
+    O->>PORTAL: GET /OwnerDashboard
+    PORTAL->>PORTAL: GetCurrentOwnerAsync()\\n(Session ownerId → SELECT ShopOwners)
+    alt Chưa đăng nhập
+        PORTAL-->>O: Redirect → /OwnerAuth/Login
+    end
+
+    rect rgb(240, 248, 255)
+    note right of PORTAL: Load dữ liệu POI & Submission của Owner
+    PORTAL->>DB: SELECT Pois WHERE OwnerId=owner.Id\\nINCLUDE Translations
+    PORTAL->>DB: SELECT PoiSubmissions WHERE OwnerId=owner.Id
+    DB-->>PORTAL: livePois, submissions
+    end
+
+    rect rgb(255, 240, 245)
+    note right of PORTAL: Tính KPI Visit
+    PORTAL->>DB: SELECT VisitHistories WHERE PoiId IN livePoiIds
+    DB-->>PORTAL: visits
+    PORTAL->>PORTAL: validVisits = Duration > 0 AND Duration <= 1800
+    PORTAL->>PORTAL: TotalListenCount = visits.Count
+    PORTAL->>PORTAL: UniqueVisitorCount = visits.Distinct(UserId).Count
+    PORTAL->>PORTAL: AverageListenSeconds = validVisits.Average(Duration)
+    end
+
+    rect rgb(240, 255, 240)
+    note right of PORTAL: Top POI & Language Usage
+    PORTAL->>PORTAL: TopPois = visits.GroupBy(PoiId)\\n→ OrderBy ListenCount DESC, Take(5)
+    PORTAL->>PORTAL: LanguageUsage = activeLanguages.Select\\n→ % lượt nghe theo từng ngôn ngữ
+    end
+
+    rect rgb(255, 250, 205)
+    note right of PORTAL: Content Health Check
+    loop Mỗi POI live
+        PORTAL->>PORTAL: Kiểm tra Translation published cho từng ngôn ngữ active
+        PORTAL->>PORTAL: MissingTranslationPoiCount++ (thiếu Title/Description)
+        PORTAL->>PORTAL: MissingAudioFallbackPoiCount++ (AudioMode != tts nhưng không có AudioUrl)
+        PORTAL->>PORTAL: MissingImagePoiCount++ (ImageUrl trống)
+        PORTAL->>PORTAL: MissingDefaultTtsPoiCount++ (TtsScript trống)
+        PORTAL->>PORTAL: SingleLanguagePoiCount++ (chỉ có 1 ngôn ngữ)
+    end
+    end
+
+    PORTAL-->>O: Render Dashboard\\n(KPI cards, TopPoi chart, Language pie, ContentHealth warnings)`
+            },
+            {
+                id: "OP04",
+                module: "Owner Portal",
+                title: "OP04 — Admin duyệt tài khoản ShopOwner  ",
+                actor: "Admin",
+                entry: "ShopOwnerController (AudioGuideAdmin)",
+                source: "AudioGuideAdmin/Controllers/ShopOwnerController.cs",
+                status: "ok",
+                summary: "Admin xem danh sách ShopOwner theo trạng thái (Pending/Approved/Suspended), duyệt tài khoản hoặc tạm khóa. ShopOwner chỉ được tạo POI Submission sau khi được Approve.",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant CMS as ShopOwnerController (Admin)
+    participant DB as SQL Server (ShopOwners)
+
+    rect rgb(240, 248, 255)
+    note right of A: Xem danh sách ShopOwner
+    A->>CMS: GET /ShopOwner?status=Pending
+    CMS->>DB: SELECT ShopOwners\\nWHERE Status = "Pending"\\nORDER BY (Pending=0, Approved=1, Suspended=2) ASC\\nTHEN BY CreatedAt DESC
+    DB-->>CMS: Danh sách ShopOwner chờ duyệt
+    CMS-->>A: Render bảng (FullName, BusinessName, Phone, Email, CreatedAt)
+    end
+
+    rect rgb(255, 240, 245)
+    note right of A: Duyệt tài khoản
+    A->>CMS: POST /ShopOwner/Approve/{id}
+    CMS->>DB: FirstOrDefault WHERE Id = id
+    alt Owner không tồn tại
+        DB-->>CMS: null
+        CMS-->>A: 404 Not Found
+    else Tìm thấy
+        CMS->>DB: UPDATE ShopOwners SET\\nStatus = "Approved"\\nApprovedAt = UtcNow\\nApprovedByAdminId = current admin Id
+        DB-->>CMS: OK
+        CMS-->>A: TempData "Đã duyệt tài khoản chủ quán"\\nRedirect → /ShopOwner
+    end
+    end
+
+    rect rgb(255, 250, 205)
+    note right of A: Tạm khóa tài khoản
+    A->>CMS: POST /ShopOwner/Suspend/{id}
+    CMS->>DB: FirstOrDefault WHERE Id = id
+    alt Owner không tồn tại
+        DB-->>CMS: null
+        CMS-->>A: 404 Not Found
+    else Tìm thấy
+        CMS->>DB: UPDATE ShopOwners SET\\nStatus = "Suspended"\\nUpdatedAt = UtcNow
+        DB-->>CMS: OK
+        CMS-->>A: TempData "Đã tạm khóa tài khoản chủ quán"\\nRedirect → /ShopOwner
+    end
+    end
+
+    note over A,DB: Sau khi bị Suspend: Owner đăng nhập vẫn thành công\\nnhưng RequireApprovedOwnerAsync() chặn tất cả thao tác POI`
+            },
+            {
+                id: "F04b",
+                module: "Chuc nang quan tri",
+                title: "F04b — Upload Audio & Image (Media Storage)  ",
+                actor: "Admin",
+                entry: "AudioController + ImageController (Admin CMS)",
+                source: "AudioGuideAdmin/Controllers/AudioController.cs",
+                status: "ok",
+                summary: "Admin upload file audio (mp3/wav) và ảnh POI lên Shared Static Storage. File được đặt tên bằng GUID để tránh trùng. Có thể xoá từng file. Path được kiểm tra an toàn (path traversal prevention).",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant CMS as AudioController / ImageController
+    participant FS as Shared Static Storage (wwwroot/audio hoặc /images)
+
+    rect rgb(240, 248, 255)
+    note right of A: Xem danh sách file đã upload
+    A->>CMS: GET /Audio/Upload hoặc GET /Image/Upload
+    CMS->>FS: Directory.GetFiles(RootPath)
+    FS-->>CMS: Danh sách tên file
+    CMS-->>A: Render danh sách (FileName, URL /audio/... hoặc /images/...)
+    end
+
+    rect rgb(255, 240, 245)
+    note right of A: Upload file mới
+    A->>CMS: POST multipart/form-data (IFormFile file)
+    CMS->>CMS: Kiểm tra file != null && Length > 0
+    CMS->>CMS: fileName = GUID("N") + Extension\\n(ví dụ: a3f2...N.mp3)
+    CMS->>FS: Directory.CreateDirectory(RootPath)
+    CMS->>FS: FileStream.CopyToAsync(stream)\\n→ Ghi file vào đĩa vật lý
+    FS-->>CMS: OK
+    CMS-->>A: RedirectToAction("Upload")\\n(file mới xuất hiện trong danh sách)
+    end
+
+    rect rgb(240, 255, 240)
+    note right of A: Xóa file
+    A->>CMS: POST /Audio/Delete {fileName} hoặc POST /Image/Delete {fileName}
+    CMS->>CMS: ResolveSafePath(fileName, RootPath)\\n→ Path.GetFileName() + GetFullPath()\\n→ Kiểm tra path có nằm trong RootPath không
+    alt Path không hợp lệ (path traversal attempt)
+        CMS-->>A: Redirect (không làm gì, bảo mật)
+    else Path hợp lệ và file tồn tại
+        CMS->>FS: File.Delete(safePath)
+        FS-->>CMS: OK
+        CMS-->>A: RedirectToAction("Upload")
+    end
+    end`
+            },
+            {
+                id: "A15",
+                module: "Chuc nang quan tri",
+                title: "A15 — Tracking Log Viewer (Raw Data)  ",
+                actor: "Admin",
+                entry: "TrackingController (Admin CMS)",
+                source: "AudioGuideAdmin/Controllers/TrackingController.cs",
+                status: "ok",
+                summary: "Admin xem raw data: GPS tracking points, VisitHistory và GeofenceTriggers có thể lọc theo UserId, PoiId, TriggerType, DateRange. Hiển thị tối đa 200 tracking / 150 visit / 150 trigger rows.",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant CMS as TrackingController
+    participant DB as SQL Server
+
+    A->>CMS: GET /Tracking?userId=...&poiId=...&triggerType=...&dateFrom=...&dateTo=...
+    
+    rect rgb(240, 248, 255)
+    note right of CMS: Build query với filter động
+    CMS->>DB: IQueryable UserTrackings (filter UserId, DateRange)
+    CMS->>DB: IQueryable VisitHistories (filter UserId, PoiId, TriggerType, DateRange\\nWHERE PoiId IN scopedPoiIds)
+    CMS->>DB: IQueryable GeofenceTriggers (filter UserId, PoiId, TriggerType, DateRange\\nWHERE PoiId IN scopedPoiIds)
+    end
+
+    rect rgb(255, 240, 245)
+    note right of CMS: Đếm tổng & lấy mẫu
+    CMS->>DB: COUNT tổng TrackingCount, VisitCount, TriggerCount
+    CMS->>DB: COUNT UniqueVisitorCount (Distinct UserId từ 3 bảng)
+    CMS->>DB: SELECT TOP 200 UserTrackings ORDER BY RecordedAt DESC
+    CMS->>DB: SELECT TOP 150 VisitHistories ORDER BY EndTime DESC
+    CMS->>DB: SELECT TOP 150 GeofenceTriggers ORDER BY RecordedAt DESC
+    DB-->>CMS: Data rows + counts
+    end
+
+    CMS-->>A: Render trang Tracking Log\\n(3 bảng: GPS Points, Visit History, Geofence Triggers)\\n+ Summary bar (Total / Displayed / UniqueVisitors)`
+            },
+            {
+                id: "A16",
+                module: "Chuc nang quan tri",
+                title: "A16 — Admin Dashboard Overview  ",
+                actor: "Admin",
+                entry: "DashboardController (Admin CMS)",
+                source: "AudioGuideAdmin/Controllers/DashboardController.cs",
+                status: "ok",
+                summary: "Trang chủ Admin CMS hiển thị KPI tổng quan hệ thống: tổng POI, tổng lượt nghe, tracking points, tours, unique visitors, avg duration, top 5 POI và 10 trigger gần nhất.",
+                mermaid: `sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant CMS as DashboardController
+    participant DB as SQL Server
+
+    A->>CMS: GET / hoặc GET /Dashboard
+    
+    rect rgb(240, 248, 255)
+    note right of CMS: Xác định scope POI hiển thị
+    CMS->>DB: Pois WHERE OwnerId != null (owner-managed POIs)
+    alt Có owner-managed POI
+        DB-->>CMS: dashboardPoiQuery = owner-managed POIs
+    else Không có (setup ban đầu)
+        DB-->>CMS: dashboardPoiQuery = TẤT CẢ POIs
+    end
+    end
+
+    rect rgb(255, 240, 245)
+    note right of CMS: Tính KPI Summary
+    CMS->>DB: COUNT Pois (trong scope)
+    CMS->>DB: COUNT VisitHistories (PoiId IN scope)
+    CMS->>DB: COUNT UserTrackings (all)
+    CMS->>DB: COUNT Tours (all)
+    CMS->>DB: COUNT DISTINCT UserId FROM VisitHistories
+    CMS->>DB: AVG Duration FROM VisitHistories
+    DB-->>CMS: TotalPoi, TotalVisit, TotalTracking, TotalTour, UniqueVisitors, AvgDuration
+    end
+
+    rect rgb(240, 255, 240)
+    note right of CMS: Top POI & Recent Triggers
+    CMS->>DB: SELECT PoiId, COUNT(*) as ListenCount, AVG(Duration)\\nFROM VisitHistories GROUP BY PoiId\\nORDER BY ListenCount DESC TAKE 5
+    CMS->>DB: SELECT TOP 10 GeofenceTriggers\\nORDER BY RecordedAt DESC
+    DB-->>CMS: topPoiRows, recentTriggerRows
+    end
+
+    CMS-->>A: Render Dashboard\\n(KPI cards + Top 5 POI bảng + 10 trigger gần nhất)`
+            },
+            {
+                id: "F13",
+                module: "Chuc nang runtime",
+                title: "F13 — Tour Playback API (Mobile)  ",
+                actor: "Mobile App",
+                entry: "TourController (AudioGuideAPI)",
+                source: "AudioGuideAPI/Controllers/TourController.cs",
+                status: "ok",
+                summary: "Mobile app fetch danh sách Tour đang active và chi tiết Tour (stops theo thứ tự, POI kèm translations). Dùng để hiển thị Tour selection screen và phát audio theo tuyến.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant APP as Mobile App
+    participant API as TourController (API)
+    participant DB as SQL Server
+
+    rect rgb(240, 248, 255)
+    note right of APP: Lấy danh sách Tour
+    APP->>API: GET /api/tour?activeOnly=true
+    API->>DB: SELECT Tours WHERE IsActive=true\\nINCLUDE Stops ORDER BY SortOrder\\nINCLUDE Poi
+    DB-->>API: Danh sách Tours + Stops + POI cơ bản
+    API-->>APP: 200 OK [ {id, name, stops:[{sortOrder, poi:{...}}]} ]
+    APP->>APP: Render Tour selection screen
+    end
+
+    rect rgb(255, 240, 245)
+    note right of APP: Lấy chi tiết 1 Tour để phát
+    APP->>API: GET /api/tour/{id}
+    API->>DB: SELECT Tour WHERE Id={id}\\nINCLUDE Stops ORDER BY SortOrder\\nINCLUDE Poi.Translations
+    alt Tour không tồn tại
+        DB-->>API: null
+        API-->>APP: 404 Not Found
+    else Tìm thấy
+        DB-->>API: Tour + ordered Stops + Poi + Translations
+        API-->>APP: 200 OK Tour detail
+    end
+    end
+
+    rect rgb(240, 255, 240)
+    note right of APP: Lấy ảnh bìa Tour
+    APP->>API: GET /api/tour/{id}/cover
+    API->>DB: SELECT ImageUrl FROM Tours WHERE Id={id}
+    alt Có ảnh bìa
+        API->>API: Đọc file từ ImageStorageOptions.RootPath
+        API-->>APP: image/* (binary stream)
+    else Không có ảnh
+        API-->>APP: 404 Not Found
+    end
+    end
+
+    note over APP: Mobile dùng Tour detail để:\\n- Hiển thị danh sách điểm dừng\\n- Phát audio theo thứ tự SortOrder\\n- Highlight POI đang gần nhất trên bản đồ`
+            },
+            {
+                id: "F14",
+                module: "Chuc nang runtime",
+                title: "F14 — Map Nearby & Feed API (Mobile)  ",
+                actor: "Mobile App",
+                entry: "MapController (AudioGuideAPI)",
+                source: "AudioGuideAPI/Controllers/MapController.cs",
+                status: "ok",
+                summary: "Mobile app gọi 2 endpoint: POST /api/map/nearby lấy top 20 POI gần nhất (kèm khoảng cách Haversine), GET /api/map/feed lấy toàn bộ POI active sắp xếp theo Priority cho bản đồ tổng.",
+                mermaid: `sequenceDiagram
+    autonumber
+    participant APP as Mobile App
+    participant API as MapController (API)
+    participant DB as SQL Server
+
+    rect rgb(240, 248, 255)
+    note right of APP: POST /api/map/nearby — Tìm POI gần vị trí
+    APP->>API: POST /api/map/nearby\\n{latitude, longitude, language}
+    API->>DB: SELECT Pois WHERE IsActive=true\\nINCLUDE Translations WHERE IsPublished=true
+    DB-->>API: Tất cả active POI + translations
+
+    API->>API: Tính Haversine distance cho TỪNG POI
+    API->>API: Select translation theo language fallback\\n(PoiTranslationSelector.Select)
+    API->>API: Resolve audioUrl (PoiAudioSelector.Resolve)
+    API->>API: OrderBy distance ASC, Take(20)
+    API-->>APP: 200 OK [ {id, title, summary, lat, lng,\\nradius, approachRadius, audioUrl,\\ntriggerMode, distanceMeters, isNearest} ]
+    APP->>APP: Render map markers + nearest POI highlighted
+    end
+
+    rect rgb(255, 240, 245)
+    note right of APP: GET /api/map/feed — Load toàn bộ POI cho bản đồ
+    APP->>API: GET /api/map/feed?language=vi-VN
+    API->>DB: SELECT Pois WHERE IsActive=true\\nINCLUDE Translations WHERE IsPublished=true\\nORDER BY Priority DESC, Name ASC
+    DB-->>API: Danh sách POI full
+
+    API->>API: Với mỗi POI: Select translation theo language
+    API-->>APP: 200 OK [ {id, name, title, summary,\\nlat, lng, radius, approachRadius,\\npriority, imageUrl, mapUrl} ]
+    APP->>APP: Vẽ toàn bộ POI markers lên bản đồ\\n(dùng cho Map tab overview)
     end`
             }
         ];
 
         const moduleDescriptions = {
-            "Hanh trinh nguoi dung": "3 sequence mô tả hành vi chính trong PRD: visitor bắt đầu, visitor đi ngang POI và admin vận hành nội dung.",
-            "Chuc nang quan tri": "Các sequence cho nhóm yêu cầu F1-F4, F9, F11-F12, QR01-QR02, M15-M18 và A14 trong PRD.",
-            "Chuc nang runtime": "Các sequence cho bootstrap, geofence, tracking, visit history và QR lookup trên mobile/backend."
+            "Hanh trinh nguoi dung": "3 sequences J01-J03 — hành trình tổng thể: visitor bắt đầu, đi ngang POI và admin vận hành.",
+            "Chuc nang quan tri": "15 sequences F01-F04/F04b, F09, F11-F12, QR01-QR02, M15-M18, A14-A16 — toàn bộ chức năng Admin CMS.",
+            "Chuc nang runtime": "7 sequences F05-F08, F10, F13-F14 — bootstrap, geofence, tracking, visit, QR lookup, tour và map API trên mobile.",
+            "Owner Portal": "4 sequences OP01-OP04 — đăng ký/đăng nhập ShopOwner, POI Submission, Dashboard KPI và Admin duyệt tài khoản."
         };
 
         let mermaidApi = null;
@@ -3137,48 +3684,48 @@
                 sequences: 'F11, J03 Pha 1',
                 actors: 'Admin, Browser, ASP.NET MVC, SQL Server',
                 meta: [
-                    { title: 'User Actions', items: ['Truy cập URL Admin site','Nhập Username + Password','Bấm Login hoặc Register','Bấm Logout khi muốn thoát'] },
-                    { title: 'System Processing', items: ['SessionMiddleware kiểm tra Cookie','SHA-256 hash password và so sánh','Tạo HttpOnly Session Cookie (8h)','Redirect về Login khi hết phiên'] },
+                    { title: 'User Actions', items: ['Truy cập URL Admin site','Nhập Username + Password','Bấm Login hoặc Register (First Boot)','Bấm Logout khi muốn thoát'] },
+                    { title: 'System Processing', items: ['SessionMiddleware kiểm tra ASP.NET Session','SHA-256 hash password (không salt)','Session.SetString("user", username) — timeout 8h','Redirect về Login khi Session hết hạn'] },
                     { title: 'Database Operations', items: ['<code>SELECT COUNT(*) FROM AdminUsers</code> — Check first boot','<code>SELECT AdminUsers WHERE Username</code> — Verify login','<code>INSERT AdminUsers</code> — Register admin đầu tiên'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Admin truy cập\\nAdmin Site URL"]
-    A1 --> A2["⚙️ SessionMiddleware\\nkiểm tra Cookie"]
-    A2 --> D1{"Session Cookie\\nhợp lệ?"}
+    A1 --> A2["⚙️ SessionMiddleware\\nkiểm tra ASP.NET Session"]
+    A2 --> D1{"Session[user]\\ntồn tại?"}
     D1 -- Có --> D2{"Session hết hạn\\n> 8 giờ?"}
     D2 -- Chưa --> DASH(("✅ Redirect\\nvào Dashboard"))
-    D2 -- Rồi --> A3["⚙️ Destroy session\\nXoá cookie"]
-    A3 --> A4["📄 Hiển thị trang Login"]
+    D2 -- Rồi --> A3["⚙️ Session.Remove(user)\\nXoá session"]
+    A3 --> A4["📄 Redirect → /Auth/Login"]
     D1 -- Không --> DB1[("💾 SELECT COUNT(*)\\nFROM AdminUsers")]
     DB1 --> D3{"AdminUsers\\ncount = 0?"}
-    D3 -- Có --> A5["📄 Hiển thị form\\nĐăng Ký Admin đầu tiên"]
+    D3 -- Có --> A5["📄 Redirect\\n→ /Auth/Register (First Boot)"]
     D3 -- Không --> A4
     A5 --> A6["🧑 Nhập Username\\n+ Password + Confirm"]
     A6 --> D4{"Password\\nkhớp confirm?"}
-    D4 -- Không --> A7["⚠️ Hiển thị lỗi\\nPassword không khớp"]
+    D4 -- Không --> A7["⚠️ ModelState.Error\\nPassword không khớp"]
     A7 --> A5
-    D4 -- Có --> A8["⚙️ Hash SHA-256(password)"]
+    D4 -- Có --> A8["⚙️ ComputeHash SHA256(password)"]
     A8 --> DB2[("💾 INSERT AdminUsers\\nUsername, PasswordHash")]
-    DB2 --> A9["⚙️ CreateSession()\\nSet HttpOnly Cookie 8h"]
+    DB2 --> A9["⚙️ Session.SetString(user, username)\\nTimeout = 8 giờ"]
     A9 --> DASH
     A4 --> A10["🧑 Nhập Username\\n+ Password"]
-    A10 --> A11["⚙️ Hash SHA-256(input)"]
+    A10 --> A11["⚙️ ComputeHash SHA256(input)"]
     A11 --> DB3[("💾 SELECT AdminUsers\\nWHERE Username = input")]
     DB3 --> D5{"Tìm thấy user\\nvà hash khớp?"}
-    D5 -- Không --> A12["⚠️ 401 Error\\nSai tên hoặc mật khẩu"]
+    D5 -- Không --> A12["⚠️ ModelState.Error\\nSai tên hoặc mật khẩu"]
     A12 --> A4
     D5 -- Có --> A9`
             },
             {
                 id: 'poi',
                 title: 'A04 — Quản lý POI & Content',
-                desc: 'Luồng Admin tạo / chỉnh sửa / xoá POI bao gồm validation toạ độ, upload audio, gán translation đa ngôn ngữ và toggle hiển thị.',
-                sequences: 'F01, F02, F04, J03 Pha 2',
-                actors: 'Admin, Browser, ASP.NET MVC, SQL Server, Shared Storage',
+                desc: 'Luồng ShopOwner tạo Submission POI, gửi duyệt → Admin approve/reject → POI live. Bao gồm tạo mới, chỉnh sửa nháp, gửi lại sau khi bị trả về.',
+                sequences: 'F01, OP01, OP02, J03 Pha 2',
+                actors: 'ShopOwner, Admin, OwnerPortal, Admin CMS, SQL Server',
                 meta: [
-                    { title: 'Decision Points', items: ['Tạo mới hay chỉnh sửa POI?','Toạ độ hợp lệ? Radius > 0?','Translation: UNIQUE(PoiId + Language)?','Audio: File hợp lệ (format + size)?','Xoá POI: Có Tour đang tham chiếu?'] },
-                    { title: 'Parallel / Sub-flows', items: ['Tạo POI → sau đó tạo Translation (sub-flow)','Upload Audio → gán vào POI hoặc Translation','Toggle IsActive ảnh hưởng Bootstrap runtime'] },
-                    { title: 'Database Operations', items: ['<code>INSERT/UPDATE/DELETE Pois</code>','<code>INSERT/UPDATE PoiTranslations</code> + UNIQUE check','File lưu vào <code>SharedStorage/audio/</code>','<code>SELECT Categories, Languages</code> — populate dropdowns'] }
+                    { title: 'Decision Points', items: ['Owner có status Approved mới được tạo Submission?','SubmissionType = create hay update?','submitAction = draft hay submit?','Admin: Approve / RequestChanges / Reject?','Đã có draft đang mở cho POI này chưa?'] },
+                    { title: 'Trạng thái Submission', items: ['<code>Draft</code> — Nháp, chưa gửi','<code>PendingReview</code> — Đã gửi, chờ Admin','<code>ChangesRequested</code> — Admin trả về, cần sửa','<code>Approved</code> — Merge vào POI live','<code>Rejected</code> — Kết thúc vòng duyệt'] },
+                    { title: 'Database Operations', items: ['<code>INSERT PoiSubmissions + PoiTranslationSubmissions</code>','<code>UPDATE PoiSubmissions.Status</code> — Admin review','<code>INSERT/UPDATE Pois</code> — Khi Approve','<code>SELECT PoiSubmissions WHERE OwnerId</code>'] }
                 ],
                 mermaid: `flowchart TD
     START(( )) --> A1["🧑 Admin vào trang\\nQuản lý POI"]
@@ -3454,6 +4001,37 @@
         +string PasswordHash
         +DateTime CreatedAt
     }
+    class ShopOwner {
+        +string Id
+        +string FullName
+        +string Phone
+        +string Email
+        +string BusinessName
+        +string PasswordHash
+        +string PasswordSalt
+        +string Status
+        +DateTime LastLoginAt
+    }
+    class PoiSubmission {
+        +string Id
+        +string OwnerId
+        +int PoiId
+        +string SubmissionType
+        +string Status
+        +string ReviewNote
+        +string Name
+        +double Latitude
+        +double Longitude
+        +DateTime SubmittedAt
+    }
+    class PoiTranslationSubmission {
+        +int Id
+        +string SubmissionId
+        +string Language
+        +string Title
+        +string TtsScript
+        +string AudioUrl
+    }
     Poi "1" *-- "0..*" PoiTranslation : has
     Poi "1" *-- "0..*" QRCode : has
     Poi "1" *-- "0..*" GeofenceTrigger : triggers
@@ -3464,7 +4042,10 @@
     TourStop "0..*" --> "1" Poi : references
     Visitor "1" *-- "0..*" UserTracking : positions
     Visitor "1" *-- "0..*" GeofenceTrigger : history
-    Visitor "1" *-- "0..*" VisitHistory : records`,
+    Visitor "1" *-- "0..*" VisitHistory : records
+    ShopOwner "1" *-- "0..*" PoiSubmission : submits
+    ShopOwner "1" o-- "0..*" Poi : owns
+    PoiSubmission "1" *-- "0..*" PoiTranslationSubmission : has`,
             entity: `classDiagram
     direction LR
     class Poi {
@@ -3544,6 +4125,21 @@
         +string Username
         +string PasswordHash
     }
+    class ShopOwner {
+        +string Id
+        +string Phone
+        +string Email
+        +string PasswordHash
+        +string PasswordSalt
+        +string Status
+    }
+    class PoiSubmission {
+        +string Id
+        +string OwnerId
+        +int PoiId
+        +string Status
+        +string SubmissionType
+    }
     Poi "1" *-- "0..*" PoiTranslation : compositions
     Poi "1" *-- "0..*" QRCode : compositions
     Category "1" o-- "0..*" Poi : aggregation
@@ -3551,7 +4147,9 @@
     TourStop "0..*" --> "1" Poi : association
     Visitor "1" *-- "0..*" UserTracking : compositions
     Visitor "1" *-- "0..*" GeofenceTrigger : compositions
-    Visitor "1" *-- "0..*" VisitHistory : compositions`,
+    Visitor "1" *-- "0..*" VisitHistory : compositions
+    ShopOwner "1" *-- "0..*" PoiSubmission : submits
+    ShopOwner "1" o-- "0..*" Poi : owns`,
             controller: `classDiagram
     direction TB
     class AuthController {
@@ -3560,35 +4158,65 @@
         +Register(username, password) ActionResult
         +Logout() ActionResult
     }
-    class PoiController {
+    class PoiReviewController {
         <<Admin MVC>>
         +Index() ViewResult
-        +Create(poiData) ActionResult
-        +Edit(id, poiData) ActionResult
-        +Delete(id) ActionResult
+        +Approve(id) ActionResult
+        +RequestChanges(id, note) ActionResult
+        +Reject(id, note) ActionResult
     }
-    class TourController {
+    class ShopOwnerController {
         <<Admin MVC>>
-        +Index() ViewResult
-        +Create(tourData) ActionResult
-        +Edit(id, tourData) ActionResult
-        +Delete(id) ActionResult
+        +Index(status) ViewResult
+        +Approve(id) ActionResult
+        +Suspend(id) ActionResult
     }
     class DashboardController {
         <<Admin MVC>>
         +Index() ViewResult
-        +Analytics() ViewResult
     }
-    class BootstrapApiController {
-        <<Web API>>
-        +GetBootstrap(language) BootstrapPayload
-        +PostNearby(lat, lng, radius) NearbyResult
+    class TrackingController {
+        <<Admin MVC>>
+        +Index(userId, poiId, triggerType, dateFrom, dateTo) ViewResult
+    }
+    class VisitorController {
+        <<Admin MVC>>
+        +Index(includeTest) ViewResult
+        +Edit(id, model) ActionResult
+    }
+    class OwnerAuthController {
+        <<OwnerPortal MVC>>
+        +Login(model) ActionResult
+        +Register(model) ActionResult
+        +Logout() ActionResult
+    }
+    class OwnerPoiController {
+        <<OwnerPortal MVC>>
+        +Index() ViewResult
+        +Create(submission, submitAction) ActionResult
+        +Edit(id, submission, submitAction) ActionResult
+        +StartUpdate(poiId) ActionResult
+        +DeleteDraft(id) ActionResult
+    }
+    class OwnerDashboardController {
+        <<OwnerPortal MVC>>
+        +Index() ViewResult
     }
     class GeofenceApiController {
         <<Web API>>
         +PostGeofence(lat, lng, userId, lang) GeofenceResult
         -calculateDistance() double
         -checkCooldown() bool
+    }
+    class MapApiController {
+        <<Web API>>
+        +GetNearby(lat, lng, language) NearbyResult
+        +GetFeed(language) FeedResult
+    }
+    class TourApiController {
+        <<Web API>>
+        +GetAll(activeOnly) List
+        +GetById(id) Tour
     }
     class TrackingApiController {
         <<Web API>>
@@ -3601,10 +4229,13 @@
     class QRCodeApiController {
         <<Web API>>
         +Lookup(code) PoiPayload
+        +Open(code, visitorId) ActionResult
     }
-    AuthController --|> PoiController : same Admin area
-    AuthController --|> TourController : same Admin area
-    AuthController --|> DashboardController : same Admin area`,
+    AuthController --|> PoiReviewController : same Admin area
+    AuthController --|> ShopOwnerController : same Admin area
+    AuthController --|> DashboardController : same Admin area
+    OwnerAuthController --|> OwnerPoiController : same OwnerPortal
+    OwnerAuthController --|> OwnerDashboardController : same OwnerPortal`,
             service: `classDiagram
     direction TB
     class LocationService {
@@ -3858,6 +4489,31 @@
     Collecting --> Stopped : Bấm Tắt Tracking
     Paused --> Stopped : Bấm Tắt Tracking
     Stopped --> [*] : Tắt app`
+            },
+            {
+                id: 'shopowner', title: 'ShopOwner Account',
+                desc: 'Vòng đời tài khoản chủ quán — từ lúc đăng ký (Pending), được Admin duyệt (Approved), đến khi bị tạm khóa (Suspended).',
+                dbField: 'ShopOwners.Status', sequences: 'OP01, OP04',
+                meta: [
+                    { title: 'Các trạng thái', items: ['<code>Pending</code> — Vừa đăng ký, chờ Admin duyệt','<code>Approved</code> — Được duyệt, có thể đăng nhập và tạo POI Submission','<code>Suspended</code> — Bị khóa, đăng nhập được nhưng không tạo được Submission'] },
+                    { title: 'Guards', items: ['Pending → Approved: Admin POST /ShopOwner/Approve/{id}','Approved → Suspended: Admin POST /ShopOwner/Suspend/{id}','Suspended → Approved: Admin POST /ShopOwner/Approve/{id} lại','RequireApprovedOwnerAsync() chặn: Pending + Suspended'] }
+                ],
+                mermaid: `stateDiagram-v2
+    [*] --> Pending : ShopOwner đăng ký\\n/ INSERT ShopOwners (Status=Pending)
+    Pending --> Approved : Admin duyệt\\n/ SET Status=Approved, ApprovedAt=now
+    Pending --> Rejected : Admin từ chối (xoá)
+    Approved --> Suspended : Admin tạm khóa\\n/ SET Status=Suspended
+    Suspended --> Approved : Admin mở khóa lại\\n/ SET Status=Approved
+    state Approved {
+        [*] --> CanCreateSubmission
+        CanCreateSubmission --> SubmissionPending : Gửi POI Submission
+        SubmissionPending --> CanCreateSubmission : Admin Approve/Reject
+    }
+    state Suspended {
+        [*] --> LoginAllowed
+        LoginAllowed --> BlockedFromPOI : RequireApprovedOwnerAsync() = false
+    }
+    Rejected --> [*]`
             }
         ];
 
