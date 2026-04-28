@@ -13,29 +13,7 @@
         <p class="text-muted mb-0">QR này là QR nội dung thật. Khách có thể quét bằng app hoặc camera điện thoại thông thường để mở trang nghe ngay.</p>
     </div>
     <div class="d-flex gap-2">
-        <form method="post" action="/QRCode/CreateBusStopSet">
-            @Html.AntiForgeryToken()
-            <button class="btn btn-outline-primary" type="submit">Tạo bộ QR xe buýt</button>
-        </form>
         <a href="/QRCode/Create" class="btn btn-primary">Thêm QR</a>
-    </div>
-</div>
-
-<div class="card p-3 mb-3">
-    <div class="fw-semibold mb-1">Bộ QR đề xuất cho 3 điểm dừng xe buýt</div>
-    <div class="text-muted small">Hệ thống sẽ tạo hoặc cập nhật 3 mã chuẩn cho Khánh Hội, Vĩnh Hội, Xuân Chiếu/Xóm Chiếu nếu đã có POI tương ứng.</div>
-    <div class="mt-2 d-flex flex-wrap gap-2">
-        <span class="badge badge-soft">BUS-KH-001</span>
-        <span class="badge badge-soft">BUS-VH-002</span>
-        <span class="badge badge-soft">BUS-XC-003</span>
-    </div>
-    <div class="small mt-3">
-        <div class="fw-semibold">Public base URL đang dùng cho QR</div>
-        <code>@publicQrBaseUrl</code>
-        @if (isLocalHost)
-        {
-            <div class="text-danger mt-2">Base URL hiện là localhost. Muốn khách quét bằng điện thoại ngoài app thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
-        }
     </div>
 </div>
 
@@ -64,6 +42,17 @@
                      style="max-width:144px;max-height:144px;" />
             </div>
         </div>
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
+    <div class="small">
+        <div class="fw-semibold">Public base URL đang dùng cho QR</div>
+        <code>@publicQrBaseUrl</code>
+        @if (isLocalHost)
+        {
+            <div class="text-danger mt-2">Base URL hiện là localhost. Muốn khách quét bằng điện thoại ngoài app thì hãy đổi `Qr:PublicBaseUrl` sang IP LAN hoặc domain public.</div>
+        }
     </div>
 </div>
 

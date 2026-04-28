@@ -1,0 +1,169 @@
+@model AudioGuideAdmin.Models.PoiSubmission
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">Review submission POI</h2>
+        <p class="text-muted mb-0">Admin duyệt theo cả gói: POI gốc, bản dịch và audio fallback trước khi publish ra dữ liệu live.</p>
+    </div>
+    <a href="/PoiReview" class="btn btn-outline-secondary">Quay lại danh sách duyệt</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card p-4 mb-4">
+            <h4 class="mb-3">Nội dung submission</h4>
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Chủ quán</dt>
+                <dd class="col-sm-8">@Model.Owner?.BusinessName (@Model.Owner?.FullName)</dd>
+
+                <dt class="col-sm-4">Loại submission</dt>
+                <dd class="col-sm-8">@(Model.SubmissionType == "update" ? "Chỉnh sửa POI live" : "Tạo POI mới")</dd>
+
+                <dt class="col-sm-4">Tên POI</dt>
+                <dd class="col-sm-8">@Model.Name</dd>
+
+                <dt class="col-sm-4">Danh mục</dt>
+                <dd class="col-sm-8">@Model.Category</dd>
+
+                <dt class="col-sm-4">Địa chỉ</dt>
+                <dd class="col-sm-8">@Model.Address</dd>
+
+                <dt class="col-sm-4">Tọa độ</dt>
+                <dd class="col-sm-8">@Model.Latitude, @Model.Longitude</dd>
+
+                <dt class="col-sm-4">Bán kính</dt>
+                <dd class="col-sm-8">Radius @Model.Radius m | Near @Model.ApproachRadiusMeters m</dd>
+
+                <dt class="col-sm-4">TTS / Audio mặc định</dt>
+                <dd class="col-sm-8">@Model.AudioMode | @Model.AudioUrl</dd>
+
+                <dt class="col-sm-4">Ngôn ngữ mặc định</dt>
+                <dd class="col-sm-8">@Model.DefaultLanguage</dd>
+
+                <dt class="col-sm-4">Tóm tắt</dt>
+                <dd class="col-sm-8">@Model.Summary</dd>
+
+                <dt class="col-sm-4">Mô tả</dt>
+                <dd class="col-sm-8">@Model.Description</dd>
+
+                <dt class="col-sm-4">Script TTS</dt>
+                <dd class="col-sm-8">@Model.TtsScript</dd>
+            </dl>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Bản dịch và audio trong submission</h4>
+                <span class="badge text-bg-secondary">@Model.TranslationSubmissions.Count ngôn ngữ</span>
+            </div>
+
+            @if (Model.TranslationSubmissions.Count == 0)
+            {
+                <div class="text-muted">Submission này chưa có bản dịch phụ nào. App sẽ chỉ dùng nội dung mặc định của POI.</div>
+            }
+            else
+            {
+                @foreach (var translation in Model.TranslationSubmissions.OrderBy(x => x.SortOrder).ThenBy(x => x.Language))
+                {
+                    var isDefaultLanguage = string.Equals(translation.Language, Model.DefaultLanguage, StringComparison.OrdinalIgnoreCase);
+                    var hasContent =
+                        !string.IsNullOrWhiteSpace(translation.Title) ||
+                        !string.IsNullOrWhiteSpace(translation.Summary) ||
+                        !string.IsNullOrWhiteSpace(translation.Description) ||
+                        !string.IsNullOrWhiteSpace(translation.AudioUrl) ||
+                        !string.IsNullOrWhiteSpace(translation.TtsScript) ||
+                        !string.IsNullOrWhiteSpace(translation.VoiceName);
+
+                    <div class="border rounded-4 p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div>
+                                <div class="fw-semibold">@translation.Language</div>
+                                <div class="small text-muted">
+                                    @(isDefaultLanguage
+                                        ? "Ngôn ngữ này trùng với mặc định. Khi duyệt, hệ thống sẽ ưu tiên nội dung mặc định của POI và bỏ translation trùng ngôn ngữ này."
+                                        : "Nếu có nội dung, hệ thống sẽ upsert sang PoiTranslations live cho ngôn ngữ này.")
+                                </div>
+                            </div>
+                            <span class="badge @(hasContent ? "text-bg-success" : "text-bg-light border")">
+                                @(hasContent ? "Có nội dung" : "Để trống")
+                            </span>
+                        </div>
+
+                        <div class="small"><strong>Title:</strong> @translation.Title</div>
+                        <div class="small"><strong>Summary:</strong> @translation.Summary</div>
+                        <div class="small"><strong>Description:</strong> @translation.Description</div>
+                        <div class="small"><strong>TTS:</strong> @translation.TtsScript</div>
+                        <div class="small"><strong>Voice:</strong> @translation.VoiceName</div>
+                        <div class="small"><strong>Audio:</strong> @translation.AudioUrl</div>
+                        @if (!string.IsNullOrWhiteSpace(translation.AudioUrl))
+                        {
+                            <div class="mt-2">
+                                <audio controls src="@translation.AudioUrl" style="width:100%;max-width:420px;"></audio>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card p-4 mb-4">
+            <h4 class="mb-3">POI live hiện tại</h4>
+            @if (Model.Poi == null)
+            {
+                <div class="text-muted">Đây là submission tạo POI mới, chưa có POI live nào tương ứng.</div>
+            }
+            else
+            {
+                <div class="mb-2"><strong>@Model.Poi.Name</strong></div>
+                <div class="small text-muted mb-2">@Model.Poi.Address</div>
+                <div class="small">Category: @Model.Poi.Category</div>
+                <div class="small">Radius: @Model.Poi.Radius | Near: @Model.Poi.ApproachRadiusMeters</div>
+                <div class="small">Audio mode: @Model.Poi.AudioMode</div>
+                <div class="small">Updated: @Model.Poi.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+
+                @if (Model.Poi.Translations.Count > 0)
+                {
+                    <hr />
+                    <div class="fw-semibold mb-2">Bản dịch live hiện tại</div>
+                    @foreach (var translation in Model.Poi.Translations.OrderBy(x => x.Language))
+                    {
+                        <div class="small mb-2">
+                            <strong>@translation.Language</strong>: @translation.Title
+                            @if (!string.IsNullOrWhiteSpace(translation.AudioUrl))
+                            {
+                                <span class="text-muted">| @translation.AudioUrl</span>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+
+        <div class="card p-4">
+            <h4 class="mb-3">Quyết định duyệt</h4>
+
+            <form method="post" action="/PoiReview/Approve/@Model.Id" class="mb-3">
+                @Html.AntiForgeryToken()
+                <label class="form-label">Ghi chú duyệt</label>
+                <textarea name="reviewNote" class="form-control mb-2" rows="3">@Model.ReviewNote</textarea>
+                <button class="btn btn-success w-100">Duyệt và publish cả gói POI / bản dịch / audio</button>
+            </form>
+
+            <form method="post" action="/PoiReview/RequestChanges/@Model.Id" class="mb-3">
+                @Html.AntiForgeryToken()
+                <label class="form-label">Ghi chú yêu cầu chỉnh sửa</label>
+                <textarea name="reviewNote" class="form-control mb-2" rows="3" placeholder="Nêu rõ phần nào owner cần chỉnh trước khi gửi lại"></textarea>
+                <button class="btn btn-outline-secondary w-100">Trả về để chỉnh sửa</button>
+            </form>
+
+            <form method="post" action="/PoiReview/Reject/@Model.Id">
+                @Html.AntiForgeryToken()
+                <label class="form-label">Lý do từ chối</label>
+                <textarea name="reviewNote" class="form-control mb-2" rows="3" placeholder="Nêu lý do từ chối để owner biết"></textarea>
+                <button class="btn btn-outline-danger w-100">Từ chối submission</button>
+            </form>
+        </div>
+    </div>
+</div>

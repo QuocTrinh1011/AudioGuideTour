@@ -1,0 +1,7 @@
+@model AudioGuideAdmin.Models.PoiSubmission
+@{
+    Layout = "~/Views/Shared/_OwnerLayout.cshtml";
+}
+
+<h2 class="mb-3">Tạo submission POI mới</h2>
+@await Html.PartialAsync("_PoiSubmissionForm", Model)

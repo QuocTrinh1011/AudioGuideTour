@@ -1,0 +1,214 @@
+@model OwnerPoiDetailsViewModel
+@{
+    Layout = "~/Views/Shared/_OwnerLayout.cshtml";
+    var poi = Model.Poi;
+    var translations = poi.Translations
+        .OrderBy(x => string.Equals(x.Language, poi.DefaultLanguage, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+        .ThenBy(x => x.Language)
+        .ToList();
+}
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <h2 class="mb-1">Chi tiết POI đã duyệt</h2>
+        <div class="text-muted">@poi.Name</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/OwnerPoi" class="btn btn-outline-secondary">Quay lại</a>
+        <form method="post" action="/OwnerPoi/StartUpdate/@poi.Id" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-primary">Tạo submission sửa</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h3 class="mb-1">@poi.Name</h3>
+                    <div class="text-muted">@poi.Address</div>
+                </div>
+                <div class="text-end">
+                    <div><span class="badge text-bg-success">Đã duyệt</span></div>
+                    <div class="small text-muted mt-2">Cập nhật: @poi.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="small text-muted">Danh mục</div>
+                    <div class="fw-semibold">@poi.Category</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="small text-muted">Ngôn ngữ mặc định</div>
+                    <div class="fw-semibold">@Model.GetLanguageLabel(poi.DefaultLanguage)</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="small text-muted">Chế độ audio</div>
+                    <div class="fw-semibold">@poi.AudioMode</div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <div class="small text-muted mb-1">Tóm tắt</div>
+                <div>@poi.Summary</div>
+            </div>
+
+            <div class="mb-3">
+                <div class="small text-muted mb-1">Mô tả</div>
+                <div style="white-space:pre-wrap;">@poi.Description</div>
+            </div>
+
+            <div class="mb-3">
+                <div class="small text-muted mb-1">Script TTS mặc định</div>
+                <div class="border rounded-3 p-3 bg-light" style="white-space:pre-wrap;">@poi.TtsScript</div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="small text-muted">Audio URL mặc định</div>
+                    <div class="text-break">@(!string.IsNullOrWhiteSpace(poi.AudioUrl) ? poi.AudioUrl : "Chưa có")</div>
+                    @if (!string.IsNullOrWhiteSpace(poi.AudioUrl))
+                    {
+                        <audio controls src="@poi.AudioUrl" style="width:100%;max-width:420px;" class="mt-2"></audio>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <div class="small text-muted">Map URL</div>
+                    @if (!string.IsNullOrWhiteSpace(poi.MapUrl))
+                    {
+                        <a href="@poi.MapUrl" target="_blank" rel="noreferrer">@poi.MapUrl</a>
+                    }
+                    else
+                    {
+                        <div>Chưa có</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card p-4 h-100">
+            <h4 class="mb-3">Thông tin triển khai lên app</h4>
+
+            @if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
+            {
+                <div class="mb-3">
+                    <div class="small text-muted mb-2">Ảnh POI</div>
+                    <img src="@poi.ImageUrl" alt="@poi.Name" style="width:100%;height:240px;object-fit:cover;border-radius:16px;" />
+                </div>
+            }
+
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="small text-muted">Latitude</div>
+                    <div class="fw-semibold">@poi.Latitude</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Longitude</div>
+                    <div class="fw-semibold">@poi.Longitude</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Radius</div>
+                    <div class="fw-semibold">@poi.Radius m</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Near radius</div>
+                    <div class="fw-semibold">@poi.ApproachRadiusMeters m</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-muted">Priority</div>
+                    <div class="fw-semibold">@poi.Priority</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-muted">Debounce</div>
+                    <div class="fw-semibold">@poi.DebounceSeconds s</div>
+                </div>
+                <div class="col-4">
+                    <div class="small text-muted">Cooldown</div>
+                    <div class="fw-semibold">@poi.CooldownSeconds s</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Trigger mode</div>
+                    <div class="fw-semibold">@poi.TriggerMode</div>
+                </div>
+                <div class="col-6">
+                    <div class="small text-muted">Estimated duration</div>
+                    <div class="fw-semibold">@poi.EstimatedDurationSeconds s</div>
+                </div>
+                <div class="col-12">
+                    <div class="small text-muted">Trạng thái hoạt động</div>
+                    <div class="fw-semibold">@(poi.IsActive ? "Bật" : "Tắt")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card p-4 mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Bản dịch và audio đã publish</h4>
+        <span class="badge text-bg-secondary">@translations.Count ngôn ngữ</span>
+    </div>
+
+    @if (translations.Count == 0)
+    {
+        <div class="text-muted">POI live này chưa có bản dịch phụ nào được publish.</div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var translation in translations)
+            {
+                var isDefault = string.Equals(translation.Language, poi.DefaultLanguage, StringComparison.OrdinalIgnoreCase);
+                <div class="col-12">
+                    <div class="border rounded-4 p-3 @(isDefault ? "border-warning bg-warning-subtle" : "bg-light")">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                            <div>
+                                <div class="fw-semibold">@Model.GetLanguageLabel(translation.Language)</div>
+                                <div class="small text-muted">Cập nhật: @translation.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <span class="badge @(isDefault ? "text-bg-warning" : "text-bg-light border")">
+                                @(isDefault ? "Mặc định" : "Bản dịch")
+                            </span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="small text-muted">Tiêu đề</div>
+                                <div class="fw-semibold">@translation.Title</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small text-muted">Voice name</div>
+                                <div>@(!string.IsNullOrWhiteSpace(translation.VoiceName) ? translation.VoiceName : "Chưa có")</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="small text-muted">Summary</div>
+                                <div>@translation.Summary</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="small text-muted">Description</div>
+                                <div style="white-space:pre-wrap;">@translation.Description</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small text-muted">Audio URL</div>
+                                <div class="text-break">@(!string.IsNullOrWhiteSpace(translation.AudioUrl) ? translation.AudioUrl : "Chưa có")</div>
+                                @if (!string.IsNullOrWhiteSpace(translation.AudioUrl))
+                                {
+                                    <audio controls src="@translation.AudioUrl" style="width:100%;max-width:420px;" class="mt-2"></audio>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small text-muted">TTS Script</div>
+                                <div class="border rounded-3 p-3 bg-white" style="white-space:pre-wrap;">@translation.TtsScript</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

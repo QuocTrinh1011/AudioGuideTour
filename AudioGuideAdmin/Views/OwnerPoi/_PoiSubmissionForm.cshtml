@@ -1,0 +1,187 @@
+@model AudioGuideAdmin.Models.PoiSubmission
+
+<form method="post" enctype="multipart/form-data" class="card p-4">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <input asp-for="PoiId" type="hidden" />
+    <input asp-for="OwnerId" type="hidden" />
+    <input asp-for="SubmissionType" type="hidden" />
+    <input asp-for="ImageUrl" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Tên POI</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Danh mục</label>
+            <select asp-for="Category" asp-items="ViewBag.Categories" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Ngôn ngữ mặc định</label>
+            <select asp-for="DefaultLanguage" asp-items="ViewBag.Languages" class="form-select"></select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tóm tắt</label>
+            <input asp-for="Summary" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Địa chỉ</label>
+            <input asp-for="Address" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Mô tả</label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Latitude</label>
+            <input asp-for="Latitude" class="form-control" type="number" step="any" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Longitude</label>
+            <input asp-for="Longitude" class="form-control" type="number" step="any" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Radius</label>
+            <input asp-for="Radius" class="form-control" type="number" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Near Radius</label>
+            <input asp-for="ApproachRadiusMeters" class="form-control" type="number" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Priority</label>
+            <input asp-for="Priority" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Debounce (s)</label>
+            <input asp-for="DebounceSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Cooldown (s)</label>
+            <input asp-for="CooldownSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Trigger mode</label>
+            <select asp-for="TriggerMode" class="form-select">
+                <option value="both">both</option>
+                <option value="enter">enter</option>
+                <option value="nearby">nearby</option>
+                <option value="manual">manual</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Chế độ thuyết minh</label>
+            <select asp-for="AudioMode" class="form-select">
+                <option value="tts">TTS</option>
+                <option value="tts-fallback">TTS, fallback sang audio</option>
+                <option value="audio-priority">Ưu tiên audio, fallback TTS</option>
+                <option value="audio">Chỉ audio</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Upload ảnh POI</label>
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" />
+            <div class="form-text">Ảnh upload sẽ được lưu vào thư mục dùng chung và chỉ lên app sau khi admin duyệt submission.</div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="d-grid gap-2 w-100">
+                <a href="/Image/Upload" target="_blank" class="btn btn-outline-secondary">Thư viện ảnh</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Map URL</label>
+            <input asp-for="MapUrl" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Estimated duration (s)</label>
+            <input asp-for="EstimatedDurationSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label">Đề xuất bật hoạt động</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Script TTS mặc định</label>
+            <textarea asp-for="TtsScript" class="form-control" rows="4"></textarea>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Audio URL</label>
+            <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
+        </div>
+        <div class="col-12">
+            <div class="card p-3 bg-light-subtle border-0">
+                <div class="fw-semibold mb-2">Preview ảnh POI</div>
+                <img id="poi-image-preview"
+                     src="@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "" : Model.ImageUrl)"
+                     alt="Preview ảnh POI"
+                     style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "none" : "block");" />
+                <div id="poi-image-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "block" : "none");">
+                    Chưa có ảnh.
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div id="map" style="height:380px;border-radius:18px;"></div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-outline-secondary" type="submit" name="submitAction" value="draft">Lưu nháp</button>
+            <button class="btn btn-primary" type="submit" name="submitAction" value="submit">Gửi duyệt</button>
+            <a href="/OwnerPoi" class="btn btn-outline-secondary">Quay lại</a>
+        </div>
+    </div>
+</form>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const latInput = document.querySelector('[name="Latitude"]');
+    const lngInput = document.querySelector('[name="Longitude"]');
+    const lat = parseFloat(latInput.value || "10.7618");
+    const lng = parseFloat(lngInput.value || "106.6613");
+    const map = L.map('map').setView([lat, lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let marker = L.marker([lat, lng]).addTo(map);
+
+    map.on('click', function (e) {
+        latInput.value = e.latlng.lat.toFixed(6);
+        lngInput.value = e.latlng.lng.toFixed(6);
+        marker.setLatLng(e.latlng);
+    });
+</script>
+<script>
+    const imageInput = document.querySelector('[name="ImageUrl"]');
+    const imageFileInput = document.querySelector('[name="ImageFile"]');
+    const imagePreview = document.getElementById('poi-image-preview');
+    const imageEmpty = document.getElementById('poi-image-empty');
+
+    function refreshImagePreview() {
+        const selectedFile = imageFileInput?.files?.[0];
+        if (selectedFile) {
+            imagePreview.src = URL.createObjectURL(selectedFile);
+            imagePreview.style.display = 'block';
+            imageEmpty.style.display = 'none';
+            return;
+        }
+
+        const value = imageInput?.value?.trim() || '';
+        if (!value) {
+            imagePreview.style.display = 'none';
+            imagePreview.removeAttribute('src');
+            imageEmpty.style.display = 'block';
+            return;
+        }
+
+        imagePreview.src = value;
+        imagePreview.style.display = 'block';
+        imageEmpty.style.display = 'none';
+    }
+
+    imageFileInput?.addEventListener('change', refreshImagePreview);
+    refreshImagePreview();
+</script>
+
+<partial name="_ValidationScriptsPartial" />

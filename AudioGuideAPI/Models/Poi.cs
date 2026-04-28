@@ -3,6 +3,7 @@ namespace AudioGuideAPI.Models;
 public class Poi
 {
     public int Id { get; set; }
+    public string? OwnerId { get; set; }
     public string Name { get; set; } = "";
     public string Category { get; set; } = "food-street";
     public string Summary { get; set; } = "";

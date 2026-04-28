@@ -14,6 +14,8 @@ public static class AppDataInitializer
         {
             await context.Database.EnsureCreatedAsync();
             await EnsureSqliteRegistrationTablesAsync(context);
+            await EnsureSqliteOwnerWorkflowTablesAsync(context);
+            await EnsureSqliteTourTranslationTablesAsync(context);
             await SeedCoreDataAsync(context);
             return;
         }
@@ -21,6 +23,8 @@ public static class AppDataInitializer
         await context.Database.MigrateAsync();
         await EnsureLanguageTableAsync(context);
         await EnsureRegistrationTablesAsync(context);
+        await EnsureOwnerWorkflowTablesAsync(context);
+        await EnsureTourTranslationTablesAsync(context);
         await context.Database.ExecuteSqlRawAsync(
             """
             IF OBJECT_ID(N'[Categories]', N'U') IS NULL
@@ -55,6 +59,253 @@ public static class AppDataInitializer
         await SeedCoreDataAsync(context);
     }
 
+    private static async Task EnsureSqliteOwnerWorkflowTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "ShopOwners" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_ShopOwners" PRIMARY KEY,
+                "FullName" TEXT NOT NULL DEFAULT '',
+                "Phone" TEXT NOT NULL DEFAULT '',
+                "Email" TEXT NOT NULL DEFAULT '',
+                "BusinessName" TEXT NOT NULL DEFAULT '',
+                "PasswordHash" TEXT NOT NULL DEFAULT '',
+                "PasswordSalt" TEXT NOT NULL DEFAULT '',
+                "Status" TEXT NOT NULL DEFAULT 'pending',
+                "AdminNote" TEXT NOT NULL DEFAULT '',
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "ApprovedAt" TEXT NULL,
+                "LastLoginAt" TEXT NULL,
+                "ApprovedByAdminId" INTEGER NULL
+            );
+            """);
+
+        if (!await SqliteColumnExistsAsync(context, "Pois", "OwnerId"))
+        {
+            await context.Database.ExecuteSqlRawAsync("""ALTER TABLE "Pois" ADD COLUMN "OwnerId" TEXT NULL;""");
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PoiSubmissions" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_PoiSubmissions" PRIMARY KEY,
+                "PoiId" INTEGER NULL,
+                "OwnerId" TEXT NOT NULL,
+                "SubmissionType" TEXT NOT NULL DEFAULT 'create',
+                "Status" TEXT NOT NULL DEFAULT 'draft',
+                "ReviewNote" TEXT NOT NULL DEFAULT '',
+                "Name" TEXT NOT NULL DEFAULT '',
+                "Category" TEXT NOT NULL DEFAULT 'food-street',
+                "Summary" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                "Address" TEXT NOT NULL DEFAULT '',
+                "Latitude" REAL NOT NULL DEFAULT 0,
+                "Longitude" REAL NOT NULL DEFAULT 0,
+                "Radius" INTEGER NOT NULL DEFAULT 0,
+                "ApproachRadiusMeters" INTEGER NOT NULL DEFAULT 90,
+                "Priority" INTEGER NOT NULL DEFAULT 1,
+                "DebounceSeconds" INTEGER NOT NULL DEFAULT 15,
+                "CooldownSeconds" INTEGER NOT NULL DEFAULT 120,
+                "TriggerMode" TEXT NOT NULL DEFAULT 'both',
+                "ImageUrl" TEXT NOT NULL DEFAULT '',
+                "MapUrl" TEXT NOT NULL DEFAULT '',
+                "IsActive" INTEGER NOT NULL DEFAULT 1,
+                "AudioMode" TEXT NOT NULL DEFAULT 'tts',
+                "AudioUrl" TEXT NOT NULL DEFAULT '',
+                "TtsScript" TEXT NOT NULL DEFAULT '',
+                "DefaultLanguage" TEXT NOT NULL DEFAULT 'vi-VN',
+                "EstimatedDurationSeconds" INTEGER NOT NULL DEFAULT 60,
+                "CreatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "UpdatedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "SubmittedAt" TEXT NULL,
+                "ReviewedAt" TEXT NULL,
+                "ReviewedByAdminId" INTEGER NULL,
+                CONSTRAINT "FK_PoiSubmissions_Pois_PoiId"
+                    FOREIGN KEY ("PoiId") REFERENCES "Pois" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_PoiSubmissions_ShopOwners_OwnerId"
+                    FOREIGN KEY ("OwnerId") REFERENCES "ShopOwners" ("Id") ON DELETE CASCADE
+            );
+            """);
+    }
+
+    private static async Task EnsureSqliteTourTranslationTablesAsync(AppDbContext context)
+    {
+        if (!context.Database.IsSqlite())
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "TourTranslations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TourTranslations" PRIMARY KEY AUTOINCREMENT,
+                "TourId" INTEGER NOT NULL,
+                "Language" TEXT NOT NULL DEFAULT 'vi-VN',
+                "Title" TEXT NOT NULL DEFAULT '',
+                "Description" TEXT NOT NULL DEFAULT '',
+                CONSTRAINT "FK_TourTranslations_Tours_TourId"
+                    FOREIGN KEY ("TourId") REFERENCES "Tours" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_TourTranslations_TourId_Language"
+            ON "TourTranslations" ("TourId", "Language");
+            """);
+    }
+
+    private static async Task EnsureOwnerWorkflowTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[ShopOwners]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [ShopOwners](
+                    [Id] nvarchar(64) NOT NULL,
+                    [FullName] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_FullName] DEFAULT N'',
+                    [Phone] nvarchar(50) NOT NULL CONSTRAINT [DF_ShopOwners_Phone] DEFAULT N'',
+                    [Email] nvarchar(150) NOT NULL CONSTRAINT [DF_ShopOwners_Email] DEFAULT N'',
+                    [BusinessName] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_BusinessName] DEFAULT N'',
+                    [PasswordHash] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_PasswordHash] DEFAULT N'',
+                    [PasswordSalt] nvarchar(200) NOT NULL CONSTRAINT [DF_ShopOwners_PasswordSalt] DEFAULT N'',
+                    [Status] nvarchar(40) NOT NULL CONSTRAINT [DF_ShopOwners_Status] DEFAULT N'pending',
+                    [AdminNote] nvarchar(1000) NOT NULL CONSTRAINT [DF_ShopOwners_AdminNote] DEFAULT N'',
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ShopOwners_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_ShopOwners_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [ApprovedAt] datetime2 NULL,
+                    [LastLoginAt] datetime2 NULL,
+                    [ApprovedByAdminId] int NULL,
+                    CONSTRAINT [PK_ShopOwners] PRIMARY KEY ([Id])
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[Pois]', N'U') IS NOT NULL
+               AND COL_LENGTH('Pois', 'OwnerId') IS NULL
+            BEGIN
+                ALTER TABLE [Pois] ADD [OwnerId] nvarchar(64) NULL;
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[PoiSubmissions]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [PoiSubmissions](
+                    [Id] nvarchar(64) NOT NULL,
+                    [PoiId] int NULL,
+                    [OwnerId] nvarchar(64) NOT NULL,
+                    [SubmissionType] nvarchar(20) NOT NULL CONSTRAINT [DF_PoiSubmissions_SubmissionType] DEFAULT N'create',
+                    [Status] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_Status] DEFAULT N'draft',
+                    [ReviewNote] nvarchar(1000) NOT NULL CONSTRAINT [DF_PoiSubmissions_ReviewNote] DEFAULT N'',
+                    [Name] nvarchar(200) NOT NULL CONSTRAINT [DF_PoiSubmissions_Name] DEFAULT N'',
+                    [Category] nvarchar(100) NOT NULL CONSTRAINT [DF_PoiSubmissions_Category] DEFAULT N'food-street',
+                    [Summary] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Summary] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Description] DEFAULT N'',
+                    [Address] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_Address] DEFAULT N'',
+                    [Latitude] float NOT NULL CONSTRAINT [DF_PoiSubmissions_Latitude] DEFAULT 0,
+                    [Longitude] float NOT NULL CONSTRAINT [DF_PoiSubmissions_Longitude] DEFAULT 0,
+                    [Radius] int NOT NULL CONSTRAINT [DF_PoiSubmissions_Radius] DEFAULT 0,
+                    [ApproachRadiusMeters] int NOT NULL CONSTRAINT [DF_PoiSubmissions_ApproachRadiusMeters] DEFAULT 90,
+                    [Priority] int NOT NULL CONSTRAINT [DF_PoiSubmissions_Priority] DEFAULT 1,
+                    [DebounceSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_DebounceSeconds] DEFAULT 15,
+                    [CooldownSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_CooldownSeconds] DEFAULT 120,
+                    [TriggerMode] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_TriggerMode] DEFAULT N'both',
+                    [ImageUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_ImageUrl] DEFAULT N'',
+                    [MapUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_MapUrl] DEFAULT N'',
+                    [IsActive] bit NOT NULL CONSTRAINT [DF_PoiSubmissions_IsActive] DEFAULT 1,
+                    [AudioMode] nvarchar(40) NOT NULL CONSTRAINT [DF_PoiSubmissions_AudioMode] DEFAULT N'tts',
+                    [AudioUrl] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_AudioUrl] DEFAULT N'',
+                    [TtsScript] nvarchar(max) NOT NULL CONSTRAINT [DF_PoiSubmissions_TtsScript] DEFAULT N'',
+                    [DefaultLanguage] nvarchar(20) NOT NULL CONSTRAINT [DF_PoiSubmissions_DefaultLanguage] DEFAULT N'vi-VN',
+                    [EstimatedDurationSeconds] int NOT NULL CONSTRAINT [DF_PoiSubmissions_EstimatedDurationSeconds] DEFAULT 60,
+                    [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_PoiSubmissions_CreatedAt] DEFAULT SYSUTCDATETIME(),
+                    [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_PoiSubmissions_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+                    [SubmittedAt] datetime2 NULL,
+                    [ReviewedAt] datetime2 NULL,
+                    [ReviewedByAdminId] int NULL,
+                    CONSTRAINT [PK_PoiSubmissions] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PoiSubmissions_Pois_PoiId] FOREIGN KEY ([PoiId]) REFERENCES [Pois]([Id]) ON DELETE SET NULL,
+                    CONSTRAINT [FK_PoiSubmissions_ShopOwners_OwnerId] FOREIGN KEY ([OwnerId]) REFERENCES [ShopOwners]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+    }
+
+    private static async Task EnsureTourTranslationTablesAsync(AppDbContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [TourTranslations](
+                    [Id] int IDENTITY(1,1) NOT NULL,
+                    [TourId] int NOT NULL,
+                    [Language] nvarchar(20) NOT NULL CONSTRAINT [DF_TourTranslations_Language] DEFAULT N'vi-VN',
+                    [Title] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Title] DEFAULT N'',
+                    [Description] nvarchar(max) NOT NULL CONSTRAINT [DF_TourTranslations_Description] DEFAULT N'',
+                    CONSTRAINT [PK_TourTranslations] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_TourTranslations_Tours_TourId] FOREIGN KEY ([TourId]) REFERENCES [Tours]([Id]) ON DELETE CASCADE
+                );
+            END
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'[TourTranslations]', N'U') IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'IX_TourTranslations_TourId_Language' AND object_id = OBJECT_ID(N'[TourTranslations]')
+                )
+            BEGIN
+                CREATE UNIQUE INDEX [IX_TourTranslations_TourId_Language] ON [TourTranslations]([TourId], [Language]);
+            END
+            """);
+    }
+
+    private static async Task<bool> SqliteColumnExistsAsync(AppDbContext context, string tableName, string columnName)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await connection.OpenAsync();
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
     private static async Task SeedCoreDataAsync(AppDbContext context)
     {
         await EnsureSupportedLanguagesAsync(context);
@@ -74,8 +325,95 @@ public static class AppDataInitializer
 
         await SeedDemoContentAsync(context);
         await EnsureDemoTranslationCoverageAsync(context);
+        await EnsureDemoTourTranslationCoverageAsync(context);
         await EnsureDemoMediaLinksAsync(context);
         await EnsureDemoEnglishAudioLinksAsync(context);
+        await CleanupLegacyOwnerlessDemoDataAsync(context);
+    }
+
+    private static async Task CleanupLegacyOwnerlessDemoDataAsync(AppDbContext context)
+    {
+        var hasOwnerPois = await context.Pois.AnyAsync(x => x.OwnerId != null && x.OwnerId != string.Empty);
+        if (!hasOwnerPois)
+        {
+            return;
+        }
+
+        var legacyDemoPoiNames = new[]
+        {
+            "Phố ẩm thực Vĩnh Khánh",
+            "Cụm quán ốc Vĩnh Khánh",
+            "Trạm xe buýt Khánh Hội",
+            "Trạm xe buýt Vĩnh Hội",
+            "Trạm xe buýt Xuân Chiếu",
+            "Nhịp sống khu vực Vĩnh Khánh"
+        };
+
+        var legacyPois = await context.Pois
+            .Where(x => x.OwnerId == null && legacyDemoPoiNames.Contains(x.Name))
+            .ToListAsync();
+
+        if (legacyPois.Count == 0)
+        {
+            return;
+        }
+
+        var legacyPoiIds = legacyPois.Select(x => x.Id).ToList();
+
+        var qrCodes = await context.QRCodes
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var translations = await context.PoiTranslations
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var tourStops = await context.TourStops
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var visits = await context.VisitHistories
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+        var triggers = await context.GeofenceTriggers
+            .Where(x => legacyPoiIds.Contains(x.PoiId))
+            .ToListAsync();
+
+        if (qrCodes.Count > 0)
+        {
+            context.QRCodes.RemoveRange(qrCodes);
+        }
+
+        if (translations.Count > 0)
+        {
+            context.PoiTranslations.RemoveRange(translations);
+        }
+
+        if (tourStops.Count > 0)
+        {
+            context.TourStops.RemoveRange(tourStops);
+        }
+
+        if (visits.Count > 0)
+        {
+            context.VisitHistories.RemoveRange(visits);
+        }
+
+        if (triggers.Count > 0)
+        {
+            context.GeofenceTriggers.RemoveRange(triggers);
+        }
+
+        context.Pois.RemoveRange(legacyPois);
+        await context.SaveChangesAsync();
+
+        var emptyTours = await context.Tours
+            .Include(x => x.Stops)
+            .Where(x => !x.Stops.Any())
+            .ToListAsync();
+
+        if (emptyTours.Count > 0)
+        {
+            context.Tours.RemoveRange(emptyTours);
+            await context.SaveChangesAsync();
+        }
     }
 
     private static async Task EnsureSupportedLanguagesAsync(AppDbContext context)
@@ -836,15 +1174,20 @@ public static class AppDataInitializer
         }
 
         var now = DateTime.UtcNow;
-        var poiMap = await context.Pois
-            .Where(x =>
-                x.Name == "Phố ẩm thực Vĩnh Khánh" ||
-                x.Name == "Cụm quán ốc Vĩnh Khánh" ||
-                x.Name == "Trạm xe buýt Khánh Hội" ||
-                x.Name == "Trạm xe buýt Vĩnh Hội" ||
-                x.Name == "Trạm xe buýt Xuân Chiếu" ||
-                x.Name == "Nhịp sống khu vực Vĩnh Khánh")
-            .ToDictionaryAsync(x => x.Name, x => x);
+        var poiMap = (await context.Pois
+                .Where(x =>
+                    x.OwnerId == null &&
+                    (x.Name == "Phố ẩm thực Vĩnh Khánh" ||
+                     x.Name == "Cụm quán ốc Vĩnh Khánh" ||
+                     x.Name == "Trạm xe buýt Khánh Hội" ||
+                     x.Name == "Trạm xe buýt Vĩnh Hội" ||
+                     x.Name == "Trạm xe buýt Xuân Chiếu" ||
+                     x.Name == "Nhịp sống khu vực Vĩnh Khánh"))
+                .OrderByDescending(x => x.UpdatedAt)
+                .ThenByDescending(x => x.Id)
+                .ToListAsync())
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
         if (poiMap.Count == 0)
         {
@@ -924,6 +1267,49 @@ public static class AppDataInitializer
         }
     }
 
+    private static async Task EnsureDemoTourTranslationCoverageAsync(AppDbContext context)
+    {
+        var tour = await context.Tours.FirstOrDefaultAsync(x => x.Name == "Đêm Vĩnh Khánh 45 phút");
+        if (tour == null)
+        {
+            return;
+        }
+
+        var existingTranslations = await context.TourTranslations
+            .Where(x => x.TourId == tour.Id)
+            .ToListAsync();
+
+        var definitions = new (string Language, string Title, string Description)[]
+        {
+            ("en-US", "Vinh Khanh Night Walk - 45 Minutes", "A demo walking route from the bus stop through the food street and the street-life stops in Vinh Khanh."),
+            ("zh-CN", "永庆夜游 45 分钟", "这是一条从公交车站进入永庆街区，途经美食街与街区生活点位的步行体验路线。")
+        };
+
+        foreach (var definition in definitions)
+        {
+            var translation = existingTranslations.FirstOrDefault(x => string.Equals(x.Language, definition.Language, StringComparison.OrdinalIgnoreCase));
+            if (translation == null)
+            {
+                context.TourTranslations.Add(new TourTranslation
+                {
+                    TourId = tour.Id,
+                    Language = definition.Language,
+                    Title = definition.Title,
+                    Description = definition.Description
+                });
+                continue;
+            }
+
+            translation.Title = definition.Title;
+            translation.Description = definition.Description;
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync();
+        }
+    }
+
     private static async Task EnsureDemoMediaLinksAsync(AppDbContext context)
     {
         var now = DateTime.UtcNow;
@@ -947,7 +1333,7 @@ public static class AppDataInitializer
         };
 
         var pois = await context.Pois
-            .Where(x => poiImageMap.Keys.Contains(x.Name))
+            .Where(x => x.OwnerId == null && poiImageMap.Keys.Contains(x.Name))
             .ToListAsync();
 
         foreach (var poi in pois)
@@ -1022,7 +1408,7 @@ public static class AppDataInitializer
         };
 
         var pois = await context.Pois
-            .Where(x => translatedAudioMaps.Keys.Contains(x.Name))
+            .Where(x => x.OwnerId == null && translatedAudioMaps.Keys.Contains(x.Name))
             .Select(x => new { x.Id, x.Name })
             .ToListAsync();
 

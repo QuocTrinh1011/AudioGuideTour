@@ -5,22 +5,60 @@
     <input asp-for="Tour.Id" type="hidden" />
     <input asp-for="Tour.CoverImageUrl" type="hidden" />
     <input asp-for="StopConfigJson" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
     <div class="row g-3">
         <div class="col-md-6">
-            <label class="form-label">Tên tour</label>
+            <label class="form-label">Tên tour mặc định</label>
             <input asp-for="Tour.Name" class="form-control" />
+            <span asp-validation-for="Tour.Name" class="text-danger small mt-1 d-block"></span>
         </div>
         <div class="col-md-3">
-            <label class="form-label">Ngôn ngữ</label>
+            <label class="form-label">Ngôn ngữ mặc định</label>
             <select asp-for="Tour.Language" asp-items="Model.LanguageOptions" class="form-select"></select>
+            <span asp-validation-for="Tour.Language" class="text-danger small mt-1 d-block"></span>
         </div>
         <div class="col-md-3">
             <label class="form-label">Thời lượng (phút)</label>
             <input asp-for="Tour.EstimatedDurationMinutes" class="form-control" />
+            <span asp-validation-for="Tour.EstimatedDurationMinutes" class="text-danger small mt-1 d-block"></span>
         </div>
         <div class="col-12">
-            <label class="form-label">Mô tả</label>
+            <label class="form-label">Mô tả mặc định</label>
             <textarea asp-for="Tour.Description" class="form-control" rows="3"></textarea>
+            <span asp-validation-for="Tour.Description" class="text-danger small mt-1 d-block"></span>
+        </div>
+        <div class="col-12">
+            <div class="card p-3 bg-light-subtle border-0">
+                <div class="fw-semibold mb-1">Bản dịch tour theo ngôn ngữ</div>
+                <div class="text-muted small mb-3">Tên và mô tả tour trên app sẽ đổi theo ngôn ngữ người dùng chọn. Ngôn ngữ mặc định ở trên sẽ dùng làm dữ liệu fallback.</div>
+                <div class="row g-3">
+                    @for (var index = 0; index < Model.Translations.Count; index++)
+                    {
+                        <div class="col-lg-6" data-tour-translation-card data-language="@Model.Translations[index].Language">
+                            <div class="rounded-4 border bg-white p-3 h-100">
+                                <input asp-for="Translations[index].Language" type="hidden" />
+                                <input asp-for="Translations[index].LanguageLabel" type="hidden" />
+                                <div class="fw-semibold mb-2">@Model.Translations[index].LanguageLabel</div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tên tour</label>
+                                    <input asp-for="Translations[index].Title"
+                                           class="form-control"
+                                           data-tour-translation-field="title"
+                                           data-language="@Model.Translations[index].Language" />
+                                </div>
+                                <div>
+                                    <label class="form-label">Mô tả</label>
+                                    <textarea asp-for="Translations[index].Description"
+                                              class="form-control"
+                                              rows="4"
+                                              data-tour-translation-field="description"
+                                              data-language="@Model.Translations[index].Language"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
         </div>
         <div class="col-md-8">
             <label class="form-label">Upload ảnh cover</label>
@@ -105,6 +143,9 @@
     const coverPreview = document.getElementById('tour-cover-preview');
     const coverEmpty = document.getElementById('tour-cover-empty');
     const coverPath = document.getElementById('tour-cover-path');
+    const tourLanguageSelect = document.querySelector('[name="Tour.Language"]');
+    const defaultTitleInput = document.querySelector('[name="Tour.Name"]');
+    const defaultDescriptionInput = document.querySelector('[name="Tour.Description"]');
 
     function refreshCoverPreview() {
         const selectedFile = coverFileInput?.files?.[0];
@@ -133,6 +174,33 @@
 
     coverFileInput?.addEventListener('change', refreshCoverPreview);
     refreshCoverPreview();
+
+    function syncTourTranslationCards() {
+        const defaultLanguage = tourLanguageSelect?.value || 'vi-VN';
+        document.querySelectorAll('[data-tour-translation-card]').forEach((card) => {
+            const language = card.getAttribute('data-language') || '';
+            const titleField = card.querySelector('[data-tour-translation-field="title"]');
+            const descriptionField = card.querySelector('[data-tour-translation-field="description"]');
+            const isDefault = language.toLowerCase() === defaultLanguage.toLowerCase();
+
+            card.style.display = isDefault ? 'none' : 'block';
+
+            if (isDefault) {
+                if (titleField instanceof HTMLInputElement) {
+                    titleField.value = defaultTitleInput?.value || '';
+                }
+
+                if (descriptionField instanceof HTMLTextAreaElement) {
+                    descriptionField.value = defaultDescriptionInput?.value || '';
+                }
+            }
+        });
+    }
+
+    tourLanguageSelect?.addEventListener('change', syncTourTranslationCards);
+    defaultTitleInput?.addEventListener('input', syncTourTranslationCards);
+    defaultDescriptionInput?.addEventListener('input', syncTourTranslationCards);
+    syncTourTranslationCards();
 </script>
 <script>
     const stopInput = document.querySelector('[name="StopPoiIds"]');
@@ -285,6 +353,25 @@
         }
 
         stopPicker.value = '';
+    });
+
+    document.querySelector('form')?.addEventListener('submit', () => {
+        const pendingPoiId = stopPicker?.value?.trim();
+        if (!pendingPoiId) {
+            return;
+        }
+
+        const stops = getStops();
+        if (stops.some(stop => stop.poiId === pendingPoiId)) {
+            return;
+        }
+
+        stops.push({
+            poiId: pendingPoiId,
+            autoPlay: true,
+            note: ''
+        });
+        syncStops(stops);
     });
 
     stopList?.addEventListener('click', (event) => {

@@ -4,9 +4,16 @@
         ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
     var publicQrBaseUrl = (ViewBag.PublicQrBaseUrl as string ?? string.Empty).TrimEnd('/');
     var normalizedCode = (Model.Code ?? string.Empty).Trim().ToUpperInvariant();
-    var publicQrUrl = string.IsNullOrWhiteSpace(normalizedCode)
-        ? string.Empty
-        : $"{publicQrBaseUrl}/QRCode/Open/{Uri.EscapeDataString(normalizedCode)}";
+    var normalizedNote = (Model.Note ?? string.Empty).Trim();
+    var previewBasePath = Url.Action("PreviewOpen", "QRCode") ?? "/QRCode/PreviewOpen";
+    var previewPngPath = Url.Action("RenderPreviewPng", "QRCode") ?? "/QRCode/RenderPreviewPng";
+    var canPreview = Model.PoiId > 0 && !string.IsNullOrWhiteSpace(normalizedCode);
+    var previewOpenUrl = canPreview
+        ? $"{publicQrBaseUrl}{previewBasePath}?poiId={Model.PoiId}&code={Uri.EscapeDataString(normalizedCode)}{(string.IsNullOrWhiteSpace(normalizedNote) ? string.Empty : $"&note={Uri.EscapeDataString(normalizedNote)}")}"
+        : string.Empty;
+    var previewPngUrl = canPreview
+        ? $"{previewPngPath}?poiId={Model.PoiId}&code={Uri.EscapeDataString(normalizedCode)}{(string.IsNullOrWhiteSpace(normalizedNote) ? string.Empty : $"&note={Uri.EscapeDataString(normalizedNote)}")}"
+        : string.Empty;
     var isLocalHost = Uri.TryCreate(publicQrBaseUrl, UriKind.Absolute, out var publicQrUri)
         && (string.Equals(publicQrUri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
             || string.Equals(publicQrUri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase));
@@ -34,21 +41,26 @@
     <div class="col-lg-6">
         <div class="card border-0 bg-light-subtle p-3 h-100">
             <div class="fw-semibold mb-2">Xem trước QR chuẩn</div>
-            <div class="text-muted small mb-3">QR sẽ mã hóa một đường dẫn công khai để camera điện thoại thông thường cũng mở được trang nghe nội dung.</div>
+            <div class="text-muted small mb-3">
+                QR bên dưới dùng trực tiếp dữ liệu bạn đang nhập trên form. Bạn có thể mở trang công khai ngay cả trước khi lưu để kiểm tra nội dung.
+            </div>
             <div class="border rounded-4 bg-white p-3 d-inline-flex align-items-center justify-content-center" style="width:220px;height:220px;">
                 <img id="qr-preview-image"
-                     src="@(string.IsNullOrWhiteSpace(normalizedCode) ? "" : $"/QRCode/RenderPngByCode?code={Uri.EscapeDataString(normalizedCode)}")"
+                     src="@previewPngUrl"
                      alt="QR preview"
                      width="180"
                      height="180"
-                     style="max-width:180px;max-height:180px;display:@(string.IsNullOrWhiteSpace(normalizedCode) ? "none" : "block");" />
-                <div id="qr-preview-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(normalizedCode) ? "block" : "none");">
-                    Nhập mã QR ở trên để xem trước ảnh QR.
+                     style="max-width:180px;max-height:180px;display:@(canPreview ? "block" : "none");" />
+                <div id="qr-preview-empty" class="text-muted small" style="display:@(canPreview ? "none" : "block");">
+                    Chọn POI và nhập mã QR để xem trước ảnh QR.
                 </div>
             </div>
             <div class="mt-3 small">
                 <div class="fw-semibold mb-1">Đường dẫn công khai trong QR</div>
-                <code id="qr-preview-code">@(string.IsNullOrWhiteSpace(publicQrUrl) ? "Chưa có" : publicQrUrl)</code>
+                <code id="qr-preview-code">@(string.IsNullOrWhiteSpace(previewOpenUrl) ? "Chưa có" : previewOpenUrl)</code>
+                <div class="text-muted mt-2">
+                    Đây là link preview theo dữ liệu đang nhập. Sau khi bấm lưu, QR sẽ dùng link chính thức theo mã đã tạo.
+                </div>
                 @if (isLocalHost)
                 {
                     <div class="text-danger mt-2">
@@ -58,14 +70,14 @@
             </div>
             <div class="mt-3 d-flex gap-2 flex-wrap">
                 <a id="qr-download-link"
-                   href="@(string.IsNullOrWhiteSpace(normalizedCode) ? "#" : $"/QRCode/RenderPngByCode?code={Uri.EscapeDataString(normalizedCode)}")"
-                   class="btn btn-outline-dark btn-sm @(string.IsNullOrWhiteSpace(normalizedCode) ? "disabled" : "")"
+                   href="@(string.IsNullOrWhiteSpace(previewPngUrl) ? "#" : previewPngUrl)"
+                   class="btn btn-outline-dark btn-sm @(canPreview ? string.Empty : "disabled")"
                    download="@(string.IsNullOrWhiteSpace(normalizedCode) ? "qr.png" : $"{normalizedCode}.png")">
                     Tải QR PNG
                 </a>
                 <a id="qr-open-link"
-                   href="@(string.IsNullOrWhiteSpace(publicQrUrl) ? "#" : publicQrUrl)"
-                   class="btn btn-outline-primary btn-sm @(string.IsNullOrWhiteSpace(publicQrUrl) ? "disabled" : "")"
+                   href="@(string.IsNullOrWhiteSpace(previewOpenUrl) ? "#" : previewOpenUrl)"
+                   class="btn btn-outline-primary btn-sm @(canPreview ? string.Empty : "disabled")"
                    target="_blank"
                    rel="noopener noreferrer">
                     Mở trang công khai
@@ -81,20 +93,42 @@
 </div>
 
 <script>
+    const qrPoiInput = document.querySelector('[name="PoiId"]');
     const qrCodeInput = document.querySelector('[name="Code"]');
+    const qrNoteInput = document.querySelector('[name="Note"]');
     const qrPreviewImage = document.getElementById('qr-preview-image');
     const qrPreviewEmpty = document.getElementById('qr-preview-empty');
     const qrPreviewCode = document.getElementById('qr-preview-code');
     const qrDownloadLink = document.getElementById('qr-download-link');
     const qrOpenLink = document.getElementById('qr-open-link');
     const publicQrBaseUrl = '@publicQrBaseUrl';
+    const previewBasePath = '@previewBasePath';
+    const previewPngPath = '@previewPngPath';
+
+    function buildPreviewUrls() {
+        const poiId = qrPoiInput?.value?.trim() || '';
+        const code = qrCodeInput?.value?.trim().toUpperCase() || '';
+        const note = qrNoteInput?.value?.trim() || '';
+
+        if (!poiId || !code) {
+            return { code, openUrl: '', pngUrl: '' };
+        }
+
+        const query = new URLSearchParams({ poiId, code });
+        if (note) {
+            query.set('note', note);
+        }
+
+        const openUrl = `${publicQrBaseUrl}${previewBasePath}?${query.toString()}`;
+        const pngUrl = `${previewPngPath}?${query.toString()}`;
+        return { code, openUrl, pngUrl };
+    }
 
     function refreshQrPreview() {
-        const raw = qrCodeInput?.value?.trim().toUpperCase() || '';
-        const payloadUrl = raw ? `${publicQrBaseUrl}/QRCode/Open/${encodeURIComponent(raw)}` : '';
-        qrPreviewCode.textContent = payloadUrl || 'Chưa có';
+        const { code, openUrl, pngUrl } = buildPreviewUrls();
+        qrPreviewCode.textContent = openUrl || 'Chưa có';
 
-        if (!raw) {
+        if (!openUrl || !pngUrl) {
             qrPreviewImage.style.display = 'none';
             qrPreviewImage.removeAttribute('src');
             qrPreviewEmpty.style.display = 'block';
@@ -106,17 +140,18 @@
             return;
         }
 
-        const previewUrl = `/QRCode/RenderPngByCode?code=${encodeURIComponent(raw)}`;
-        qrPreviewImage.src = previewUrl;
+        qrPreviewImage.src = pngUrl;
         qrPreviewImage.style.display = 'block';
         qrPreviewEmpty.style.display = 'none';
         qrDownloadLink.classList.remove('disabled');
-        qrDownloadLink.setAttribute('href', previewUrl);
-        qrDownloadLink.setAttribute('download', `${raw}.png`);
+        qrDownloadLink.setAttribute('href', pngUrl);
+        qrDownloadLink.setAttribute('download', `${code}.png`);
         qrOpenLink.classList.remove('disabled');
-        qrOpenLink.setAttribute('href', payloadUrl);
+        qrOpenLink.setAttribute('href', openUrl);
     }
 
+    qrPoiInput?.addEventListener('change', refreshQrPreview);
     qrCodeInput?.addEventListener('input', refreshQrPreview);
+    qrNoteInput?.addEventListener('input', refreshQrPreview);
     refreshQrPreview();
 </script>

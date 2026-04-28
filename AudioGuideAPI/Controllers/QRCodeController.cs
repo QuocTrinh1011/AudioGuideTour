@@ -19,15 +19,17 @@ public class QRCodeController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string language = "vi-VN")
     {
+        var scopedPoiIds = ApiPoiScopeHelper.GetScopedPoiIds(_context);
         var items = await _context.QRCodes
             .AsNoTracking()
             .Include(x => x.Poi)
             .ThenInclude(x => x!.Translations)
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .OrderBy(x => x.Code)
             .ToListAsync();
 
         var result = items
-            .Where(x => x.Poi != null)
+            .Where(x => x.Poi != null && x.Poi.IsActive)
             .Select(x =>
             {
                 var poi = x.Poi!;
@@ -73,12 +75,13 @@ public class QRCodeController : ControllerBase
     [HttpGet("{code}")]
     public async Task<IActionResult> GetByCode(string code, [FromQuery] string language = "vi-VN")
     {
+        var scopedPoiIds = ApiPoiScopeHelper.GetScopedPoiIds(_context);
         code = code?.Trim().ToUpperInvariant() ?? string.Empty;
         var qr = await _context.QRCodes
             .AsNoTracking()
             .Include(x => x.Poi)
             .ThenInclude(x => x!.Translations)
-            .FirstOrDefaultAsync(x => x.Code == code);
+            .FirstOrDefaultAsync(x => x.Code == code && scopedPoiIds.Contains(x.PoiId));
 
         if (qr == null)
         {
@@ -86,7 +89,7 @@ public class QRCodeController : ControllerBase
         }
 
         var poi = qr.Poi;
-        if (poi == null)
+        if (poi == null || !poi.IsActive)
         {
             return NotFound();
         }

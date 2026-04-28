@@ -18,11 +18,14 @@ public class AppDbContext : DbContext
     public DbSet<UserTracking> UserTrackings => Set<UserTracking>();
     public DbSet<VisitHistory> VisitHistories => Set<VisitHistory>();
     public DbSet<Tour> Tours => Set<Tour>();
+    public DbSet<TourTranslation> TourTranslations => Set<TourTranslation>();
     public DbSet<TourStop> TourStops => Set<TourStop>();
     public DbSet<GeofenceTrigger> GeofenceTriggers => Set<GeofenceTrigger>();
     public DbSet<RegistrationPlan> RegistrationPlans => Set<RegistrationPlan>();
     public DbSet<MembershipRegistration> MembershipRegistrations => Set<MembershipRegistration>();
     public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
+    public DbSet<ShopOwner> ShopOwners => Set<ShopOwner>();
+    public DbSet<PoiSubmission> PoiSubmissions => Set<PoiSubmission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +41,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Poi>()
             .Property(x => x.Category)
             .HasMaxLength(100);
+
+        modelBuilder.Entity<Poi>()
+            .Property(x => x.OwnerId)
+            .HasMaxLength(64);
 
         modelBuilder.Entity<Category>()
             .Property(x => x.Slug)
@@ -84,6 +91,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Tour>()
             .Property(x => x.Name)
             .HasMaxLength(200);
+
+        modelBuilder.Entity<TourTranslation>()
+            .HasIndex(x => new { x.TourId, x.Language })
+            .IsUnique();
+
+        modelBuilder.Entity<TourTranslation>()
+            .HasOne(x => x.Tour)
+            .WithMany(x => x.Translations)
+            .HasForeignKey(x => x.TourId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<TourStop>()
             .HasIndex(x => new { x.TourId, x.SortOrder })
@@ -151,5 +168,17 @@ public class AppDbContext : DbContext
             .WithOne()
             .HasForeignKey<CustomerAccount>(x => x.RegistrationId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Phone);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Email);
+
+        modelBuilder.Entity<ShopOwner>()
+            .HasIndex(x => x.Status);
+
+        modelBuilder.Entity<PoiSubmission>()
+            .HasIndex(x => new { x.OwnerId, x.Status });
     }
 }

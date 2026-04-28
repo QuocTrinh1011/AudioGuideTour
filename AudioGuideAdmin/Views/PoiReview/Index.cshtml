@@ -1,0 +1,52 @@
+@model List<AudioGuideAdmin.Models.PoiSubmission>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">Duyệt POI</h2>
+        <p class="text-muted mb-0">Admin xem submission mà chủ quán gửi lên, rồi quyết định duyệt, trả sửa, hoặc từ chối.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/PoiReview?status=pending-review" class="btn btn-outline-warning">Chờ duyệt</a>
+        <a href="/PoiReview?status=changes-requested" class="btn btn-outline-secondary">Đã trả sửa</a>
+        <a href="/PoiReview?status=approved" class="btn btn-outline-success">Đã duyệt</a>
+        <a href="/PoiReview?status=rejected" class="btn btn-outline-danger">Đã từ chối</a>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Submission</th>
+                    <th>Chủ quán</th>
+                    <th>Loại</th>
+                    <th>Trạng thái</th>
+                    <th>Gửi lúc</th>
+                    <th class="text-end">Tác vụ</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@item.Name</div>
+                        <div class="small text-muted">@item.Category</div>
+                    </td>
+                    <td>
+                        <div>@item.Owner?.BusinessName</div>
+                        <div class="small text-muted">@item.Owner?.FullName</div>
+                    </td>
+                    <td>@(item.SubmissionType == "update" ? "Chỉnh sửa" : "Tạo mới")</td>
+                    <td><span class="badge text-bg-light border">@item.Status</span></td>
+                    <td>@((item.SubmittedAt ?? item.UpdatedAt).ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</td>
+                    <td class="text-end">
+                        <a href="/PoiReview/Review/@item.Id" class="btn btn-sm btn-primary">Mở review</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

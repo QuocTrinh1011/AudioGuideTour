@@ -1,0 +1,64 @@
+@model List<AudioGuideAdmin.Models.ShopOwner>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">Quản lý chủ quán</h2>
+        <p class="text-muted mb-0">Admin duyệt tài khoản chủ quán và kiểm soát ai được phép gửi POI vào hệ thống.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/ShopOwner?status=" class="btn btn-outline-secondary">Tất cả</a>
+        <a href="/ShopOwner?status=pending" class="btn btn-outline-warning">Chờ duyệt</a>
+        <a href="/ShopOwner?status=approved" class="btn btn-outline-success">Đã duyệt</a>
+        <a href="/ShopOwner?status=suspended" class="btn btn-outline-danger">Tạm khóa</a>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Chủ quán</th>
+                    <th>Liên hệ</th>
+                    <th>Trạng thái</th>
+                    <th>Lần cuối</th>
+                    <th class="text-end">Tác vụ</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var owner in Model)
+            {
+                <tr>
+                    <td>
+                        <div class="fw-semibold">@owner.BusinessName</div>
+                        <div class="small text-muted">@owner.FullName</div>
+                    </td>
+                    <td>
+                        <div>@owner.Phone</div>
+                        <div class="small text-muted">@owner.Email</div>
+                    </td>
+                    <td><span class="badge text-bg-light border">@owner.Status</span></td>
+                    <td>@(owner.LastLoginAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Chưa đăng nhập")</td>
+                    <td class="text-end">
+                        @if (!string.Equals(owner.Status, AudioGuideAdmin.Models.ShopOwnerStatus.Approved, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form method="post" action="/ShopOwner/Approve/@owner.Id" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-success">Duyệt</button>
+                            </form>
+                        }
+
+                        @if (!string.Equals(owner.Status, AudioGuideAdmin.Models.ShopOwnerStatus.Suspended, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <form method="post" action="/ShopOwner/Suspend/@owner.Id" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-outline-danger">Khóa</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

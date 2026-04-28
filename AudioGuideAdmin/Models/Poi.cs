@@ -8,6 +8,10 @@ public class Poi
 {
     public int Id { get; set; }
 
+    [MaxLength(64)]
+    public string? OwnerId { get; set; }
+    public ShopOwner? Owner { get; set; }
+
     [Required(ErrorMessage = "Tên không được để trống")]
     public string Name { get; set; } = "";
 

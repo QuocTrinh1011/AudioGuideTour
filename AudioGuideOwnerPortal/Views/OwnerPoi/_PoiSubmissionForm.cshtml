@@ -1,0 +1,287 @@
+@model PoiSubmission
+@{
+    var translationLanguages = ViewBag.TranslationLanguages as List<LanguageOption> ?? new();
+    var defaultTranslationLanguage = ViewBag.DefaultTranslationLanguage as string ?? Model.DefaultLanguage;
+}
+
+<form method="post" enctype="multipart/form-data" class="card p-4">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <input asp-for="PoiId" type="hidden" />
+    <input asp-for="OwnerId" type="hidden" />
+    <input asp-for="SubmissionType" type="hidden" />
+    <input asp-for="ImageUrl" type="hidden" />
+    <div asp-validation-summary="All" class="alert alert-danger"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Tên POI</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Danh mục</label>
+            <select asp-for="Category" asp-items="ViewBag.Categories" class="form-select"></select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Ngôn ngữ mặc định</label>
+            <select asp-for="DefaultLanguage" asp-items="ViewBag.Languages" class="form-select" id="default-language-select"></select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tóm tắt</label>
+            <input asp-for="Summary" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Địa chỉ</label>
+            <input asp-for="Address" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Mô tả</label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Latitude</label>
+            <input asp-for="Latitude" class="form-control" type="number" step="any" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Longitude</label>
+            <input asp-for="Longitude" class="form-control" type="number" step="any" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Radius</label>
+            <input asp-for="Radius" class="form-control" type="number" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Near Radius</label>
+            <input asp-for="ApproachRadiusMeters" class="form-control" type="number" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Priority</label>
+            <input asp-for="Priority" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Debounce (s)</label>
+            <input asp-for="DebounceSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Cooldown (s)</label>
+            <input asp-for="CooldownSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Trigger mode</label>
+            <select asp-for="TriggerMode" class="form-select">
+                <option value="both">both</option>
+                <option value="enter">enter</option>
+                <option value="nearby">nearby</option>
+                <option value="manual">manual</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Chế độ thuyết minh</label>
+            <select asp-for="AudioMode" class="form-select">
+                <option value="tts">TTS</option>
+                <option value="tts-fallback">TTS, fallback sang audio</option>
+                <option value="audio-priority">Ưu tiên audio, fallback TTS</option>
+                <option value="audio">Chỉ audio</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Upload ảnh POI</label>
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" />
+            <div class="form-text">Ảnh upload sẽ được lưu vào thư mục dùng chung và chỉ lên app sau khi admin duyệt submission.</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Audio URL mặc định</label>
+            <input asp-for="AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Map URL</label>
+            <input asp-for="MapUrl" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Estimated duration (s)</label>
+            <input asp-for="EstimatedDurationSeconds" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" />
+                <label asp-for="IsActive" class="form-check-label">Đề xuất bật hoạt động</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Script TTS mặc định</label>
+            <textarea asp-for="TtsScript" class="form-control" rows="4"></textarea>
+            <div class="form-text">Phần này là nội dung mặc định của POI. Bản dịch từng ngôn ngữ nằm ở khối bên dưới.</div>
+        </div>
+        <div class="col-12">
+            <div class="card p-3 bg-light-subtle border-0">
+                <div class="fw-semibold mb-2">Preview ảnh POI</div>
+                <img id="poi-image-preview"
+                     src="@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "" : Model.ImageUrl)"
+                     alt="Preview ảnh POI"
+                     style="max-width:100%;height:240px;object-fit:cover;border-radius:16px;display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "none" : "block");" />
+                <div id="poi-image-empty" class="text-muted small" style="display:@(string.IsNullOrWhiteSpace(Model.ImageUrl) ? "block" : "none");">
+                    Chưa có ảnh.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card p-4 bg-light border-0">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                    <div>
+                        <h4 class="mb-1">Bản dịch và audio theo ngôn ngữ</h4>
+                        <div class="text-muted small">Owner nhập nội dung theo từng ngôn ngữ ngay trong submission. Admin sẽ duyệt và publish cả gói vào dữ liệu live.</div>
+                    </div>
+                    <span class="badge text-bg-secondary">@Model.TranslationSubmissions.Count ngôn ngữ</span>
+                </div>
+
+                @for (var i = 0; i < Model.TranslationSubmissions.Count; i++)
+                {
+                    var translation = Model.TranslationSubmissions[i];
+                    var language = translationLanguages.FirstOrDefault(x => string.Equals(x.Code, translation.Language, StringComparison.OrdinalIgnoreCase));
+                    var isDefaultLanguage = string.Equals(translation.Language, defaultTranslationLanguage, StringComparison.OrdinalIgnoreCase);
+
+                    <div class="border rounded-4 bg-white p-3 mb-3 translation-card" data-language-code="@translation.Language">
+                        <input asp-for="TranslationSubmissions[i].Id" type="hidden" />
+                        <input asp-for="TranslationSubmissions[i].SubmissionId" type="hidden" />
+                        <input asp-for="TranslationSubmissions[i].Language" type="hidden" />
+                        <input asp-for="TranslationSubmissions[i].SortOrder" type="hidden" />
+
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                            <div>
+                                <div class="fw-semibold">@(language?.Name ?? translation.Language) (@translation.Language)</div>
+                                <div class="small text-muted">
+                                    @(isDefaultLanguage
+                                        ? "Đây là ngôn ngữ mặc định hiện tại. App sẽ ưu tiên nội dung mặc định phía trên nếu bạn không tạo translation riêng."
+                                        : "Nội dung này sẽ override tiêu đề, mô tả, TTS và audio khi app được mở bằng ngôn ngữ này.")
+                                </div>
+                            </div>
+                            <span class="badge @(isDefaultLanguage ? "text-bg-warning" : "text-bg-light border")">
+                                @(isDefaultLanguage ? "Mặc định" : "Bản dịch phụ")
+                            </span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Tiêu đề</label>
+                                <input asp-for="TranslationSubmissions[i].Title" class="form-control" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Voice name</label>
+                                <input asp-for="TranslationSubmissions[i].VoiceName" class="form-control" placeholder="Ví dụ: vi-VN-NamMinhNeural" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Summary</label>
+                                <input asp-for="TranslationSubmissions[i].Summary" class="form-control" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea asp-for="TranslationSubmissions[i].Description" class="form-control" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Audio URL</label>
+                                <input asp-for="TranslationSubmissions[i].AudioUrl" class="form-control" placeholder="/audio/ten-file.mp3" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Upload audio fallback</label>
+                                <input asp-for="TranslationSubmissions[i].AudioFile" class="form-control" type="file" accept=".mp3,.wav,.m4a,.aac,.ogg,audio/*" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">TTS Script</label>
+                                <textarea asp-for="TranslationSubmissions[i].TtsScript" class="form-control" rows="3"></textarea>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(translation.AudioUrl))
+                            {
+                                <div class="col-12">
+                                    <div class="small text-muted mb-1">Audio hiện tại</div>
+                                    <audio controls src="@translation.AudioUrl" style="width:100%;max-width:420px;"></audio>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div id="map" style="height:380px;border-radius:18px;"></div>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-outline-secondary" type="submit" name="submitAction" value="draft">Lưu nháp</button>
+            <button class="btn btn-primary" type="submit" name="submitAction" value="submit">Gửi duyệt</button>
+            <a href="/OwnerPoi" class="btn btn-outline-secondary">Quay lại</a>
+        </div>
+    </div>
+</form>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+    const latInput = document.querySelector('[name="Latitude"]');
+    const lngInput = document.querySelector('[name="Longitude"]');
+    const lat = parseFloat(latInput.value || "10.7618");
+    const lng = parseFloat(lngInput.value || "106.6613");
+    const map = L.map('map').setView([lat, lng], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker = L.marker([lat, lng]).addTo(map);
+
+    map.on('click', function (e) {
+        latInput.value = e.latlng.lat.toFixed(6);
+        lngInput.value = e.latlng.lng.toFixed(6);
+        marker.setLatLng(e.latlng);
+    });
+
+    const imageInput = document.querySelector('[name="ImageUrl"]');
+    const imageFileInput = document.querySelector('[name="ImageFile"]');
+    const imagePreview = document.getElementById('poi-image-preview');
+    const imageEmpty = document.getElementById('poi-image-empty');
+
+    function refreshImagePreview() {
+        const selectedFile = imageFileInput?.files?.[0];
+        if (selectedFile) {
+            imagePreview.src = URL.createObjectURL(selectedFile);
+            imagePreview.style.display = 'block';
+            imageEmpty.style.display = 'none';
+            return;
+        }
+
+        const value = imageInput?.value?.trim() || '';
+        if (!value) {
+            imagePreview.style.display = 'none';
+            imagePreview.removeAttribute('src');
+            imageEmpty.style.display = 'block';
+            return;
+        }
+
+        imagePreview.src = value;
+        imagePreview.style.display = 'block';
+        imageEmpty.style.display = 'none';
+    }
+
+    function highlightDefaultTranslation() {
+        const defaultLanguage = document.getElementById('default-language-select')?.value || '';
+        document.querySelectorAll('.translation-card').forEach(card => {
+            const code = card.getAttribute('data-language-code');
+            if (code === defaultLanguage) {
+                card.classList.add('border-warning');
+            } else {
+                card.classList.remove('border-warning');
+            }
+        });
+    }
+
+    imageFileInput?.addEventListener('change', refreshImagePreview);
+    document.getElementById('default-language-select')?.addEventListener('change', highlightDefaultTranslation);
+
+    refreshImagePreview();
+    highlightDefaultTranslation();
+</script>
+
+<partial name="_ValidationScriptsPartial" />

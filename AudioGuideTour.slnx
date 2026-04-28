@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="AudioGuideAdmin/AudioGuideAdmin.csproj" />
   <Project Path="AudioGuideAPI/AudioGuideAPI.csproj" />
+  <Project Path="AudioGuideOwnerPortal/AudioGuideOwnerPortal.csproj" />
   <Project Path="AudioTourApp/AudioTourApp.csproj" />
 </Solution>

@@ -1,4 +1,5 @@
 using AudioGuideAPI.Data;
+using AudioGuideAPI.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,13 +19,18 @@ public class AnalyticsController : ControllerBase
     [HttpGet("overview")]
     public async Task<IActionResult> Overview()
     {
-        var totalPoi = await _context.Pois.CountAsync();
-        var totalVisits = await _context.VisitHistories.CountAsync();
+        var scopedPoiIds = ApiPoiScopeHelper.GetScopedPoiIds(_context);
+        var totalPoi = scopedPoiIds.Count;
+        var totalVisits = await _context.VisitHistories
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
+            .CountAsync();
         var uniqueVisitors = await _context.VisitHistories
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .Select(x => x.UserId)
             .Distinct()
             .CountAsync();
         var avgListenDuration = await _context.VisitHistories
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .Select(x => (double?)x.Duration)
             .AverageAsync() ?? 0;
 
@@ -40,7 +46,9 @@ public class AnalyticsController : ControllerBase
     [HttpGet("top-poi")]
     public async Task<IActionResult> TopPoi()
     {
+        var scopedPoiIds = ApiPoiScopeHelper.GetScopedPoiIds(_context);
         var result = await _context.VisitHistories
+            .Where(v => scopedPoiIds.Contains(v.PoiId))
             .GroupBy(v => v.PoiId)
             .Select(g => new
             {
@@ -68,7 +76,9 @@ public class AnalyticsController : ControllerBase
     [HttpGet("avg-listen-duration")]
     public async Task<IActionResult> AverageListenDuration()
     {
+        var scopedPoiIds = ApiPoiScopeHelper.GetScopedPoiIds(_context);
         var result = await _context.VisitHistories
+            .Where(x => scopedPoiIds.Contains(x.PoiId))
             .GroupBy(x => x.PoiId)
             .Select(g => new
             {

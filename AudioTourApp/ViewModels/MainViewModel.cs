@@ -31,7 +31,7 @@ public class MainViewModel : INotifyPropertyChanged
     private const string PreferenceCustomerSessionToken = "audio-tour-customer-session-token";
     private const string PreferenceLoginIdentifier = "audio-tour-login-identifier";
     private static readonly TimeSpan TrackingInterval = TimeSpan.FromSeconds(6);
-    private static readonly TimeSpan VisitorHeartbeatInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan VisitorHeartbeatInterval = TimeSpan.FromSeconds(10);
     private static readonly HashSet<string> SupportedLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         "vi-VN",
