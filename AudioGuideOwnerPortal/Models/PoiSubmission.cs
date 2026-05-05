@@ -49,7 +49,7 @@ public class PoiSubmission
     public int DebounceSeconds { get; set; } = 15;
     public int CooldownSeconds { get; set; } = 120;
     public string TriggerMode { get; set; } = "both";
-    public string ImageUrl { get; set; } = "";
+    public string? ImageUrl { get; set; } = "";
     public string MapUrl { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public string AudioMode { get; set; } = "tts";
