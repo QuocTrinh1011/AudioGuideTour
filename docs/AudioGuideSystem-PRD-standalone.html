@@ -2982,6 +2982,395 @@
             }
         ];
 
+        const codeSequenceTraces = {
+            J01: {
+                participants: ["HomePage.cs", "MainViewModel.cs", "ApiClient.cs", "UserCotroller.cs API", "BootstrapController.cs", "AppPermissionService.cs", "LocationTrackingService.cs", "TrackingController.cs API", "AppDbContext.cs API"],
+                steps: [
+                    ["HomePage.cs", "MainViewModel.cs", "BootstrapAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "UpsertVisitorAsync()"],
+                    ["ApiClient.cs", "UserCotroller.cs API", "Upsert()"],
+                    ["UserCotroller.cs API", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "BootstrapAsync()"],
+                    ["ApiClient.cs", "BootstrapController.cs", "Get()"],
+                    ["BootstrapController.cs", "AppDbContext.cs API", "ToListAsync()"],
+                    ["HomePage.cs", "MainViewModel.cs", "RequestTrackingPermissionsAsync()"],
+                    ["MainViewModel.cs", "AppPermissionService.cs", "RequestTrackingPermissionsAsync()"],
+                    ["HomePage.cs", "MainViewModel.cs", "ToggleTrackingAsync()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "StartTrackingInternalAsync()"],
+                    ["MainViewModel.cs", "LocationTrackingService.cs", "StartAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "TrackAsync()"],
+                    ["ApiClient.cs", "TrackingController.cs API", "Track()"],
+                    ["TrackingController.cs API", "AppDbContext.cs API", "SaveChangesAsync()"]
+                ]
+            },
+            J02: {
+                participants: ["LocationTrackingService.cs", "MainViewModel.cs", "ApiClient.cs", "TrackingController.cs API", "GeofenceController.cs", "AudioQueueService.cs", "NarrationService.cs", "AudioFallbackPlayer.cs", "VisitController.cs", "AppDbContext.cs API"],
+                steps: [
+                    ["LocationTrackingService.cs", "MainViewModel.cs", "OnLocationChanged()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "TrackAsync()"],
+                    ["ApiClient.cs", "TrackingController.cs API", "Track()"],
+                    ["TrackingController.cs API", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "CheckGeofenceAsync()"],
+                    ["ApiClient.cs", "GeofenceController.cs", "CheckLocation()"],
+                    ["GeofenceController.cs", "GeofenceController.cs", "EnsureUserAsync()"],
+                    ["GeofenceController.cs", "AppDbContext.cs API", "ToListAsync()"],
+                    ["GeofenceController.cs", "GeofenceController.cs", "MatchesTriggerMode()"],
+                    ["GeofenceController.cs", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "CanAutoPlay()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "ShouldAutoPlayForTriggerMode()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["AudioQueueService.cs", "NarrationService.cs", "SpeakAsync()"],
+                    ["AudioQueueService.cs", "AudioFallbackPlayer.cs", "TryPlayAsync()"],
+                    ["AudioQueueService.cs", "ApiClient.cs", "SaveVisitAsync()"],
+                    ["ApiClient.cs", "VisitController.cs", "Save()"],
+                    ["VisitController.cs", "AppDbContext.cs API", "SaveChangesAsync()"]
+                ]
+            },
+            J03: {
+                participants: ["AuthController.cs", "PoiReviewController.cs", "PoiWorkflowHelper.cs", "TranslationController.cs Admin", "TourController.cs Admin", "DashboardController.cs", "AnalyticsController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["AuthController.cs", "AuthController.cs", "HasAnyAdmin()"],
+                    ["AuthController.cs", "AuthController.cs", "Login()"],
+                    ["AuthController.cs", "AuthController.cs", "HashPassword()"],
+                    ["AuthController.cs", "AppDbContext.cs Admin", "SaveChanges()"],
+                    ["PoiReviewController.cs", "AppDbContext.cs Admin", "Review()"],
+                    ["PoiReviewController.cs", "PoiWorkflowHelper.cs", "ApplySubmissionToPoi()"],
+                    ["PoiReviewController.cs", "PoiWorkflowHelper.cs", "ApplyTranslationSubmissionsToPoi()"],
+                    ["PoiReviewController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "EditForPoi()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["TourController.cs Admin", "TourController.cs Admin", "BuildStops()"],
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["DashboardController.cs", "AppDbContext.cs Admin", "ToList()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "HeatmapData()"]
+                ]
+            },
+            F01: {
+                participants: ["OwnerPoiController.cs", "PoiReviewController.cs", "PoiWorkflowHelper.cs", "AppDbContext.cs OwnerPortal", "AppDbContext.cs Admin"],
+                steps: [
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "Create()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "SaveChangesAsync()"],
+                    ["PoiReviewController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["PoiReviewController.cs", "AppDbContext.cs Admin", "Review()"],
+                    ["PoiReviewController.cs", "PoiWorkflowHelper.cs", "ApplySubmissionToPoi()"],
+                    ["PoiReviewController.cs", "PoiWorkflowHelper.cs", "ApplyTranslationSubmissionsToPoi()"],
+                    ["PoiReviewController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["PoiReviewController.cs", "PoiReviewController.cs", "Approve()"]
+                ]
+            },
+            F02: {
+                participants: ["TranslationController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Index()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Create()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "EditForPoi()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Edit()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Delete()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            F03: {
+                participants: ["TourController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "Index()"],
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "Create()"],
+                    ["TourController.cs Admin", "TourController.cs Admin", "SaveImageAsync()"],
+                    ["TourController.cs Admin", "TourController.cs Admin", "BuildStops()"],
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "Edit()"],
+                    ["TourController.cs Admin", "AppDbContext.cs Admin", "Delete()"]
+                ]
+            },
+            F04: {
+                participants: ["AudioController.cs Admin"],
+                steps: [
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "Upload()"],
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "ResolveSafePath()"],
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "Delete()"]
+                ]
+            },
+            F09: {
+                participants: ["DashboardController.cs", "AnalyticsController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["DashboardController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "Index()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "LoadRawTrackingRows()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "BuildHeatmapPayload()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "BuildRouteSessions()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "HeatmapData()"],
+                    ["AnalyticsController.cs Admin", "AppDbContext.cs Admin", "ToList()"]
+                ]
+            },
+            F11: {
+                participants: ["AuthController.cs", "AppDbContext.cs Admin"],
+                steps: [
+                    ["AuthController.cs", "AuthController.cs", "HasAnyAdmin()"],
+                    ["AuthController.cs", "AuthController.cs", "Register()"],
+                    ["AuthController.cs", "AuthController.cs", "HashPassword()"],
+                    ["AuthController.cs", "AppDbContext.cs Admin", "SaveChanges()"],
+                    ["AuthController.cs", "AuthController.cs", "Login()"],
+                    ["AuthController.cs", "AppDbContext.cs Admin", "FirstOrDefault()"],
+                    ["AuthController.cs", "AuthController.cs", "Logout()"]
+                ]
+            },
+            F05: {
+                participants: ["MainViewModel.cs", "ApiClient.cs", "BootstrapController.cs", "MapController.cs API", "AppDbContext.cs API"],
+                steps: [
+                    ["MainViewModel.cs", "ApiClient.cs", "BootstrapAsync()"],
+                    ["ApiClient.cs", "BootstrapController.cs", "Get()"],
+                    ["BootstrapController.cs", "AppDbContext.cs API", "ToListAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "GetNearbyAsync()"],
+                    ["ApiClient.cs", "MapController.cs API", "GetNearby()"],
+                    ["MapController.cs API", "AppDbContext.cs API", "ToListAsync()"],
+                    ["ApiClient.cs", "MapController.cs API", "Feed()"],
+                    ["MapController.cs API", "AppDbContext.cs API", "ToListAsync()"]
+                ]
+            },
+            F06: {
+                participants: ["MainViewModel.cs", "ApiClient.cs", "GeofenceController.cs", "AudioQueueService.cs", "NarrationService.cs", "AudioFallbackPlayer.cs", "AppDbContext.cs API"],
+                steps: [
+                    ["MainViewModel.cs", "ApiClient.cs", "CheckGeofenceAsync()"],
+                    ["ApiClient.cs", "GeofenceController.cs", "CheckLocation()"],
+                    ["GeofenceController.cs", "GeofenceController.cs", "EnsureUserAsync()"],
+                    ["GeofenceController.cs", "AppDbContext.cs API", "ToListAsync()"],
+                    ["GeofenceController.cs", "GeofenceController.cs", "MatchesTriggerMode()"],
+                    ["GeofenceController.cs", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "CanAutoPlay()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "ShouldAutoPlayForTriggerMode()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["AudioQueueService.cs", "NarrationService.cs", "SpeakAsync()"],
+                    ["AudioQueueService.cs", "AudioFallbackPlayer.cs", "TryPlayAsync()"]
+                ]
+            },
+            F07: {
+                participants: ["LocationTrackingService.cs", "MainViewModel.cs", "ApiClient.cs", "TrackingController.cs API", "AppDbContext.cs API"],
+                steps: [
+                    ["LocationTrackingService.cs", "LocationTrackingService.cs", "RunTrackingLoopAsync()"],
+                    ["LocationTrackingService.cs", "MainViewModel.cs", "OnLocationChanged()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "TrackAsync()"],
+                    ["ApiClient.cs", "TrackingController.cs API", "Track()"],
+                    ["TrackingController.cs API", "TrackingController.cs API", "ResolveUserAsync()"],
+                    ["TrackingController.cs API", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["ApiClient.cs", "TrackingController.cs API", "History()"]
+                ]
+            },
+            F08: {
+                participants: ["MainViewModel.cs", "AudioQueueService.cs", "ApiClient.cs", "VisitController.cs", "AppDbContext.cs API"],
+                steps: [
+                    ["MainViewModel.cs", "MainViewModel.cs", "PlaySelectedAsync()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["AudioQueueService.cs", "ApiClient.cs", "SaveVisitAsync()"],
+                    ["ApiClient.cs", "VisitController.cs", "Save()"],
+                    ["VisitController.cs", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["ApiClient.cs", "VisitController.cs", "ByUser()"]
+                ]
+            },
+            F10: {
+                participants: ["QrPage.cs", "MainViewModel.cs", "ApiClient.cs", "QRCodeController.cs API", "AudioQueueService.cs", "AppDbContext.cs API"],
+                steps: [
+                    ["QrPage.cs", "MainViewModel.cs", "LookupQrAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "LookupQrAsync()"],
+                    ["ApiClient.cs", "QRCodeController.cs API", "GetByCode()"],
+                    ["QRCodeController.cs API", "AppDbContext.cs API", "FirstOrDefaultAsync()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["QrPage.cs", "MainViewModel.cs", "PasteQrFromClipboardAsync()"],
+                    ["QrPage.cs", "MainViewModel.cs", "OpenRecentQr()"]
+                ]
+            },
+            F12: {
+                participants: ["MainViewModel.cs", "ApiClient.cs", "UserCotroller.cs API", "TrackingController.cs API", "VisitorController.cs", "AppDbContext.cs API", "AppDbContext.cs Admin"],
+                steps: [
+                    ["MainViewModel.cs", "MainViewModel.cs", "SyncVisitorSettingsAsync()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "SyncVisitorProfileAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "UpsertVisitorAsync()"],
+                    ["ApiClient.cs", "UserCotroller.cs API", "Upsert()"],
+                    ["UserCotroller.cs API", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["ApiClient.cs", "TrackingController.cs API", "Track()"],
+                    ["TrackingController.cs API", "AppDbContext.cs API", "SaveChangesAsync()"],
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "Edit()"],
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            QR01: {
+                participants: ["QRCodeController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "Index()"],
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "Create()"],
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "Edit()"],
+                    ["QRCodeController.cs Admin", "QRCodeController.cs Admin", "RenderSvg()"],
+                    ["QRCodeController.cs Admin", "QRCodeController.cs Admin", "RenderPng()"],
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "Delete()"],
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            QR02: {
+                participants: ["QrScannerPage.cs", "MainViewModel.cs", "ApiClient.cs", "QRCodeController.cs API", "QRCodeController.cs Admin", "AudioQueueService.cs", "AppDbContext.cs API", "AppDbContext.cs Admin"],
+                steps: [
+                    ["QrScannerPage.cs", "QrScannerPage.cs", "OnDetectionFinishedAsync()"],
+                    ["QrScannerPage.cs", "MainViewModel.cs", "LookupQrAsync()"],
+                    ["MainViewModel.cs", "ApiClient.cs", "LookupQrAsync()"],
+                    ["ApiClient.cs", "QRCodeController.cs API", "GetByCode()"],
+                    ["QRCodeController.cs API", "AppDbContext.cs API", "FirstOrDefaultAsync()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["QRCodeController.cs Admin", "QRCodeController.cs Admin", "Open()"],
+                    ["QRCodeController.cs Admin", "AppDbContext.cs Admin", "FirstOrDefaultAsync()"]
+                ]
+            },
+            M15: {
+                participants: ["CategoryController.cs", "AppDbContext.cs Admin"],
+                steps: [
+                    ["CategoryController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["CategoryController.cs", "CategoryController.cs", "Normalize()"],
+                    ["CategoryController.cs", "AppDbContext.cs Admin", "Create()"],
+                    ["CategoryController.cs", "AppDbContext.cs Admin", "Edit()"],
+                    ["CategoryController.cs", "AppDbContext.cs Admin", "Delete()"],
+                    ["CategoryController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            M16: {
+                participants: ["LanguageController.cs", "AppDbContext.cs Admin"],
+                steps: [
+                    ["LanguageController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["LanguageController.cs", "LanguageController.cs", "Normalize()"],
+                    ["LanguageController.cs", "AppDbContext.cs Admin", "Create()"],
+                    ["LanguageController.cs", "AppDbContext.cs Admin", "Edit()"],
+                    ["LanguageController.cs", "AppDbContext.cs Admin", "Delete()"],
+                    ["LanguageController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            M17: {
+                participants: ["TranslationController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Index()"],
+                    ["TranslationController.cs Admin", "TranslationController.cs Admin", "PrepareTranslationForm()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Create()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "EditForPoi()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Edit()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "Delete()"],
+                    ["TranslationController.cs Admin", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            M18: {
+                participants: ["AnalyticsController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "Index()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "LoadRawTrackingRows()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "BuildHeatmapPayload()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "BuildRouteSessions()"],
+                    ["AnalyticsController.cs Admin", "AnalyticsController.cs Admin", "HeatmapData()"],
+                    ["AnalyticsController.cs Admin", "AppDbContext.cs Admin", "ToList()"]
+                ]
+            },
+            A14: {
+                participants: ["VisitorController.cs", "TrackingController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "Edit()"],
+                    ["VisitorController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"],
+                    ["TrackingController.cs Admin", "TrackingController.cs Admin", "BuildPoiOptions()"],
+                    ["TrackingController.cs Admin", "AppDbContext.cs Admin", "Count()"],
+                    ["TrackingController.cs Admin", "AppDbContext.cs Admin", "ToList()"]
+                ]
+            },
+            OP01: {
+                participants: ["OwnerAuthController.cs", "PasswordHashHelper.cs", "OwnerSessionHelper.cs", "AppDbContext.cs OwnerPortal"],
+                steps: [
+                    ["OwnerAuthController.cs", "OwnerAuthController.cs", "Register()"],
+                    ["OwnerAuthController.cs", "PasswordHashHelper.cs", "HashPassword()"],
+                    ["OwnerAuthController.cs", "AppDbContext.cs OwnerPortal", "SaveChangesAsync()"],
+                    ["OwnerAuthController.cs", "OwnerAuthController.cs", "Login()"],
+                    ["OwnerAuthController.cs", "AppDbContext.cs OwnerPortal", "FirstOrDefaultAsync()"],
+                    ["OwnerAuthController.cs", "PasswordHashHelper.cs", "VerifyPassword()"],
+                    ["OwnerAuthController.cs", "OwnerSessionHelper.cs", "SignIn()"],
+                    ["OwnerAuthController.cs", "OwnerSessionHelper.cs", "SignOut()"]
+                ]
+            },
+            OP02: {
+                participants: ["OwnerPoiController.cs", "OwnerSessionHelper.cs", "AppDbContext.cs OwnerPortal"],
+                steps: [
+                    ["OwnerPoiController.cs", "OwnerSessionHelper.cs", "GetOwnerId()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "Index()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "Create()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "Edit()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "StartUpdate()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "DeleteDraft()"],
+                    ["OwnerPoiController.cs", "AppDbContext.cs OwnerPortal", "SaveChangesAsync()"]
+                ]
+            },
+            OP03: {
+                participants: ["OwnerDashboardController.cs", "OwnerSessionHelper.cs", "AppDbContext.cs OwnerPortal"],
+                steps: [
+                    ["OwnerDashboardController.cs", "OwnerDashboardController.cs", "Index()"],
+                    ["OwnerDashboardController.cs", "OwnerDashboardController.cs", "GetCurrentOwnerAsync()"],
+                    ["OwnerDashboardController.cs", "OwnerSessionHelper.cs", "GetOwnerId()"],
+                    ["OwnerDashboardController.cs", "AppDbContext.cs OwnerPortal", "ToListAsync()"],
+                    ["OwnerDashboardController.cs", "OwnerDashboardController.cs", "BuildContentHealth()"]
+                ]
+            },
+            OP04: {
+                participants: ["ShopOwnerController.cs", "AppDbContext.cs Admin"],
+                steps: [
+                    ["ShopOwnerController.cs", "AppDbContext.cs Admin", "Index()"],
+                    ["ShopOwnerController.cs", "ShopOwnerController.cs", "ResolveAdminReviewerIdAsync()"],
+                    ["ShopOwnerController.cs", "AppDbContext.cs Admin", "Approve()"],
+                    ["ShopOwnerController.cs", "AppDbContext.cs Admin", "Suspend()"],
+                    ["ShopOwnerController.cs", "AppDbContext.cs Admin", "SaveChangesAsync()"]
+                ]
+            },
+            F04b: {
+                participants: ["AudioController.cs Admin", "ImageController.cs"],
+                steps: [
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "Upload()"],
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "ResolveSafePath()"],
+                    ["AudioController.cs Admin", "AudioController.cs Admin", "Delete()"],
+                    ["ImageController.cs", "ImageController.cs", "Upload()"],
+                    ["ImageController.cs", "ImageController.cs", "ResolveSafePath()"],
+                    ["ImageController.cs", "ImageController.cs", "Delete()"]
+                ]
+            },
+            A15: {
+                participants: ["TrackingController.cs Admin", "AppDbContext.cs Admin"],
+                steps: [
+                    ["TrackingController.cs Admin", "TrackingController.cs Admin", "Index()"],
+                    ["TrackingController.cs Admin", "TrackingController.cs Admin", "BuildPoiOptions()"],
+                    ["TrackingController.cs Admin", "AppDbContext.cs Admin", "Count()"],
+                    ["TrackingController.cs Admin", "AppDbContext.cs Admin", "ToList()"]
+                ]
+            },
+            A16: {
+                participants: ["DashboardController.cs", "AppDbContext.cs Admin"],
+                steps: [
+                    ["DashboardController.cs", "DashboardController.cs", "Index()"],
+                    ["DashboardController.cs", "AppDbContext.cs Admin", "ToList()"],
+                    ["DashboardController.cs", "AppDbContext.cs Admin", "Count()"]
+                ]
+            },
+            F13: {
+                participants: ["ToursPage.cs", "MainViewModel.cs", "ApiClient.cs", "TourController.cs API", "AudioQueueService.cs", "AppDbContext.cs API"],
+                steps: [
+                    ["ToursPage.cs", "MainViewModel.cs", "StartSelectedTourAsync()"],
+                    ["MainViewModel.cs", "AudioQueueService.cs", "EnqueueAsync()"],
+                    ["MainViewModel.cs", "MainViewModel.cs", "PlayNextTourStopAsync()"],
+                    ["ApiClient.cs", "TourController.cs API", "GetAll()"],
+                    ["TourController.cs API", "AppDbContext.cs API", "ToListAsync()"],
+                    ["ApiClient.cs", "TourController.cs API", "GetById()"],
+                    ["TourController.cs API", "AppDbContext.cs API", "FirstOrDefaultAsync()"],
+                    ["ApiClient.cs", "TourController.cs API", "GetCover()"]
+                ]
+            },
+            F14: {
+                participants: ["MainViewModel.cs", "ApiClient.cs", "MapController.cs API", "AppDbContext.cs API"],
+                steps: [
+                    ["MainViewModel.cs", "ApiClient.cs", "GetNearbyAsync()"],
+                    ["ApiClient.cs", "MapController.cs API", "GetNearby()"],
+                    ["MapController.cs API", "AppDbContext.cs API", "ToListAsync()"],
+                    ["ApiClient.cs", "MapController.cs API", "Feed()"],
+                    ["MapController.cs API", "AppDbContext.cs API", "ToListAsync()"]
+                ]
+            }
+        };
+
         const moduleDescriptions = {
             "Hanh trinh nguoi dung": "3 sequences J01-J03 — hành trình tổng thể: visitor bắt đầu, đi ngang POI và admin vận hành.",
             "Chuc nang quan tri": "15 sequences F01-F04/F04b, F09, F11-F12, QR01-QR02, M15-M18, A14-A16 — toàn bộ chức năng Admin CMS.",
@@ -3000,6 +3389,168 @@
                 .replaceAll("&", "&amp;")
                 .replaceAll("<", "&lt;")
                 .replaceAll(">", "&gt;");
+        }
+
+        function getCodeTrace(item) {
+            return codeSequenceTraces[item.id] || null;
+        }
+
+        function getSequenceSource(item) {
+            const trace = getCodeTrace(item);
+            if (!trace) {
+                return item.source;
+            }
+
+            const parts = [];
+            const seen = new Set();
+
+            trace.steps.forEach(([, target, label]) => {
+                const token = `${target}.${label}`;
+                if (!seen.has(token)) {
+                    seen.add(token);
+                    parts.push(token);
+                }
+            });
+
+            return parts.join(" -> ");
+        }
+
+        const methodHints = {
+            "Approve()": "duyệt và chốt thay đổi",
+            "ApplySubmissionToPoi()": "áp dữ liệu submission vào POI live",
+            "ApplyTranslationSubmissionsToPoi()": "áp các bản dịch từ submission vào POI",
+            "BootstrapAsync()": "tải dữ liệu khởi động",
+            "BuildContentHealth()": "tổng hợp tình trạng đầy đủ của nội dung",
+            "BuildHeatmapPayload()": "gom điểm tracking thành dữ liệu heatmap",
+            "BuildPoiOptions()": "tạo danh sách POI cho bộ lọc",
+            "BuildRouteSessions()": "gom tracking thành các hành trình",
+            "BuildStops()": "tạo danh sách stop theo thứ tự tour",
+            "ByUser()": "lấy lịch sử visit theo visitor",
+            "CanAutoPlay()": "kiểm tra visitor có cho phép auto-play",
+            "CheckGeofenceAsync()": "hỏi server có trigger geofence hay không",
+            "CheckLocation()": "đánh giá geofence, cooldown và trigger mode",
+            "Count()": "đếm tổng số bản ghi",
+            "Create()": "tạo mới bản ghi",
+            "Delete()": "xóa bản ghi",
+            "DeleteDraft()": "xóa submission đang ở trạng thái draft",
+            "Edit()": "cập nhật bản ghi hiện có",
+            "EditForPoi()": "mở bản dịch theo từng POI và ngôn ngữ",
+            "EnqueueAsync()": "đưa audio vào hàng đợi phát",
+            "EnsureUserAsync()": "tìm hoặc tạo visitor trên server",
+            "Feed()": "lấy feed POI cho map overview",
+            "FirstOrDefault()": "tìm bản ghi đầu tiên phù hợp",
+            "FirstOrDefaultAsync()": "tìm bản ghi đầu tiên phù hợp",
+            "Get()": "lấy bootstrap payload",
+            "GetAll()": "lấy danh sách tổng hợp",
+            "GetByCode()": "tra cứu QR theo mã",
+            "GetById()": "lấy chi tiết theo id",
+            "GetCover()": "lấy ảnh cover của tour",
+            "GetCurrentOwnerAsync()": "lấy owner đang đăng nhập",
+            "GetNearby()": "lấy các POI gần vị trí hiện tại",
+            "GetNearbyAsync()": "gọi API lấy nearby POI",
+            "GetOwnerId()": "đọc owner id từ session",
+            "HasAnyAdmin()": "kiểm tra hệ thống đã có admin",
+            "HashPassword()": "băm mật khẩu trước khi lưu",
+            "HeatmapData()": "trả dữ liệu heatmap theo bộ lọc",
+            "History()": "lấy lịch sử tracking theo user",
+            "Index()": "mở màn hình danh sách hoặc tổng quan",
+            "LoadRawTrackingRows()": "đọc dữ liệu tracking thô",
+            "Login()": "xác thực và mở session",
+            "Logout()": "đóng session hiện tại",
+            "LookupQrAsync()": "tra cứu QR và chọn đúng POI",
+            "MatchesTriggerMode()": "kiểm tra POI có đúng loại trigger",
+            "Normalize()": "chuẩn hóa dữ liệu trước khi lưu",
+            "OnDetectionFinishedAsync()": "xử lý mã QR vừa quét được",
+            "OnLocationChanged()": "xử lý sự kiện có vị trí mới",
+            "Open()": "mở trang công khai của QR",
+            "OpenRecentQr()": "mở lại QR vừa xem gần đây",
+            "PasteQrFromClipboardAsync()": "dán mã QR từ clipboard",
+            "PlayNextTourStopAsync()": "phát điểm dừng tiếp theo của tour",
+            "PlaySelectedAsync()": "phát POI đang được chọn",
+            "PrepareTranslationForm()": "nạp ngôn ngữ và dữ liệu POI cho form",
+            "Register()": "đăng ký tài khoản mới",
+            "RenderPng()": "xuất QR thành ảnh PNG",
+            "RenderSvg()": "xuất QR thành ảnh SVG",
+            "RequestTrackingPermissionsAsync()": "xin quyền GPS và notification",
+            "ResolveAdminReviewerIdAsync()": "lấy id admin đang duyệt",
+            "ResolveSafePath()": "khóa file path vào đúng thư mục storage",
+            "ResolveUserAsync()": "tìm hoặc tạo visitor trước khi ghi tracking",
+            "Review()": "mở hồ sơ để xem và duyệt",
+            "Save()": "lưu dữ liệu vào server",
+            "SaveChanges()": "ghi thay đổi xuống database",
+            "SaveChangesAsync()": "ghi thay đổi xuống database",
+            "SaveImageAsync()": "lưu ảnh upload vào storage",
+            "SaveVisitAsync()": "gửi lượt nghe lên API",
+            "ShouldAutoPlayForTriggerMode()": "lọc thêm theo trigger mode hiện tại",
+            "SignIn()": "tạo session owner",
+            "SignOut()": "xóa session owner",
+            "SpeakAsync()": "phát nội dung bằng TTS",
+            "StartAsync()": "khởi động vòng lặp tracking GPS",
+            "StartSelectedTourAsync()": "bắt đầu tour đang chọn",
+            "StartTrackingInternalAsync()": "bật runtime tracking trong app",
+            "StartUpdate()": "tạo bản cập nhật từ POI live",
+            "Suspend()": "tạm khóa tài khoản owner",
+            "SyncVisitorProfileAsync()": "đồng bộ profile visitor lên server",
+            "SyncVisitorSettingsAsync()": "đồng bộ setting visitor với server",
+            "ToList()": "tải danh sách để hiển thị",
+            "ToListAsync()": "tải danh sách để hiển thị",
+            "ToggleTrackingAsync()": "bật hoặc tắt tracking",
+            "Track()": "ghi một điểm tracking GPS",
+            "TrackAsync()": "gửi điểm tracking lên server",
+            "TryPlayAsync()": "thử phát file audio sẵn có",
+            "Upload()": "tải file lên storage",
+            "Upsert()": "tạo mới hoặc cập nhật visitor",
+            "UpsertVisitorAsync()": "gọi API đồng bộ visitor",
+            "VerifyPassword()": "đối chiếu mật khẩu đăng nhập"
+        };
+
+        function describeStepLabel(label) {
+            const hint = methodHints[label];
+            return hint ? `${label} - ${hint}` : label;
+        }
+
+        function buildActorTriggerLabel(item) {
+            if (item.entry && item.entry.trim()) {
+                return item.entry.trim();
+            }
+
+            return `Start ${item.id}`;
+        }
+
+        function buildCodeSequenceMermaid(item, trace) {
+            const order = trace.participants?.length
+                ? trace.participants
+                : [...new Set(trace.steps.flatMap(step => [step[0], step[1]]))];
+
+            const aliases = new Map(order.map((name, index) => [name, `P${index}`]));
+            const lines = ["sequenceDiagram", "    autonumber"];
+            const actorLabel = item.actor?.trim() ?? "";
+
+            if (actorLabel) {
+                lines.push(`    actor ACT as ${actorLabel}`);
+            }
+
+            order.forEach(name => {
+                lines.push(`    participant ${aliases.get(name)} as ${name}`);
+            });
+
+            if (actorLabel && trace.steps.length > 0) {
+                const [firstFrom] = trace.steps[0];
+                if (aliases.has(firstFrom)) {
+                    lines.push(`    ACT->>${aliases.get(firstFrom)}: ${buildActorTriggerLabel(item)}`);
+                }
+            }
+
+            trace.steps.forEach(([from, to, label]) => {
+                lines.push(`    ${aliases.get(from)}->>${aliases.get(to)}: ${describeStepLabel(label)}`);
+            });
+
+            return lines.join("\n");
+        }
+
+        function getSequenceMermaid(item) {
+            const trace = getCodeTrace(item);
+            return trace ? buildCodeSequenceMermaid(item, trace) : item.mermaid;
         }
 
         function renderStaticSections() {
@@ -3435,7 +3986,7 @@
                         <td>${item.title}</td>
                         <td>${item.actor}</td>
                         <td>${item.entry}</td>
-                        <td>${item.source}</td>
+                        <td>${getSequenceSource(item)}</td>
                         <td><span class="status ${item.status}">${statusLabel(item.status)}</span></td>
                     </tr>
                 `).join("");
@@ -3473,8 +4024,8 @@
                     <th>ID</th>
                     <th>Sequence</th>
                     <th>Primary actor</th>
-                    <th>PRD entry</th>
-                    <th>PRD source</th>
+                    <th>Entry</th>
+                    <th>Code trace</th>
                     <th>Type</th>
                 `;
             });
@@ -3568,10 +4119,10 @@
             }
 
             document.getElementById("modalTitle").textContent = `${item.id} · ${item.title}`;
-            document.getElementById("modalMeta").textContent = `${item.module} | Actor: ${item.actor} | Entry: ${item.entry} | Source: ${item.source}`;
+            document.getElementById("modalMeta").textContent = `${item.module} | Actor: ${item.actor} | Entry: ${item.entry}`;
             const host = document.getElementById("modalDiagram");
             host.innerHTML = "";
-            await renderDiagram(item.mermaid, host);
+            await renderDiagram(getSequenceMermaid(item), host);
             document.getElementById("sequenceOverlay").classList.add("active");
         }
 
