@@ -1493,21 +1493,21 @@
     APP->>GEO: POST /api/geofence {lat, lng, userId, deviceId, language}
     
     rect rgb(230, 245, 255)
-    note right of GEO: Pha 0: Upsert Visitor
-    GEO->>DB: SELECT Users WHERE Id hoặc DeviceId
-    GEO->>DB: UPDATE LastSeenAt = UtcNow (hoặc INSERT nếu mới)
+    note right of GEO: Pha 0: Upsert Visitor (EnsureUserAsync)
+    GEO->>DB: _context.Users.FirstOrDefaultAsync(x => x.Id == userId)\\nhoặc x.DeviceId == deviceId
+    GEO->>DB: _context.Users.Add(user) nếu mới\\n_context.SaveChangesAsync()
     end
     
     rect rgb(240, 248, 255)
     note right of GEO: Pha 1: Tìm TẤT CẢ POI gần visitor
-    GEO->>DB: SELECT Pois WHERE IsActive\\nINCLUDE Translations (IsPublished)
+    GEO->>DB: ApiPoiScopeHelper.GetScopedPoiQuery(_context)\\n.Include(x => x.Translations.Where(t => t.IsPublished))\\n.Where(x => x.IsActive).ToListAsync()
     DB-->>GEO: Danh sách POI active
-    GEO->>GEO: Tính Haversine distance cho TỪNG POI
+    GEO->>GEO: Tính Haversine distance cho TỪNG POI (GeoMath.DistanceInMeters)
     GEO->>GEO: Lọc: IsInside (≤ Radius) hoặc IsApproaching (≤ ApproachRadius)
     note right of GEO: Visitor có thể nằm trong\\nvùng của NHIỀU POI cùng lúc
-    GEO->>GEO: Sắp xếp ưu tiên:\\nIsInside > Priority > Distance > Radius > Id
+    GEO->>GEO: Sắp xếp ưu tiên:\\n.OrderByDescending(IsInside).ThenByDescending(Priority)\\n.ThenBy(Distance).ThenBy(Radius).ThenBy(Id)
     GEO->>GEO: NearbyPois = top 5 POI gần nhất\\n(hiển thị trên bản đồ)
-    GEO->>GEO: Candidate = POI đầu tiên thỏa MatchesTriggerMode\\n(enter / nearby / manual / auto)
+    GEO->>GEO: Candidate = POI đầu tiên thỏa MatchesTriggerMode()\\n(enter / nearby / manual / auto)
     end
 
     alt Không có POI nào gần
@@ -1517,13 +1517,13 @@
     
     rect rgb(255, 250, 205)
     note right of GEO: Pha 2: Anti-Spam (cho Candidate POI)
-    GEO->>DB: SELECT TOP 1 GeofenceTriggers\\nWHERE UserId & PoiId DESC
+    GEO->>DB: _context.GeofenceTriggers\\n.Where(x => x.UserId == user.Id && x.PoiId == candidate.Poi.Id)\\n.OrderByDescending(x => x.RecordedAt).FirstOrDefaultAsync()
     alt CooldownUntil > now
         GEO-->>APP: {ShouldPlay: false, Reason: "cooldown",\\nNearbyPois: top 5, NextEligibleAt}
     else (now - RecordedAt) < DebounceSeconds
         GEO-->>APP: {ShouldPlay: false, Reason: "debounce"}
     else Thỏa tất cả điều kiện
-        GEO->>DB: INSERT GeofenceTriggers\\n(UserId, PoiId, TriggerType,\\nDistance, CooldownUntil)
+        GEO->>DB: _context.GeofenceTriggers.Add(trigger)\\n_context.SaveChangesAsync() → INSERT GeofenceTriggers
         GEO->>GEO: PoiTranslationSelector.Select(language)
         GEO->>GEO: PoiAudioSelector.Resolve(poi, translation)
         GEO-->>APP: {ShouldPlay: true,\\nTriggeredPoi: {Title, AudioUrl, TtsScript},\\nNearbyPois: [...]}
@@ -1644,19 +1644,19 @@
     actor A as Admin
     participant CMS as OwnerPoiController
     participant REV as PoiReviewController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     rect rgb(240, 248, 255)
     note right of O: Pha 1: ShopOwner tạo/sửa Submission
     O->>CMS: Mở trang /OwnerPoi/Create
-    CMS->>DB: SELECT Categories, Languages (active)
+    CMS->>DB: _context.Categories + _context.LanguageOptions\\n.Where(x => x.IsActive).ToList()
     DB-->>CMS: Danh sách lựa chọn
     CMS-->>O: Render form POI
 
     O->>CMS: Điền thông tin POI, upload ảnh, bấm "Gửi duyệt"
     CMS->>CMS: NormalizeAudioMode(audioMode, audioUrl)
-    CMS->>CMS: submission.Status = PendingReview
-    CMS->>DB: INSERT PoiSubmissions (OwnerId, Status, SubmittedAt)
+    CMS->>CMS: submission.Status = PoiSubmissionStatus.PendingReview
+    CMS->>DB: _context.PoiSubmissions.Add(submission)\\n_context.SaveChangesAsync()
     DB-->>CMS: OK
     CMS-->>O: "Đã gửi POI lên cho admin duyệt"
     end
@@ -1664,31 +1664,35 @@
     rect rgb(255, 240, 245)
     note right of A: Pha 2: Admin xét duyệt
     A->>REV: Mở /PoiReview?status=PendingReview
-    REV->>DB: SELECT PoiSubmissions WHERE Status = PendingReview\\nINCLUDE Owner, Poi, TranslationSubmissions
-    DB-->>REV: Danh sách Submission chờ duyệt
+    REV->>DB: _context.PoiSubmissions.AsNoTracking()\\n.Include(x => x.Owner).Include(x => x.Poi)\\n.Include(x => x.TranslationSubmissions)\\n.Where(x => x.Status == effectiveStatus)\\n.OrderByDescending(x => x.SubmittedAt ?? x.UpdatedAt)\\n.ToListAsync()
+    DB-->>REV: List<PoiSubmission> chờ duyệt
     REV-->>A: Render danh sách
 
-    A->>REV: Mở Review (id)
+    A->>REV: GET /PoiReview/Review/{id}
+    REV->>DB: _context.PoiSubmissions\\n.Include(Owner).Include(Poi.Translations)\\n.Include(TranslationSubmissions)\\n.FirstOrDefaultAsync(x => x.Id == id)
     REV-->>A: Hiển thị chi tiết Submission vs POI live
 
     alt Admin Approve
         A->>REV: POST /PoiReview/Approve (id, reviewNote)
         REV->>REV: PoiWorkflowHelper.ApplySubmissionToPoi(livePoi, submission)
-        REV->>REV: ApplyTranslationSubmissionsToPoi(...)
-        REV->>DB: UPSERT Pois (tạo mới hoặc cập nhật live)
-        REV->>DB: UPDATE PoiSubmissions SET Status=Approved, ReviewedAt=now
+        REV->>DB: _context.Pois.Add(livePoi) nếu tạo mới\\n_context.SaveChangesAsync() (lần 1 — lấy livePoi.Id)
+        REV->>REV: PoiWorkflowHelper.ApplyTranslationSubmissionsToPoi(livePoi, submission, ...)
+        REV->>CMS: submission.Status = Approved, ReviewedAt = UtcNow
+        REV->>DB: _context.SaveChangesAsync() (lần 2)
         DB-->>REV: OK
-        REV-->>A: "Đã duyệt submission và cập nhật POI live"
+        REV-->>A: TempData "Đã duyệt submission và cập nhật POI live"
     else Admin yêu cầu chỉnh sửa
         A->>REV: POST /PoiReview/RequestChanges (id, reviewNote)
-        REV->>DB: UPDATE Status=ChangesRequested, ReviewNote=note
+        REV->>CMS: submission.Status = ChangesRequested\\nsubmission.ReviewNote = reviewNote\\nsubmission.ReviewedAt = UtcNow
+        REV->>DB: _context.SaveChangesAsync()
         DB-->>REV: OK
-        REV-->>A: "Đã trả submission về cho chủ quán chỉnh sửa"
+        REV-->>A: TempData "Đã trả submission về cho chủ quán chỉnh sửa"
     else Admin Reject
         A->>REV: POST /PoiReview/Reject (id, reviewNote)
-        REV->>DB: UPDATE Status=Rejected
+        REV->>CMS: submission.Status = Rejected\\nsubmission.ReviewNote = reviewNote
+        REV->>DB: _context.SaveChangesAsync()
         DB-->>REV: OK
-        REV-->>A: "Đã từ chối submission"
+        REV-->>A: TempData "Đã từ chối submission"
     end
     end`
             },
@@ -2099,7 +2103,7 @@
     actor V as Visitor / Mobile App
     participant APP as Mobile Background
     participant API as Backend API
-    participant DB as SQL Server (Visitors)
+    participant DB as AppDbContext (EF Core)
     actor A as Admin
     participant CMS as VisitorController (CMS)
 
@@ -2108,7 +2112,7 @@
     V->>APP: Di chuyển (GPS Trigger) hoặc dùng App
     APP->>API: POST /api/geofence hoặc POST /api/user
     API->>API: existing.LastSeenAt = DateTime.UtcNow
-    API->>DB: UPDATE Visitors SET LastSeenAt = UtcNow
+    API->>DB: _context.SaveChangesAsync()\\n(EF Core tracks change, generates UPDATE Visitors)
     DB-->>API: Hoàn tất
     API-->>APP: 200 OK
     end
@@ -2116,25 +2120,25 @@
     rect rgb(255, 240, 245)
     note right of A: Pha 2: Admin mở trang /Visitor
     A->>CMS: GET /Visitor?includeTest=false
-    CMS->>DB: SELECT Visitors ORDER BY LastSeenAt DESC
-    CMS->>DB: COUNT UserTrackings GROUP BY UserId
-    CMS->>DB: COUNT VisitHistories GROUP BY UserId
-    CMS->>DB: COUNT GeofenceTriggers GROUP BY UserId
-    DB-->>CMS: Visitors + stats
+    CMS->>DB: _context.Visitors.AsNoTracking()\\n.OrderByDescending(x => x.LastSeenAt).ToListAsync()
+    CMS->>DB: _context.UserTrackings.Where(x => userIds.Contains(x.UserId))\\n.GroupBy(x => x.UserId).Select(x => new{UserId,Count})\\n.ToDictionaryAsync()
+    CMS->>DB: _context.VisitHistories / _context.GeofenceTriggers\\n.Where(...).GroupBy(...).ToDictionaryAsync()
+    DB-->>CMS: List<VisitorProfile> + Dictionary<string,int> counts
 
-    loop Mỗi Visitor
+    loop Mỗi Visitor trong visitors.Select(v => new VisitorSummaryViewModel)
         CMS->>CMS: NormalizeStoredUtc(LastSeenAt)
         CMS->>CMS: Delta = UtcNow - NormalizedLastSeenAt
-        alt Delta <= 15 giây (ActiveThreshold)
+        alt Delta <= 15 giây (ActiveThreshold = TimeSpan.FromSeconds(15))
             CMS->>CMS: IsActive = true → Badge "Online"
         else Delta > 15 giây
             CMS->>CMS: IsActive = false → FormatLastSeenAgo()
         end
-        CMS->>CMS: IsSyntheticData? (sim-device / Khách test)
+        CMS->>CMS: IsSyntheticData = IsSyntheticVisitor(visitor)\\n(DeviceId.StartsWith("sim-device") || DisplayName.StartsWith("Khách test"))
+        CMS->>CMS: TrackingCount = trackingCounts.GetValueOrDefault(id, 0)
     end
 
-    CMS->>CMS: Sort: Active first → Real first → LastSeenAt DESC
-    note right of CMS: includeTest=false → lọc bỏ Synthetic visitors
+    CMS->>CMS: .OrderByDescending(IsActive).ThenBy(IsSyntheticData)\\n.ThenByDescending(LastSeenAt).ToList()
+    note right of CMS: includeTest=false → items.Where(x => !x.IsSyntheticData).ToList()
     CMS-->>A: Render bảng Visitor\\n(Online badge, TrackCount, VisitCount, TriggerCount)
     end`
             },
@@ -2151,30 +2155,31 @@
     autonumber
     actor A as Admin
     participant CMS as QRCodeController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
     participant GEN as QRCoder Library
 
     rect rgb(240, 248, 255)
     note right of A: Xem danh sách QR
     A->>CMS: GET /QRCode
-    CMS->>DB: SELECT QRCodes JOIN Pois\nWHERE PoiId IN scopedPoiIds
-    DB-->>CMS: Danh sách QR + POI
+    CMS->>DB: _context.QRCodes.Include(x => x.Poi)\\n.Where(x => scopedPoiIds.Contains(x.PoiId))\\n.OrderBy(x => x.Code).ToListAsync()
+    DB-->>CMS: List<QRCode> + Poi
     CMS-->>A: Render bảng QR + nút Preview/Download
     end
 
     rect rgb(255, 250, 205)
     note right of A: Tạo mã QR mới
     A->>CMS: POST /QRCode/Create {PoiId, Code, Note}
-    CMS->>CMS: Normalize(model): Code.ToUpperInvariant().Trim()
-    CMS->>DB: CHECK EXISTS QRCodes WHERE Code = input
+    CMS->>CMS: Normalize(model): Code = Code.Trim().ToUpperInvariant()
+    CMS->>DB: _context.QRCodes.FirstOrDefaultAsync(x => x.Code == model.Code)
 
     alt Mã trùng nhưng POI khác (re-use)
-        DB-->>CMS: duplicateQr != null\n(thuộc scopedPoiIds)
-        CMS->>DB: UPDATE duplicateQr SET PoiId=new, Note=new
+        DB-->>CMS: duplicateQr != null (scopedPoiIds.Contains(duplicateQr.PoiId))
+        CMS->>CMS: duplicateQr.PoiId = model.PoiId; duplicateQr.Note = model.Note
+        CMS->>DB: _context.SaveChangesAsync()
         DB-->>CMS: OK
         CMS-->>A: TempData "Đã tái sử dụng QR cũ cho POI hiện tại"
     else Mã chưa có — tạo mới
-        CMS->>DB: INSERT QRCodes (Code, PoiId, Note)
+        CMS->>DB: _context.QRCodes.Add(model)\\n_context.SaveChangesAsync()
         DB-->>CMS: QR record mới
         CMS-->>A: TempData "Đã tạo QR mới"
     end
@@ -2183,17 +2188,18 @@
     rect rgb(240, 255, 240)
     note right of A: Render QR image để in
     A->>CMS: GET /QRCode/RenderPng/{id}
-    CMS->>DB: SELECT QRCodes WHERE Id = id
-    CMS->>CMS: BuildQrPayloadUrl(code)\n→ "http://host/QRCode/Open/{CODE}"
-    CMS->>GEN: QRCodeGenerator.CreateQrCode(url, ECCLevel.Q)
+    CMS->>DB: _context.QRCodes.AsNoTracking()\\n.FirstOrDefaultAsync(x => x.Id == id)
+    CMS->>CMS: BuildQrPayloadUrl(code)\\n→ "{publicBaseUrl}/QRCode/Open/{CODE}"
+    CMS->>GEN: new QRCodeGenerator().CreateQrCode(url, ECCLevel.Q)\\nnew PngByteQRCode(qrData).GetGraphic(20)
     GEN-->>CMS: PNG bytes
-    CMS-->>A: image/png (inline hoặc download)
+    CMS-->>A: FileContentResult(bytes, "image/png")
     end
 
     rect rgb(255, 240, 245)
     note right of A: Xóa mã QR
     A->>CMS: POST /QRCode/Delete {id}
-    CMS->>DB: DELETE QRCodes WHERE Id = id
+    CMS->>DB: _context.QRCodes.FindAsync(id)
+    CMS->>DB: _context.QRCodes.Remove(item)\\n_context.SaveChangesAsync()
     DB-->>CMS: Hoàn tất
     CMS-->>A: TempData "Đã xóa QR"
     end`
@@ -2212,7 +2218,7 @@
     actor V as Visitor (Mobile)
     participant PHONE as Mobile Browser
     participant CMS as QRCodeController.Open
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     V->>PHONE: Quét mã QR trên biển POI
     PHONE->>CMS: GET /QRCode/Open/{code}?language=vi-VN
@@ -2220,13 +2226,13 @@
     rect rgb(240, 248, 255)
     note right of CMS: Tra cứu QR → POI
     CMS->>CMS: Normalize: code.Trim().ToUpperInvariant()
-    CMS->>DB: SELECT QRCodes WHERE Code = input\nINCLUDE Poi.Translations
-    alt Mã không tồn tại hoặc POI null
+    CMS->>DB: _context.QRCodes.AsNoTracking()\n.Include(x => x.Poi).ThenInclude(x => x.Translations)\n.FirstOrDefaultAsync(x => x.Code == code)
+    alt Mã không tồn tại hoặc POI null/không active
         DB-->>CMS: null
         CMS-->>V: HTTP 404 Not Found
     else Mã hợp lệ
         DB-->>CMS: QRCode + Poi + Translations
-        CMS->>CMS: SelectTranslation(translations, language)
+        CMS->>CMS: PoiTranslationSelector.Select(translations, language)
         CMS->>CMS: resolvedLanguage = translation?.Language ?? poi.DefaultLanguage
     end
     end
@@ -2239,13 +2245,13 @@
         alt Cookie chưa có → tạo mới GUID/hex
             CMS->>CMS: Set cookie 180 ngày (HttpOnly)
         end
-        CMS->>DB: SELECT Visitors WHERE Id=visitorId OR DeviceId=deviceId
+        CMS->>DB: _context.Users.FirstOrDefaultAsync(x => x.Id == visitorId || x.DeviceId == deviceId)
         alt Visitor chưa tồn tại
-            CMS->>DB: INSERT Visitors\n(Id, DeviceId, DisplayName="Android quét QR",\nLanguage, LastSeenAt=now)
+            CMS->>DB: _context.Users.Add(new User { Id, DeviceId,\nDisplayName, Language, LastSeenAt = now })\n_context.SaveChangesAsync()
         else Visitor đã có
-            CMS->>DB: UPDATE Visitors SET LastSeenAt=now, Language=lang
+            CMS->>DB: existing.LastSeenAt = now; existing.Language = lang\n_context.SaveChangesAsync()
         end
-        CMS->>DB: INSERT VisitHistories\n(UserId, PoiId, TriggerType="qr-public",\nPlaybackMode="web", WasCompleted=true)
+        CMS->>DB: _context.VisitHistories.Add(new VisitHistory {\nUserId, PoiId, TriggerType="qr-public",\nPlaybackMode="web", WasCompleted=true })\n_context.SaveChangesAsync()
         DB-->>CMS: OK
     end
     end
@@ -2274,39 +2280,40 @@
     autonumber
     actor A as Admin
     participant CMS as Admin CMS
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     A->>CMS: Mở trang Category
-    CMS->>DB: SELECT Categories ORDER BY SortOrder
+    CMS->>DB: _context.Categories\\n.OrderBy(x => x.SortOrder).ThenBy(x => x.Name).ToList()
     DB-->>CMS: Danh sách Category
     CMS-->>A: Render danh sách
 
     rect rgb(240, 248, 255)
     note right of A: Tạo Category mới
     A->>CMS: Nhập Slug, Name, ThemeColor
-    CMS->>CMS: Normalize (Slug toLower, trim)
-    CMS->>DB: CHECK EXISTS WHERE Slug = input
+    CMS->>CMS: Normalize(): Slug = model.Slug.Trim().ToLowerInvariant()
+    CMS->>DB: _context.Categories.Any(x => x.Slug == model.Slug)
     alt Slug đã tồn tại
-        DB-->>CMS: Conflict
+        DB-->>CMS: true → ModelState.AddModelError("Mã danh mục đã tồn tại")
         CMS-->>A: Lỗi "Mã danh mục đã tồn tại"
     else Slug chưa có
-        CMS->>DB: INSERT Categories
+        CMS->>DB: _context.Categories.Add(model)\\n_context.SaveChangesAsync()
         DB-->>CMS: OK
-        CMS-->>A: Xác nhận tạo thành công
+        CMS-->>A: TempData "Đã tạo danh mục mới"
     end
     end
 
     rect rgb(255, 240, 245)
     note right of A: Xóa Category
     A->>CMS: Bấm Xóa Category
-    CMS->>DB: COUNT Pois WHERE Category = slug
+    CMS->>DB: _context.Categories.FindAsync(id)
+    CMS->>DB: _context.Pois.Count(x => x.Category == category.Slug)
     alt Có POI đang dùng
         DB-->>CMS: poiCount > 0
-        CMS-->>A: Lỗi "Không thể xóa, có N POI đang sử dụng"
+        CMS-->>A: TempData.Error "Không thể xóa, có N POI đang sử dụng"
     else Không có POI
-        CMS->>DB: DELETE Categories WHERE Id = id
+        CMS->>DB: _context.Categories.Remove(category)\\n_context.SaveChangesAsync()
         DB-->>CMS: OK
-        CMS-->>A: Xác nhận xóa
+        CMS-->>A: TempData "Đã xóa danh mục"
     end
     end`
             },
@@ -2323,41 +2330,42 @@
     autonumber
     actor A as Admin
     participant CMS as Admin CMS
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     A->>CMS: Mở trang Language
-    CMS->>DB: SELECT LanguageOptions\\nWHERE Code IN supported
+    CMS->>DB: _context.LanguageOptions\\n.Where(x => SupportedCodes.Contains(x.Code))\\n.OrderBy(x => x.SortOrder).ThenBy(x => x.Name).ToList()
     DB-->>CMS: Danh sách ngôn ngữ
     CMS-->>A: Render danh sách (vi-VN, en-US, zh-CN)
 
     rect rgb(240, 248, 255)
     note right of A: Chỉnh sửa ngôn ngữ
     A->>CMS: Sửa NativeName, Locale, SortOrder, IsActive
-    CMS->>CMS: Normalize & Validate Code
+    CMS->>CMS: Normalize() & SupportedCodes.Contains(model.Code)
     alt Code không hỗ trợ
-        CMS-->>A: Lỗi "Bản demo chỉ hỗ trợ vi-VN, en-US, zh-CN"
+        CMS-->>A: ModelState.Error "Bản demo chỉ hỗ trợ vi-VN, en-US, zh-CN"
     else Code hợp lệ
-        CMS->>DB: UPDATE LanguageOptions SET fields...
+        CMS->>DB: _context.LanguageOptions.FindAsync(model.Id)\\nexisting.Code/Name/NativeName/Locale/SortOrder/IsActive = model.*\\n_context.SaveChangesAsync()
         DB-->>CMS: OK
-        CMS-->>A: Xác nhận cập nhật
+        CMS-->>A: TempData "Đã cập nhật ngôn ngữ"
     end
     end
 
     rect rgb(255, 240, 245)
     note right of A: Xóa ngôn ngữ
     A->>CMS: Bấm Xóa
-    CMS->>CMS: Check SupportedCodes.Contains(code)
+    CMS->>DB: _context.LanguageOptions.FindAsync(id)
+    CMS->>CMS: SupportedCodes.Contains(item.Code)
     alt Là 1 trong 3 ngôn ngữ chính
-        CMS-->>A: Lỗi "Không xóa ngôn ngữ chính"
+        CMS-->>A: TempData.Error "Không xóa 3 ngôn ngữ chính của hệ thống demo"
     else Ngôn ngữ phụ
-        CMS->>DB: CHECK PoiTranslations / Pois dùng Code
-        alt Đang được sử dụng
-            DB-->>CMS: HasUsage = true
-            CMS-->>A: Lỗi "Đang được POI/Translation sử dụng"
+        CMS->>DB: _context.PoiTranslations.Any(x => x.Language == item.Code)\\n_context.Pois.Any(x => x.DefaultLanguage == item.Code)
+        alt usedByTranslation || usedByPoi
+            DB-->>CMS: true
+            CMS-->>A: TempData.Error "Không thể xóa ngôn ngữ đang được sử dụng"
         else Không dùng
-            CMS->>DB: DELETE LanguageOptions
+            CMS->>DB: _context.LanguageOptions.Remove(item)\\n_context.SaveChangesAsync()
             DB-->>CMS: OK
-            CMS-->>A: Xác nhận xóa
+            CMS-->>A: TempData "Đã xóa ngôn ngữ"
         end
     end
     end`
@@ -2375,10 +2383,10 @@
     autonumber
     actor A as Admin
     participant CMS as Admin CMS
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
-    A->>CMS: Mở chi tiết POI → Tab Translations
-    CMS->>DB: SELECT PoiTranslations\\nWHERE PoiId = id
+    A->>CMS: Mở chi tiết POI → Tab Translations (EditForPoi)
+    CMS->>DB: _context.PoiTranslations\\n.FirstOrDefaultAsync(x => x.PoiId == poiId && x.Language == selectedLanguage)
     DB-->>CMS: Danh sách bản dịch hiện có
     CMS-->>A: Render danh sách Translations
 
@@ -2386,23 +2394,23 @@
     note right of A: Thêm bản dịch mới
     A->>CMS: Chọn Language, nhập Title, Summary, Description
     A->>CMS: Nhập TtsScript, AudioUrl (nếu có)
-    CMS->>DB: CHECK EXISTS WHERE PoiId AND Language
+    CMS->>DB: _context.PoiTranslations.AnyAsync(x => x.PoiId == model.PoiId && x.Language == model.Language)
     alt Đã có bản dịch cho ngôn ngữ này
-        DB-->>CMS: Conflict
-        CMS-->>A: Lỗi "Bản dịch ngôn ngữ này đã tồn tại"
+        DB-->>CMS: exists = true
+        CMS-->>A: ModelState.Error "Ngôn ngữ này đã tồn tại cho POI này"
     else Chưa có
-        CMS->>DB: INSERT PoiTranslations\\n(PoiId, Language, Title, Summary,\\nDescription, TtsScript, AudioUrl,\\nIsPublished = false)
+        CMS->>DB: model.UpdatedAt = DateTime.UtcNow\\n_context.PoiTranslations.Add(model)\\n_context.SaveChangesAsync()
         DB-->>CMS: OK
-        CMS-->>A: Xác nhận tạo bản dịch
+        CMS-->>A: TempData "Đã thêm bản dịch thành công"
     end
     end
 
     rect rgb(255, 240, 245)
     note right of A: Publish / Unpublish
-    A->>CMS: Toggle IsPublished
-    CMS->>DB: UPDATE PoiTranslations\\nSET IsPublished = toggle
-    DB-->>CMS: OK
-    CMS-->>A: Trạng thái cập nhật
+    A->>CMS: Toggle IsPublished (POST /Translation/Edit)
+    CMS->>DB: _context.PoiTranslations.FindAsync(id)\\nexisting.IsPublished = model.IsPublished\\nexisting.UpdatedAt = DateTime.UtcNow\\n_context.SaveChangesAsync()
+    DB-->>CMS: OK (EF Core generates UPDATE)
+    CMS-->>A: TempData "Đã cập nhật bản dịch thành công"
     note right of CMS: Chỉ Translation IsPublished = true\\nmới xuất hiện trong Bootstrap & QR
     end`
             },
@@ -2419,33 +2427,34 @@
     autonumber
     actor A as Admin
     participant CMS as AnalyticsController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
-    A->>CMS: Mở trang Analytics
-    CMS->>DB: COUNT Pois, Tours, VisitHistories,\\nUserTrackings, GeofenceTriggers
-    CMS->>DB: SELECT DISTINCT UserId → UniqueVisitors
+    A->>CMS: Mở trang Analytics (GET /Analytics?days=7)
+    CMS->>DB: AdminPoiScopeHelper.GetScopedPoiIds(_context)\\n→ scopedPoiIds, poiLookup (Id, Name, Lat, Lng)
+    CMS->>DB: _context.GeofenceTriggers.AsNoTracking()\\n.Where(x => scopedPoiIds.Contains(x.PoiId) && x.RecordedAt >= windowStart)\\n.OrderByDescending(x => x.RecordedAt).ToList() → triggerRows
+    CMS->>DB: _context.VisitHistories.AsNoTracking()\\n.Where(x => scopedPoiIds.Contains(x.PoiId) && x.EndTime >= windowStart)\\n.ToList() → FilterValidVisitRows(Duration 5-1800s)
+    CMS->>CMS: BuildVisitorAliases() → Dictionary alias\\nvisits.Select(UserId).Distinct().Count() → UniqueVisitors
     DB-->>CMS: Số liệu tổng quan
-    CMS-->>A: Render KPI Cards (Tổng POI, Visit, Visitors)
+    CMS-->>A: Render KPI Cards (UniqueVisitors, TotalTrigger, AverageListenDuration)
 
     rect rgb(240, 248, 255)
     note right of A: Heatmap & Route
-    CMS->>DB: SELECT UserTrackings\\nWHERE bounds & dateRange
+    CMS->>DB: LoadRawTrackingRows(windowStart):\\n_context.UserTrackings.AsNoTracking()\\n.Where(x => x.RecordedAt >= windowStart)\\n.OrderByDescending(x => x.RecordedAt).Take(20000).ToList()
     DB-->>CMS: Raw GPS points
-    CMS->>CMS: SnapToGrid() → Tính cell intensity
-    CMS->>CMS: Weighted Score = samples + visitors*2.5\\n+ dwell/30
+    CMS->>CMS: FilterTrackingRows() → lọc GPS nhiễu/quá nhanh\\n(SpeedMetersPerSecond > 22 m/s → bỏ qua)
+    CMS->>CMS: BuildHeatCells() → SnapToGrid(cellSizeMeters)\\nWeightedScore = SampleCount + UniqueVisitors*2.5 + DwellSeconds/30
+    CMS->>CMS: BuildHeatmapPayload() → normalize Intensity, VisitorPoints
     CMS-->>A: Render Heatmap trên Leaflet
 
-    CMS->>CMS: BuildRouteSessions()\\nGộp GPS thành phiên di chuyển
+    CMS->>CMS: BuildRouteSessions() → Gộp GPS thành phiên\\n(gap > 12 phút hoặc khoảng cách > 600m → ngắt phiên)
     CMS-->>A: Render Route Replay trên bản đồ
     end
 
     rect rgb(255, 240, 245)
     note right of A: Chi tiết Trigger & Visit
-    CMS->>DB: SELECT TOP GeofenceTriggers\\nORDER BY RecordedAt DESC
-    DB-->>CMS: Trigger gần đây
-    CMS->>DB: SELECT TOP VisitHistories\\nORDER BY EndTime DESC
-    DB-->>CMS: Visit gần đây
-    CMS-->>A: Render bảng chi tiết\\n(Visitor, POI, Duration, Mode)
+    CMS->>CMS: triggerRows.Take(MaxTriggerRows=200)\\n.Select(x => new TriggerLogViewModel { ResolveVisitorAlias(...) })
+    CMS->>CMS: recentVisitRows = visitRows.OrderByDescending(x => x.EndTime)\\n.Take(20).Select(new RecentVisitAnalyticsViewModel)
+    CMS-->>A: Render bảng chi tiết\\n(Visitor alias, POI, Duration, Mode, WasAutoPlayed)
     end`
             },
             {
@@ -2461,23 +2470,23 @@
     autonumber
     actor A as Admin
     participant CMS as VisitorController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     A->>CMS: GET /Visitor?includeTest=false
-    CMS->>DB: SELECT Visitors ORDER BY LastSeenAt DESC
-    DB-->>CMS: Danh sách Visitors
+    CMS->>DB: _context.Visitors.AsNoTracking()\\n.OrderByDescending(x => x.LastSeenAt)\\n.ToListAsync()
+    DB-->>CMS: List<VisitorProfile>
 
     rect rgb(240, 248, 255)
-    note right of CMS: Thống kê song song theo UserId
-    CMS->>DB: COUNT UserTrackings GROUP BY UserId
-    CMS->>DB: COUNT VisitHistories GROUP BY UserId
-    CMS->>DB: COUNT GeofenceTriggers GROUP BY UserId
-    DB-->>CMS: TrackingCount, VisitCount, TriggerCount
+    note right of CMS: Thống kê song song theo UserId (LINQ GroupBy)
+    CMS->>DB: _context.UserTrackings.Where(x => userIds.Contains(x.UserId))\\n.GroupBy(x => x.UserId).Select(x => new { UserId, Count })\\n.ToDictionaryAsync()
+    CMS->>DB: _context.VisitHistories.Where(x => userIds.Contains(x.UserId))\\n.GroupBy(x => x.UserId).Select(x => new { UserId, Count })\\n.ToDictionaryAsync()
+    CMS->>DB: _context.GeofenceTriggers.Where(x => userIds.Contains(x.UserId))\\n.GroupBy(x => x.UserId).Select(x => new { UserId, Count })\\n.ToDictionaryAsync()
+    DB-->>CMS: Dictionary<string, int> trackingCounts / visitCounts / triggerCounts
     end
 
     rect rgb(255, 240, 245)
-    note right of CMS: Xác định trạng thái Online
-    loop Mỗi Visitor
+    note right of CMS: Xác định trạng thái Online (LINQ Select → VisitorSummaryViewModel)
+    loop Mỗi Visitor trong visitors.Select(...)
         CMS->>CMS: NormalizeStoredUtc(LastSeenAt)
         CMS->>CMS: Delta = UtcNow - NormalizedLastSeenAt
         alt Delta <= 15 giây (ActiveThreshold = TimeSpan.FromSeconds(15))
@@ -2485,26 +2494,31 @@
         else Delta > 15 giây
             CMS->>CMS: IsActive = false → FormatLastSeenAgo()\\n("Vừa xong" / "X phút trước" / "X giờ trước")
         end
-        CMS->>CMS: IsSyntheticData?\\n(DeviceId starts "sim-device" / DisplayName "Khách test")
+        CMS->>CMS: IsSyntheticData = IsSyntheticVisitor(visitor)\\n(DeviceId.StartsWith("sim-device") || DisplayName.StartsWith("Khách test"))
+        CMS->>CMS: TrackingCount = trackingCounts.GetValueOrDefault(visitor.Id, 0)\\nVisitCount = visitCounts.GetValueOrDefault(visitor.Id, 0)\\nTriggerCount = triggerCounts.GetValueOrDefault(visitor.Id, 0)
     end
     end
 
-    CMS->>CMS: Sort: Active DESC → IsSynthetic ASC → LastSeenAt DESC
-    CMS->>CMS: includeTest=false → lọc bỏ SyntheticData visitors
+    CMS->>CMS: .OrderByDescending(IsActive).ThenBy(IsSyntheticData)\\n.ThenByDescending(LastSeenAt).ToList()
+    CMS->>CMS: includeTest=false → items.Where(x => !x.IsSyntheticData).ToList()
+    CMS->>CMS: Build VisitorIndexViewModel\\n{ TotalVisitors, ActiveVisitors, InactiveVisitors,\\nHiddenTestVisitors, Visitors = displayItems }
     CMS-->>A: Render bảng Visitor\\n(Online badge, TrackCount, VisitCount, TriggerCount, LastSeen)
 
     rect rgb(240, 255, 240)
     note right of A: Chỉnh sửa Visitor
     A->>CMS: GET /Visitor/Edit/{id}
-    CMS->>DB: FindAsync(id)
-    DB-->>CMS: VisitorProfile
+    CMS->>DB: _context.Visitors.FindAsync(id)
+    DB-->>CMS: VisitorProfile | null
     CMS-->>A: Form (DisplayName, Language, AllowAutoPlay, AllowBackgroundTracking)
 
     A->>CMS: POST /Visitor/Edit (model)
-    CMS->>CMS: NormalizeLanguage(language)\\n→ chỉ chấp nhận vi-VN, en-US, zh-CN
-    CMS->>DB: UPDATE Visitors SET\\nDisplayName, Language, AllowAutoPlay,\\nAllowBackgroundTracking
-    DB-->>CMS: OK
-    CMS-->>A: TempData "Đã cập nhật visitor cho mobile app"\\nRedirect → /Visitor
+    CMS->>DB: _context.Visitors.FindAsync(model.Id)
+    DB-->>CMS: existing VisitorProfile
+    CMS->>CMS: NormalizeLanguage(model.Language, existing.Language)\\n→ chỉ chấp nhận vi-VN / en-US / zh-CN\\n(SupportedCodes.Contains → fallback "vi-VN")
+    CMS->>CMS: existing.DisplayName = model.DisplayName?.Trim()\\nexisting.Language = normalized\\nexisting.AllowAutoPlay = model.AllowAutoPlay\\nexisting.AllowBackgroundTracking = model.AllowBackgroundTracking
+    CMS->>DB: _context.SaveChangesAsync()
+    DB-->>CMS: OK (EF Core tracks changes, generates UPDATE)
+    CMS-->>A: TempData["Success"] = "Đã cập nhật visitor cho mobile app"\\nRedirectToAction(nameof(Index))
     end`
             },
             {
@@ -2576,20 +2590,20 @@
     autonumber
     actor O as ShopOwner (Approved)
     participant PORTAL as OwnerPoiController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     rect rgb(240, 248, 255)
     note right of O: Tạo Submission mới (có Template Preset)
     O->>PORTAL: GET /OwnerPoi/Create?templateKey=bus-khanh-hoi
     PORTAL->>PORTAL: RequireApprovedOwnerAsync()
-    PORTAL->>DB: SELECT Categories, Languages (active)
+    PORTAL->>DB: _context.Categories.Where(x => x.IsActive).ToList()\\n_context.LanguageOptions.Where(x => x.IsActive).ToList()
     PORTAL->>PORTAL: TryApplyCreatePreset(submission, templateKey)\\n→ điền sẵn tọa độ, script, translation cho 3 ngôn ngữ
     PORTAL->>PORTAL: EnsureSubmissionTranslations(activeLanguages)
     PORTAL-->>O: Form đã điền sẵn từ template
 
     O->>PORTAL: POST /OwnerPoi/Create (submission, submitAction="submit")
     PORTAL->>PORTAL: PrepareSubmissionAsync()\\n- NormalizeAudioMode()\\n- SaveImageAsync() nếu có upload\\n- submission.Status = PendingReview
-    PORTAL->>DB: INSERT PoiSubmissions (Status=PendingReview)\\nINSERT PoiTranslationSubmissions (3 ngôn ngữ)
+    PORTAL->>DB: _context.PoiSubmissions.Add(submission)\\n_context.SaveChangesAsync()\\n→ INSERT PoiSubmissions + PoiTranslationSubmissions (3 ngôn ngữ)
     DB-->>PORTAL: OK
     PORTAL-->>O: TempData "Đã gửi POI cùng gói bản dịch/audio cho admin duyệt"
     end
@@ -2597,7 +2611,7 @@
     rect rgb(255, 240, 245)
     note right of O: Chỉnh sửa Submission bị trả về (ChangesRequested)
     O->>PORTAL: GET /OwnerPoi/Edit/{id}
-    PORTAL->>DB: SELECT PoiSubmissions INCLUDE TranslationSubmissions\\nWHERE Id=id AND OwnerId=owner.Id
+    PORTAL->>DB: _context.PoiSubmissions.Include(x => x.TranslationSubmissions)\\n.FirstOrDefaultAsync(x => x.Id == id && x.OwnerId == owner.Id)
     alt Status = Approved/Rejected
         PORTAL-->>O: TempData.Error "Submission đã kết thúc vòng duyệt"\\nRedirect → Index
     else Status = Draft/ChangesRequested
@@ -2607,20 +2621,20 @@
     end
 
     O->>PORTAL: POST /OwnerPoi/Edit (submission, submitAction="submit")
-    PORTAL->>DB: UPDATE PoiSubmissions SET fields...\\nREMOVE old TranslationSubmissions\\nINSERT new TranslationSubmissions
+    PORTAL->>DB: existing.Name/Category/... = submission.*\\n_context.PoiTranslationSubmissions.RemoveRange(old)\\n_context.PoiTranslationSubmissions.AddRange(newItems)\\n_context.SaveChangesAsync()
     PORTAL-->>O: TempData "Đã gửi lại cho admin duyệt"
     end
 
     rect rgb(240, 255, 240)
     note right of O: Khởi tạo update từ POI live
     O->>PORTAL: POST /OwnerPoi/StartUpdate/{poiId}
-    PORTAL->>DB: SELECT Pois WHERE Id=poiId AND OwnerId=owner.Id
-    PORTAL->>DB: SELECT PoiSubmissions WHERE PoiId=poiId AND Status IN (Draft/ChangesRequested/PendingReview)
+    PORTAL->>DB: _context.Pois.FirstOrDefaultAsync(x => x.Id == poiId && x.OwnerId == owner.Id)
+    PORTAL->>DB: _context.PoiSubmissions.FirstOrDefaultAsync(x => x.PoiId == poiId\\n&& x.Status IN (Draft/ChangesRequested/PendingReview))
     alt Đã có draft đang mở
         PORTAL-->>O: Redirect sang Edit(existingDraft.Id)
     else Chưa có draft
         PORTAL->>PORTAL: PoiWorkflowHelper.CreateSubmissionFromPoi(poi, owner.Id)
-        PORTAL->>DB: INSERT PoiSubmissions (type=update, Status=Draft)
+        PORTAL->>DB: _context.PoiSubmissions.Add(draft)\\n_context.SaveChangesAsync()
         PORTAL-->>O: Redirect sang Edit(draft.Id)
     end
     end
@@ -2628,11 +2642,11 @@
     rect rgb(255, 250, 205)
     note right of O: Xóa bản nháp
     O->>PORTAL: POST /OwnerPoi/DeleteDraft/{id}
-    PORTAL->>DB: SELECT PoiSubmissions WHERE Id=id AND OwnerId=owner.Id
+    PORTAL->>DB: _context.PoiSubmissions.FirstOrDefaultAsync(x => x.Id == id && x.OwnerId == owner.Id)
     alt Status không phải Draft/ChangesRequested
         PORTAL-->>O: TempData.Error "Chỉ xóa được nháp hoặc bản bị trả sửa"
     else Hợp lệ
-        PORTAL->>DB: DELETE PoiSubmissions (cascade TranslationSubmissions)
+        PORTAL->>DB: _context.PoiSubmissions.Remove(submission)\\n_context.SaveChangesAsync() (cascade TranslationSubmissions)
         PORTAL-->>O: TempData "Đã xóa submission nháp"
     end
     end`
@@ -2650,35 +2664,35 @@
     autonumber
     actor O as ShopOwner
     participant PORTAL as OwnerDashboardController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     O->>PORTAL: GET /OwnerDashboard
-    PORTAL->>PORTAL: GetCurrentOwnerAsync()\\n(Session ownerId → SELECT ShopOwners)
+    PORTAL->>PORTAL: GetCurrentOwnerAsync()\\n(Session ownerId → _context.ShopOwners.FirstOrDefaultAsync(x => x.Id == ownerId))
     alt Chưa đăng nhập
         PORTAL-->>O: Redirect → /OwnerAuth/Login
     end
 
     rect rgb(240, 248, 255)
     note right of PORTAL: Load dữ liệu POI & Submission của Owner
-    PORTAL->>DB: SELECT Pois WHERE OwnerId=owner.Id\\nINCLUDE Translations
-    PORTAL->>DB: SELECT PoiSubmissions WHERE OwnerId=owner.Id
+    PORTAL->>DB: AdminPoiScopeHelper.GetScopedPoiQuery(_context)\\n.Where(x => x.OwnerId == owner.Id)\\n.Include(x => x.Translations).ToList() → livePois
+    PORTAL->>DB: _context.PoiSubmissions\\n.Where(x => x.OwnerId == owner.Id).ToList() → submissions
     DB-->>PORTAL: livePois, submissions
     end
 
     rect rgb(255, 240, 245)
     note right of PORTAL: Tính KPI Visit
-    PORTAL->>DB: SELECT VisitHistories WHERE PoiId IN livePoiIds
+    PORTAL->>DB: _context.VisitHistories\\n.Where(x => livePoiIds.Contains(x.PoiId)).ToList() → visits
     DB-->>PORTAL: visits
-    PORTAL->>PORTAL: validVisits = Duration > 0 AND Duration <= 1800
+    PORTAL->>PORTAL: validVisits = visits.Where(x => x.Duration > 0 && x.Duration <= 1800)
     PORTAL->>PORTAL: TotalListenCount = visits.Count
-    PORTAL->>PORTAL: UniqueVisitorCount = visits.Distinct(UserId).Count
-    PORTAL->>PORTAL: AverageListenSeconds = validVisits.Average(Duration)
+    PORTAL->>PORTAL: UniqueVisitorCount = visits.Select(x => x.UserId).Distinct().Count()
+    PORTAL->>PORTAL: AverageListenSeconds = validVisits.Average(x => x.Duration)
     end
 
     rect rgb(240, 255, 240)
     note right of PORTAL: Top POI & Language Usage
-    PORTAL->>PORTAL: TopPois = visits.GroupBy(PoiId)\\n→ OrderBy ListenCount DESC, Take(5)
-    PORTAL->>PORTAL: LanguageUsage = activeLanguages.Select\\n→ % lượt nghe theo từng ngôn ngữ
+    PORTAL->>PORTAL: TopPois = visits.GroupBy(x => x.PoiId)\\n.Select(g => new { PoiId, ListenCount = g.Count() })\\n.OrderByDescending(x => x.ListenCount).Take(5)
+    PORTAL->>PORTAL: LanguageUsage = activeLanguages.Select(lang =>\\n{ VisitCount = visits.Count(x => x.Language == lang.Code) })
     end
 
     rect rgb(255, 250, 205)
@@ -2708,12 +2722,12 @@
     autonumber
     actor A as Admin
     participant CMS as ShopOwnerController (Admin)
-    participant DB as SQL Server (ShopOwners)
+    participant DB as AppDbContext (EF Core)
 
     rect rgb(240, 248, 255)
     note right of A: Xem danh sách ShopOwner
     A->>CMS: GET /ShopOwner?status=Pending
-    CMS->>DB: SELECT ShopOwners\\nWHERE Status = "Pending"\\nORDER BY (Pending=0, Approved=1, Suspended=2) ASC\\nTHEN BY CreatedAt DESC
+    CMS->>DB: _context.ShopOwners.AsNoTracking()\\n.Where(x => x.Status == status) // nếu có filter\\n.OrderBy(x => x.Status == Pending ? 0 : x.Status == Approved ? 1 : 2)\\n.ThenByDescending(x => x.CreatedAt).ToListAsync()
     DB-->>CMS: Danh sách ShopOwner chờ duyệt
     CMS-->>A: Render bảng (FullName, BusinessName, Phone, Email, CreatedAt)
     end
@@ -2721,13 +2735,13 @@
     rect rgb(255, 240, 245)
     note right of A: Duyệt tài khoản
     A->>CMS: POST /ShopOwner/Approve/{id}
-    CMS->>DB: FirstOrDefault WHERE Id = id
+    CMS->>DB: _context.ShopOwners.FirstOrDefaultAsync(x => x.Id == id)
     alt Owner không tồn tại
         DB-->>CMS: null
         CMS-->>A: 404 Not Found
     else Tìm thấy
-        CMS->>DB: UPDATE ShopOwners SET\\nStatus = "Approved"\\nApprovedAt = UtcNow\\nApprovedByAdminId = current admin Id
-        DB-->>CMS: OK
+        CMS->>DB: owner.Status = ShopOwnerStatus.Approved\\nowner.ApprovedAt = DateTime.UtcNow\\nowner.UpdatedAt = DateTime.UtcNow\\nowner.ApprovedByAdminId = ResolveAdminReviewerIdAsync()\\n_context.SaveChangesAsync()
+        DB-->>CMS: OK (EF Core generates UPDATE)
         CMS-->>A: TempData "Đã duyệt tài khoản chủ quán"\\nRedirect → /ShopOwner
     end
     end
@@ -2735,13 +2749,13 @@
     rect rgb(255, 250, 205)
     note right of A: Tạm khóa tài khoản
     A->>CMS: POST /ShopOwner/Suspend/{id}
-    CMS->>DB: FirstOrDefault WHERE Id = id
+    CMS->>DB: _context.ShopOwners.FirstOrDefaultAsync(x => x.Id == id)
     alt Owner không tồn tại
         DB-->>CMS: null
         CMS-->>A: 404 Not Found
     else Tìm thấy
-        CMS->>DB: UPDATE ShopOwners SET\\nStatus = "Suspended"\\nUpdatedAt = UtcNow
-        DB-->>CMS: OK
+        CMS->>DB: owner.Status = ShopOwnerStatus.Suspended\\nowner.UpdatedAt = DateTime.UtcNow\\n_context.SaveChangesAsync()
+        DB-->>CMS: OK (EF Core generates UPDATE)
         CMS-->>A: TempData "Đã tạm khóa tài khoản chủ quán"\\nRedirect → /ShopOwner
     end
     end
@@ -2808,24 +2822,23 @@
     autonumber
     actor A as Admin
     participant CMS as TrackingController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     A->>CMS: GET /Tracking?userId=...&poiId=...&triggerType=...&dateFrom=...&dateTo=...
     
     rect rgb(240, 248, 255)
-    note right of CMS: Build query với filter động
-    CMS->>DB: IQueryable UserTrackings (filter UserId, DateRange)
-    CMS->>DB: IQueryable VisitHistories (filter UserId, PoiId, TriggerType, DateRange\\nWHERE PoiId IN scopedPoiIds)
-    CMS->>DB: IQueryable GeofenceTriggers (filter UserId, PoiId, TriggerType, DateRange\\nWHERE PoiId IN scopedPoiIds)
+    note right of CMS: Build IQueryable với filter động
+    CMS->>DB: IQueryable trackingQuery = _context.UserTrackings.AsQueryable()\\nIQueryable visitQuery = _context.VisitHistories.Where(x => scopedPoiIds.Contains(x.PoiId))\\nIQueryable triggerQuery = _context.GeofenceTriggers.Where(x => scopedPoiIds.Contains(x.PoiId))
+    CMS->>CMS: .Where(x => x.UserId.Contains(userId)) nếu có filter userId\\n.Where(x => x.PoiId == poiId) nếu có filter poiId\\n.Where(x => x.RecordedAt >= from && x.RecordedAt < to) nếu có dateRange
     end
 
     rect rgb(255, 240, 245)
     note right of CMS: Đếm tổng & lấy mẫu
-    CMS->>DB: COUNT tổng TrackingCount, VisitCount, TriggerCount
-    CMS->>DB: COUNT UniqueVisitorCount (Distinct UserId từ 3 bảng)
-    CMS->>DB: SELECT TOP 200 UserTrackings ORDER BY RecordedAt DESC
-    CMS->>DB: SELECT TOP 150 VisitHistories ORDER BY EndTime DESC
-    CMS->>DB: SELECT TOP 150 GeofenceTriggers ORDER BY RecordedAt DESC
+    CMS->>DB: totalTrackingCount = trackingQuery.Count()\\ntotalVisitCount = visitQuery.Count()\\ntotalTriggerCount = triggerQuery.Count()
+    CMS->>DB: UniqueVisitorCount = trackingQuery.Select(x => x.UserId)\\n.Concat(visitQuery.Select(...)).Concat(triggerQuery.Select(...))\\n.Distinct().Count()
+    CMS->>DB: trackingQuery.OrderByDescending(x => x.RecordedAt).Take(200).ToList()
+    CMS->>DB: visitQuery.OrderByDescending(x => x.EndTime).Take(150).ToList()
+    CMS->>DB: triggerQuery.OrderByDescending(x => x.RecordedAt).Take(150).ToList()
     DB-->>CMS: Data rows + counts
     end
 
@@ -2844,35 +2857,33 @@
     autonumber
     actor A as Admin
     participant CMS as DashboardController
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     A->>CMS: GET / hoặc GET /Dashboard
     
     rect rgb(240, 248, 255)
     note right of CMS: Xác định scope POI hiển thị
-    CMS->>DB: Pois WHERE OwnerId != null (owner-managed POIs)
+    CMS->>DB: _context.Pois.Where(x => x.OwnerId != null && x.OwnerId != "")
     alt Có owner-managed POI
         DB-->>CMS: dashboardPoiQuery = owner-managed POIs
     else Không có (setup ban đầu)
-        DB-->>CMS: dashboardPoiQuery = TẤT CẢ POIs
+        DB-->>CMS: dashboardPoiQuery = _context.Pois.AsQueryable() (TẤT CẢ)
     end
     end
 
     rect rgb(255, 240, 245)
     note right of CMS: Tính KPI Summary
-    CMS->>DB: COUNT Pois (trong scope)
-    CMS->>DB: COUNT VisitHistories (PoiId IN scope)
-    CMS->>DB: COUNT UserTrackings (all)
-    CMS->>DB: COUNT Tours (all)
-    CMS->>DB: COUNT DISTINCT UserId FROM VisitHistories
-    CMS->>DB: AVG Duration FROM VisitHistories
+    CMS->>DB: dashboardPois = dashboardPoiQuery.Select(x => new {x.Id, x.Name}).ToList()
+    CMS->>DB: visitQuery = _context.VisitHistories.Where(x => dashboardPoiIds.Contains(x.PoiId))\\ntriggerQuery = _context.GeofenceTriggers.Where(x => dashboardPoiIds.Contains(x.PoiId))
+    CMS->>DB: TotalPoi = dashboardPois.Count\\nTotalVisit = visitQuery.Count()\\nTotalTrackingPoint = _context.UserTrackings.Count()\\nTotalTour = _context.Tours.Count()
+    CMS->>DB: UniqueVisitors = visitQuery.Select(x => x.UserId).Distinct().Count()\\nAverageListenDuration = visitQuery.Select(x => (double?)x.Duration).Average() ?? 0
     DB-->>CMS: TotalPoi, TotalVisit, TotalTracking, TotalTour, UniqueVisitors, AvgDuration
     end
 
     rect rgb(240, 255, 240)
     note right of CMS: Top POI & Recent Triggers
-    CMS->>DB: SELECT PoiId, COUNT(*) as ListenCount, AVG(Duration)\\nFROM VisitHistories GROUP BY PoiId\\nORDER BY ListenCount DESC TAKE 5
-    CMS->>DB: SELECT TOP 10 GeofenceTriggers\\nORDER BY RecordedAt DESC
+    CMS->>DB: visitQuery.GroupBy(x => x.PoiId)\\n.Select(g => new { PoiId=g.Key, ListenCount=g.Count(), AverageDuration=g.Average(x=>x.Duration) })\\n.OrderByDescending(x => x.ListenCount).Take(5).ToList()
+    CMS->>DB: triggerQuery.OrderByDescending(x => x.RecordedAt).Take(10).ToList()
     DB-->>CMS: topPoiRows, recentTriggerRows
     end
 
@@ -2891,12 +2902,12 @@
     autonumber
     participant APP as Mobile App
     participant API as TourController (API)
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     rect rgb(240, 248, 255)
     note right of APP: Lấy danh sách Tour
     APP->>API: GET /api/tour?activeOnly=true
-    API->>DB: SELECT Tours WHERE IsActive=true\\nINCLUDE Stops ORDER BY SortOrder\\nINCLUDE Poi
+    API->>DB: _context.Tours.AsNoTracking()\\n.Include(x => x.Stops.OrderBy(s => s.SortOrder))\\n.ThenInclude(x => x.Poi)\\n.Where(x => x.IsActive)\\n.OrderBy(x => x.Name).ToListAsync()
     DB-->>API: Danh sách Tours + Stops + POI cơ bản
     API-->>APP: 200 OK [ {id, name, stops:[{sortOrder, poi:{...}}]} ]
     APP->>APP: Render Tour selection screen
@@ -2905,7 +2916,7 @@
     rect rgb(255, 240, 245)
     note right of APP: Lấy chi tiết 1 Tour để phát
     APP->>API: GET /api/tour/{id}
-    API->>DB: SELECT Tour WHERE Id={id}\\nINCLUDE Stops ORDER BY SortOrder\\nINCLUDE Poi.Translations
+    API->>DB: _context.Tours\\n.Include(x => x.Stops.OrderBy(s => s.SortOrder))\\n.ThenInclude(x => x.Poi).ThenInclude(x => x.Translations)\\n.FirstOrDefaultAsync(x => x.Id == id)
     alt Tour không tồn tại
         DB-->>API: null
         API-->>APP: 404 Not Found
@@ -2918,9 +2929,9 @@
     rect rgb(240, 255, 240)
     note right of APP: Lấy ảnh bìa Tour
     APP->>API: GET /api/tour/{id}/cover
-    API->>DB: SELECT ImageUrl FROM Tours WHERE Id={id}
+    API->>DB: _context.Tours.AsNoTracking()\\n.Where(x => x.Id == id)\\n.Select(x => new { x.Name, x.CoverImageUrl })\\n.FirstOrDefaultAsync()
     alt Có ảnh bìa
-        API->>API: Đọc file từ ImageStorageOptions.RootPath
+        API->>API: BuildImageResult(CoverImageUrl)\\n→ Redirect (http) hoặc PhysicalFile từ ImageStorageOptions.RootPath
         API-->>APP: image/* (binary stream)
     else Không có ảnh
         API-->>APP: 404 Not Found
@@ -2942,18 +2953,18 @@
     autonumber
     participant APP as Mobile App
     participant API as MapController (API)
-    participant DB as SQL Server
+    participant DB as AppDbContext (EF Core)
 
     rect rgb(240, 248, 255)
     note right of APP: POST /api/map/nearby — Tìm POI gần vị trí
     APP->>API: POST /api/map/nearby\\n{latitude, longitude, language}
-    API->>DB: SELECT Pois WHERE IsActive=true\\nINCLUDE Translations WHERE IsPublished=true
+    API->>DB: ApiPoiScopeHelper.GetScopedPoiQuery(_context)\\n.Include(x => x.Translations.Where(t => t.IsPublished))\\n.Where(x => x.IsActive).ToListAsync()
     DB-->>API: Tất cả active POI + translations
 
-    API->>API: Tính Haversine distance cho TỪNG POI
-    API->>API: Select translation theo language fallback\\n(PoiTranslationSelector.Select)
-    API->>API: Resolve audioUrl (PoiAudioSelector.Resolve)
-    API->>API: OrderBy distance ASC, Take(20)
+    API->>API: Tính GeoMath.DistanceInMeters() cho TỪNG POI
+    API->>API: PoiTranslationSelector.Select(translations, language)
+    API->>API: PoiAudioSelector.Resolve(poi, translation)
+    API->>API: .OrderBy(distance ASC).Take(20)
     API-->>APP: 200 OK [ {id, title, summary, lat, lng,\\nradius, approachRadius, audioUrl,\\ntriggerMode, distanceMeters, isNearest} ]
     APP->>APP: Render map markers + nearest POI highlighted
     end
@@ -2961,10 +2972,10 @@
     rect rgb(255, 240, 245)
     note right of APP: GET /api/map/feed — Load toàn bộ POI cho bản đồ
     APP->>API: GET /api/map/feed?language=vi-VN
-    API->>DB: SELECT Pois WHERE IsActive=true\\nINCLUDE Translations WHERE IsPublished=true\\nORDER BY Priority DESC, Name ASC
+    API->>DB: ApiPoiScopeHelper.GetScopedPoiQuery(_context)\\n.Include(x => x.Translations.Where(t => t.IsPublished))\\n.Where(x => x.IsActive)\\n.OrderByDescending(x => x.Priority).ThenBy(x => x.Name)\\n.ToListAsync()
     DB-->>API: Danh sách POI full
 
-    API->>API: Với mỗi POI: Select translation theo language
+    API->>API: Với mỗi POI: PoiTranslationSelector.Select(translations, language)
     API-->>APP: 200 OK [ {id, name, title, summary,\\nlat, lng, radius, approachRadius,\\npriority, imageUrl, mapUrl} ]
     APP->>APP: Vẽ toàn bộ POI markers lên bản đồ\\n(dùng cho Map tab overview)
     end`
